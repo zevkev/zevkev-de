@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shop | ZevKev</title>
+<meta name="description" content="Der offizielle ZevKev Merch Shop — Hoodies, T-Shirts, Caps & mehr für die Community. Sicher bestellen über Fourthwall.">
+
+<link rel="icon" type="image/png" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
+<link rel="apple-touch-icon" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Shop | ZevKev">
+<meta property="og:description" content="Hoodies, T-Shirts, Caps & mehr — der offizielle ZevKev Merch Shop.">
+<meta property="og:url" content="https://zevkev.de/shop/">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/shop.css">
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute;" aria-hidden="true">
+  <filter id="rough-edge">
+    <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="5" result="noise" />
+    <feDisplacementMap in="SourceGraphic" in2="noise" scale="7" />
+  </filter>
+</svg>
+
+<div id="site-header"></div>
+
+<div class="page-body">
+  <div class="container" style="display:flex; flex-direction:column; align-items:center;">
+
+    <div class="hero-shop">
+      <h1>ZevKev Merch</h1>
+      <p>Bestickte Shirts, Hoodies &amp; mehr — für die Community.</p>
+    </div>
+
+    <div class="filter-bar" id="filter-bar"></div>
+
+    <div class="product-grid" id="product-grid"></div>
+
+  </div>
+</div>
+
+<div id="site-footer"></div>
+
+<script type="module">
+  import { mountLayout } from "/js/layout.js";
+  mountLayout();
+</script>
+<script type="module" src="/js/catalog.js"></script>
+</body>
+</html>

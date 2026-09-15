@@ -1,0 +1,227 @@
+/* Homepage-only: the "scroll story" bio page — three colour zones (hero,
+   discord, twitch) that wash into each other, instead of the neutral
+   cutting-mat used on the rest of the site. */
+
+body.home {
+  background-color: var(--zone-twitch);
+  background-image: none;
+}
+
+.zone {
+  width: 100%;
+  padding: 80px 20px 70px;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.zone--hero {
+  background-color: var(--zone-hero);
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0, rgba(255,255,255,.05) 1px, transparent 1px, transparent 160px),
+    repeating-linear-gradient(-45deg, rgba(255,255,255,.05) 0, rgba(255,255,255,.05) 1px, transparent 1px, transparent 160px),
+    radial-gradient(rgba(255,255,255,.15) 1.4px, transparent 1.5px);
+  background-size: auto, auto, 26px 26px;
+  padding-top: calc(var(--header-h) + 50px);
+}
+
+.zone--discord {
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0, rgba(255,255,255,.05) 1px, transparent 1px, transparent 160px),
+    repeating-linear-gradient(-45deg, rgba(255,255,255,.05) 0, rgba(255,255,255,.05) 1px, transparent 1px, transparent 160px),
+    radial-gradient(rgba(255,255,255,.15) 1.4px, transparent 1.5px),
+    linear-gradient(to bottom, var(--zone-hero) 0, var(--zone-discord) 140px, var(--zone-discord) calc(100% - 140px), var(--zone-twitch) 100%);
+  background-size: auto, auto, 26px 26px, auto;
+}
+
+.zone--twitch {
+  background-image:
+    repeating-linear-gradient(45deg, rgba(145,70,255,.12) 0, rgba(145,70,255,.12) 1px, transparent 1px, transparent 160px),
+    repeating-linear-gradient(-45deg, rgba(145,70,255,.12) 0, rgba(145,70,255,.12) 1px, transparent 1px, transparent 160px),
+    radial-gradient(rgba(145,70,255,.2) 1.4px, transparent 1.5px),
+    linear-gradient(to bottom, var(--zone-discord) 0, var(--zone-twitch) 140px);
+  background-size: auto, auto, 26px 26px, auto;
+  padding-bottom: 110px;
+}
+
+.zone-inner {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ---------- Hero ---------- */
+
+.hero-card { max-width: 920px; }
+
+.hero-photo {
+  width: 210px;
+  height: 210px;
+  background: #fff;
+  padding: 10px 10px 28px;
+  transform: rotate(-3deg);
+  box-shadow: 4px 6px 16px rgba(0, 0, 0, 0.28);
+  flex-shrink: 0;
+  box-sizing: border-box;
+  position: relative;
+}
+.hero-photo img { width: 100%; height: 100%; object-fit: cover; background: #e8e4d8; }
+.hero-photo::after {
+  content: "Kevin ♥";
+  position: absolute;
+  bottom: 5px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.8rem;
+  opacity: 0.65;
+}
+
+.quick-links {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(150px, 210px));
+  justify-content: center;
+  gap: 18px;
+  margin: 46px 0 8px;
+  width: 100%;
+  max-width: 760px;
+}
+
+.hint-pill {
+  display: inline-block;
+  color: #fff !important;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px dashed rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: 0.92rem;
+  margin: 24px 0 0;
+  text-align: center;
+}
+.hint-pill a { color: #fff !important; font-weight: bold; }
+
+/* ---------- Section heading used in discord + twitch zones ---------- */
+
+.zone-sheet { max-width: 920px; }
+.zone-title { font-size: clamp(1.55rem, 4.5vw, 2.05rem); margin: 0; }
+.zone-title .chip {
+  color: #fff !important;
+  padding: 2px 12px;
+  display: inline-block;
+  transform: rotate(-1deg);
+  box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.25);
+}
+.zone--discord .zone-title .chip { background: var(--discord-blurple); }
+.zone--twitch .zone-title .chip { background: var(--twitch-purple); box-shadow: 2px 3px 0 #000; }
+
+/* ---------- Discord perks + button row ---------- */
+
+.perks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 24px 0 6px;
+}
+.perk {
+  background: #fff;
+  border: 2px solid var(--discord-blurple);
+  border-radius: 2px;
+  padding: 14px;
+  font-size: 0.94rem;
+  line-height: 1.45;
+  box-shadow: 3px 4px 0 rgba(0, 0, 0, 0.2);
+  color: var(--text-dark) !important;
+  transition: transform 0.25s;
+}
+.perk:hover { transform: translateY(-4px) rotate(-0.5deg); }
+.perk b { display: block; margin-bottom: 4px; color: var(--discord-blurple-dark) !important; font-size: 0.98rem; }
+
+.btn-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 24px; }
+
+.btn-discord::before { background: var(--discord-blurple) !important; }
+.btn-discord { color: #fff !important; }
+.btn-discord:hover { color: #fff !important; }
+
+.btn-twitch::before { background: var(--twitch-purple) !important; }
+.btn-twitch { color: #fff !important; }
+.btn-twitch:hover { color: #fff !important; }
+
+.btn-ghost-light {
+  border: 2px dashed rgba(0, 0, 0, 0.35);
+  background: none;
+}
+
+.copy-ok { font-size: 0.9rem; color: var(--discord-blurple-dark) !important; min-height: 1.2em; margin: 10px 0 0; }
+
+.how-accordion {
+  width: 95%;
+  max-width: 920px;
+  box-sizing: border-box;
+  margin-top: 18px;
+  background: #fff;
+  border: 2px dashed var(--discord-blurple);
+  box-shadow: 3px 4px 0 rgba(0, 0, 0, 0.25);
+  color: var(--text-dark);
+}
+.how-accordion summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 15px 18px;
+  font-weight: bold;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.how-accordion summary::-webkit-details-marker { display: none; }
+.how-accordion .chev {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  background: var(--discord-blurple);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  transition: transform 0.3s;
+}
+.how-accordion[open] .chev { transform: rotate(90deg); }
+.how-accordion ol { margin: 0; padding: 0 22px 18px 52px; line-height: 1.7; font-size: 0.98rem; }
+
+.team-lead { color: #fff !important; opacity: 0.92; margin: 36px 0 22px; text-align: center; }
+
+/* ---------- Twitch formats ---------- */
+
+.formats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 24px 0 6px; }
+.format {
+  background: #fff;
+  border: 2px solid #000;
+  border-top: 8px solid var(--twitch-purple);
+  border-radius: 2px;
+  padding: 16px;
+  box-shadow: 4px 5px 0 #000;
+  color: var(--text-dark) !important;
+  font-size: 0.96rem;
+  line-height: 1.5;
+  transition: transform 0.25s, box-shadow 0.25s;
+}
+.format:hover { transform: translateY(-4px); box-shadow: 6px 8px 0 #000; }
+.format b { display: block; font-size: 1.03rem; margin-bottom: 4px; }
+.format:nth-child(2) { border-top-color: var(--twitch-mint); }
+
+@media (max-width: 900px) {
+  .quick-links { grid-template-columns: repeat(2, minmax(150px, 1fr)); max-width: 560px; }
+  .perks { grid-template-columns: 1fr; }
+  .formats { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .zone { padding: 50px 14px 50px; }
+  .hero-card, .zone-sheet { flex-direction: column; text-align: center; }
+  .quick-links { grid-template-columns: 1fr; max-width: 420px; margin-top: 32px; }
+  .btn-row { justify-content: center; }
+}

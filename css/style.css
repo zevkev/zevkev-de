@@ -1,0 +1,552 @@
+/* ==========================================================================
+   ZevKev — Design System
+   "Crafty look": paper cut-outs + washi tape, pinned to a cutting mat.
+   Shared on every page. Page-specific additions live in their own file
+   (shop.css, vods.css, home.css) and are loaded alongside this one.
+   ========================================================================== */
+
+:root {
+  /* cutting mat + paper, carried over from the shop so the whole site reads
+     as one material */
+  --blue-mat: #234d70;
+  --blue-mat-dark: #17344e;
+  --grid: rgba(255, 255, 255, 0.15);
+  --grid-strong: rgba(255, 255, 255, 0.32);
+  --paper: #fcfbf5;
+  --paper-accent: #fdf2b3;
+  --paper-pink: #f7d9d0;
+  --tape: rgba(230, 220, 170, 0.6);
+  --text-dark: #1a1a1a;
+  --text-muted: #4a4a40;
+  --photo-mat: #bfae87;
+  --accent-red: #c0392b;
+  --accent-green: #3c7a4b;
+  --shadow-soft: 4px 8px 20px rgba(0, 0, 0, 0.3);
+  --shadow-hover: 6px 12px 28px rgba(0, 0, 0, 0.38);
+  --radius-paper: 6px;
+  --header-h: 74px;
+
+  /* section "zones" — used on the homepage bio sections and as brand
+     accents for Discord/Twitch elsewhere on the site */
+  --zone-hero: #1d4568;
+  --zone-discord: #232a4d;
+  --zone-twitch: #1d1030;
+  --discord-blurple: #5865f2;
+  --discord-blurple-dark: #2f3590;
+  --twitch-purple: #9146ff;
+  --twitch-purple-dark: #4c1d95;
+  --twitch-mint: #5ff2c8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+/* Cutting-mat backdrop: fine mm-grid plus a brighter line every 5th square,
+   blended with a subtle photo texture. Scrolls with the page (no fixed
+   attachment) so it feels like the paper is glued to the mat, not floating
+   over a static backdrop. */
+body {
+  background-color: var(--blue-mat);
+  background-image: repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.04) 0,
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 160px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(255, 255, 255, 0.04) 0,
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 160px
+    ),
+    linear-gradient(var(--grid-strong) 1.5px, transparent 1.5px),
+    linear-gradient(90deg, var(--grid-strong) 1.5px, transparent 1.5px),
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+    url("/assets/img/mat-texture.jpg");
+  background-size: auto, auto, 225px 225px, 225px 225px, 45px 45px, 45px 45px, 160px 160px;
+  background-blend-mode: normal, normal, normal, normal, normal, normal, multiply;
+  background-position: top left;
+  font-family: "Futura", "Trebuchet MS", Arial, sans-serif;
+  color: var(--text-dark);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  box-sizing: border-box;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.page-body {
+  padding-top: calc(var(--header-h) + 30px);
+  padding-bottom: 60px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+/* Shared float animations for paper elements */
+@keyframes float1 {
+  0%, 100% { transform: translateY(0) rotate(0.5deg); }
+  50% { transform: translateY(-12px) rotate(-0.5deg); }
+}
+@keyframes float2 {
+  0%, 100% { transform: translateY(-5px) rotate(-1deg); }
+  50% { transform: translateY(8px) rotate(1deg); }
+}
+@keyframes float3 {
+  0%, 100% { transform: translateX(0) translateY(0) rotate(0.8deg); }
+  50% { transform: translateX(5px) translateY(-15px) rotate(-0.2deg); }
+}
+@keyframes float4 {
+  0%, 100% { transform: scale(1) rotate(-0.5deg); }
+  50% { transform: scale(1.02) rotate(0.5deg); }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+@keyframes popIn {
+  0% { transform: scale(0.85); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ==========================================================================
+   Paper-craft component kit — torn paper cards, washi tape, buttons
+   ========================================================================== */
+
+.rip {
+  position: relative;
+  isolation: isolate;
+  background: transparent !important;
+}
+
+.rip::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-color: var(--paper);
+  background-image: url("/assets/img/paper-grain.jpg");
+  background-size: 160px 160px;
+  background-blend-mode: multiply;
+  filter: url(#rough-edge);
+  box-shadow: var(--shadow-soft);
+  z-index: -1;
+  border-radius: 2px;
+}
+
+.rip--accent::before { background-color: var(--paper-accent); }
+.rip--pink::before { background-color: var(--paper-pink); }
+.rip--photo::before {
+  background-color: var(--photo-mat);
+  box-shadow: 2px 4px 10px rgba(0, 0, 0, 0.28);
+}
+
+.tape {
+  position: absolute;
+  width: 110px;
+  height: 32px;
+  background: var(--tape);
+  top: -15px;
+  left: 20px;
+  transform: rotate(-12deg);
+  z-index: 5;
+  box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+}
+
+.paper-sheet {
+  padding: 40px;
+  margin: 20px auto;
+  max-width: 900px;
+  width: 95%;
+  display: flex;
+  align-items: center;
+  gap: 35px;
+  animation: float1 6s ease-in-out infinite;
+  box-sizing: border-box;
+}
+
+.paper-sheet h1, .paper-sheet h2, .paper-sheet p, .paper-sheet b, .paper-sheet a {
+  color: var(--text-dark) !important;
+  text-align: left;
+}
+
+.p-btn {
+  padding: 12px 25px;
+  text-decoration: none;
+  color: var(--text-dark) !important;
+  font-weight: bold;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.05rem;
+  border: none;
+  background: none;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.p-btn:hover {
+  transform: scale(1.06) rotate(0deg) !important;
+  color: var(--blue-mat) !important;
+  box-shadow: 6px 10px 25px rgba(0, 0, 0, 0.4);
+}
+
+.p-btn:active { transform: scale(0.98) !important; }
+.p-btn:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.p-btn img, .p-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+
+.btn-accent::before {
+  background: var(--paper-accent) !important;
+  box-shadow: 2px 4px 10px rgba(0, 0, 0, 0.2) !important;
+}
+.btn-accent:hover { transform: scale(1.05) rotate(0deg) translateY(-3px) !important; }
+.btn-accent:hover::before { box-shadow: 6px 12px 20px rgba(0, 0, 0, 0.3) !important; }
+.btn-accent:disabled, .btn-accent[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.scissor-line {
+  width: 100%;
+  max-width: 1100px;
+  margin: 70px auto;
+  border-top: 3px dashed rgba(255, 255, 255, 0.5);
+  position: relative;
+}
+
+.c-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 40px;
+  width: 100%;
+  max-width: 1100px;
+}
+
+.c-card {
+  padding: 35px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  color: var(--text-dark) !important;
+}
+.c-card h3 { color: var(--text-dark) !important; margin: 15px 0 5px 0; text-transform: uppercase; letter-spacing: 1px; }
+.c-card p { color: var(--text-dark) !important; margin: 5px 0 15px 0; line-height: 1.4; }
+
+.c-avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 5px solid #fff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  object-fit: cover;
+  margin: 0 auto;
+}
+
+.tilt-a { transform: rotate(-1.4deg); }
+.tilt-b { transform: rotate(1.1deg); }
+.tilt-c { transform: rotate(-0.6deg); }
+.tilt-d { transform: rotate(1.8deg); }
+
+.reveal { opacity: 0; }
+.reveal.is-visible { animation: fadeUp 0.6s ease forwards; }
+
+@media (max-width: 768px) {
+  .paper-sheet { flex-direction: column; text-align: center; align-items: center; }
+  .paper-sheet h1, .paper-sheet h2, .paper-sheet p { text-align: center; }
+  .tape { left: 50%; transform: translateX(-50%) rotate(-5deg); }
+  .p-btn { width: 85%; justify-content: center; }
+}
+
+/* ==========================================================================
+   Site header / nav / cart button — shared shell for every page
+   ========================================================================== */
+
+.site-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--header-h);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  padding-top: 6px;
+}
+.site-header::before { box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35); }
+.site-header .header-tape { top: -8px; left: 50%; transform: translateX(-50%) rotate(-2deg); z-index: 5; }
+.site-header .container { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+
+.site-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  font-weight: 900;
+  font-size: 1.4rem;
+  letter-spacing: 0.3px;
+  color: var(--text-dark) !important;
+  transform: rotate(-1deg);
+}
+.site-logo img { width: 34px; height: 34px; border-radius: 50%; }
+
+.site-nav { display: flex; align-items: center; gap: 26px; }
+.site-nav a {
+  color: var(--text-dark) !important;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 0.98rem;
+  position: relative;
+  padding: 4px 2px;
+}
+.site-nav a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -3px;
+  height: 2px;
+  width: 0;
+  background: var(--blue-mat);
+  transition: width 0.25s ease;
+}
+.site-nav a:hover::after, .site-nav a.is-active::after { width: 100%; }
+
+.header-actions { display: flex; align-items: center; gap: 14px; }
+
+.cart-button {
+  width: 48px;
+  height: 48px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: rotate(2deg);
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.cart-button:hover { transform: scale(1.08) rotate(-4deg); }
+.cart-button svg { width: 22px; height: 22px; }
+
+.cart-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: var(--accent-red);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: bold;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border: 2px solid var(--blue-mat-dark);
+  transform: scale(0);
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.cart-badge.is-visible { transform: scale(1); }
+
+.nav-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-dark);
+  font-size: 1.6rem;
+  padding: 4px 8px;
+}
+
+/* ==========================================================================
+   Cart drawer + toast — markup only mounts on the shop page, but the
+   styles live here so they're available wherever layout.js is loaded
+   ========================================================================== */
+
+.cart-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.cart-backdrop.is-open { opacity: 1; pointer-events: auto; }
+
+.cart-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(420px, 100%);
+  z-index: 201;
+  transform: translateX(100%);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  display: flex;
+  flex-direction: column;
+  padding: 26px 24px;
+}
+.cart-drawer::before { box-shadow: -6px 0 24px rgba(0, 0, 0, 0.4); border-radius: 0; }
+.cart-drawer.is-open { transform: translateX(0); }
+
+.cart-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 3px dashed rgba(0, 0, 0, 0.2);
+  padding-bottom: 16px;
+  margin-bottom: 10px;
+}
+.cart-drawer-header h2 { margin: 0; font-size: 1.3rem; }
+.cart-close { background: none; border: none; font-size: 1.6rem; line-height: 1; }
+
+.cart-items {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 0;
+  font-family: "Courier New", ui-monospace, monospace;
+}
+.cart-item { display: flex; gap: 12px; align-items: center; padding-bottom: 14px; border-bottom: 1px dashed rgba(0, 0, 0, 0.25); }
+.cart-item img { width: 60px; height: 60px; object-fit: cover; background: var(--photo-mat); padding: 3px; box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.2); flex-shrink: 0; }
+.cart-item-info { flex: 1; }
+.cart-item-info .name { font-weight: bold; font-size: 0.92rem; text-transform: uppercase; }
+.cart-item-info .attrs { font-size: 0.8rem; color: var(--text-muted); }
+.cart-item-remove { background: none; border: none; color: var(--accent-red); font-size: 0.8rem; text-decoration: underline; padding: 2px 0; }
+
+.receipt-tear {
+  height: 16px;
+  margin: 0 -24px;
+  flex-shrink: 0;
+  background: linear-gradient(-45deg, transparent 8px, rgba(0, 0, 0, 0.18) 8px) 0 0/16px 16px repeat-x,
+    linear-gradient(45deg, transparent 8px, rgba(0, 0, 0, 0.18) 8px) 0 0/16px 16px repeat-x;
+  background-position: bottom;
+}
+
+.cart-footer { padding-top: 16px; }
+.cart-subtotal { display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1rem; margin-bottom: 14px; font-family: "Courier New", ui-monospace, monospace; }
+.cart-empty { text-align: center; color: var(--text-muted); margin-top: 40px; }
+
+.toast {
+  position: fixed;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%) translateY(30px);
+  background: var(--paper-accent);
+  color: var(--text-dark);
+  padding: 14px 22px;
+  border-radius: 4px;
+  box-shadow: var(--shadow-soft);
+  font-weight: bold;
+  z-index: 300;
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  pointer-events: none;
+}
+.toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.skeleton-card {
+  height: 320px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.6) 25%, rgba(255, 255, 255, 0.9) 37%, rgba(255, 255, 255, 0.6) 63%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
+.empty-state, .error-state { text-align: center; padding: 60px 30px; max-width: 500px; margin: 0 auto; }
+.empty-state h2, .error-state h2 { font-size: 1.6rem; }
+
+/* ==========================================================================
+   Footer
+   ========================================================================== */
+
+.site-footer {
+  width: 100%;
+  max-width: 1100px;
+  margin: 10px auto 0;
+  padding: 30px 24px;
+  text-align: center;
+  color: var(--text-dark);
+}
+.footer-links { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; margin-bottom: 14px; }
+.footer-links a { color: var(--text-dark) !important; text-decoration: none; font-weight: bold; font-size: 0.85rem; opacity: 0.85; }
+.footer-links a:hover { opacity: 1; text-decoration: underline; }
+.footer-note { font-size: 0.8rem; opacity: 0.75; margin: 4px 0; }
+.footer-note a { color: var(--text-dark) !important; font-weight: bold; }
+
+/* ==========================================================================
+   Responsive — shell
+   ========================================================================== */
+
+@media (max-width: 700px) {
+  .site-nav {
+    position: fixed;
+    top: -100vh;
+    left: 0;
+    right: 0;
+    background: var(--paper-accent);
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 18px 24px;
+    gap: 16px;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
+    transition: top 0.3s ease;
+    z-index: 90;
+  }
+  .site-nav.is-open { top: var(--header-h); }
+  .nav-toggle { display: block; }
+  .cart-drawer { width: 100%; }
+}
