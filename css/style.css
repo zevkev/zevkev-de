@@ -48,21 +48,21 @@
    everything sliding toward brown. Toggled by js/theme.js via data-theme
    on <html>. */
 :root[data-theme="dark"] {
-  --blue-mat: #0a1622;
-  --blue-mat-dark: #050c14;
-  --grid: rgba(255, 255, 255, 0.06);
-  --grid-strong: rgba(255, 255, 255, 0.15);
-  --paper: #22252b;
-  --paper-accent: #55431f;
-  --paper-pink: #3a2a30;
-  --tape: rgba(199, 175, 112, 0.55);
-  --text-dark: #f3f1ea;
-  --text-muted: #a8a49c;
-  --photo-mat: #3d4046;
+  --blue-mat: #060c14;
+  --blue-mat-dark: #03070d;
+  --grid: rgba(255, 255, 255, 0.05);
+  --grid-strong: rgba(255, 255, 255, 0.13);
+  --paper: #1e2128;
+  --paper-accent: #2d3a54;
+  --paper-pink: #352c3d;
+  --tape: rgba(150, 165, 195, 0.45);
+  --text-dark: #f0f1f5;
+  --text-muted: #9d9fa8;
+  --photo-mat: #383c46;
   --accent-red: #e0564a;
   --accent-green: #5fb377;
-  --shadow-soft: 0 10px 26px rgba(0, 0, 0, 0.6);
-  --shadow-hover: 0 16px 36px rgba(0, 0, 0, 0.65);
+  --shadow-soft: 0 10px 26px rgba(0, 0, 0, 0.65);
+  --shadow-hover: 0 16px 36px rgba(0, 0, 0, 0.7);
 }
 :root[data-theme="dark"] .site-header,
 :root[data-theme="dark"] .site-footer,
