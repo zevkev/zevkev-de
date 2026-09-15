@@ -6,7 +6,7 @@ const filterBar = document.getElementById("filter-bar");
 
 function money(amount, currency) {
   try {
-    return new Intl.NumberFormat("de-DE", { style: "currency", currency: currency || "EUR" }).format(amount);
+    return new Intl.NumberFormat("de-DE", { style: "currency", currency: currency || "USD" }).format(amount);
   } catch {
     return `${amount} ${currency || ""}`;
   }
@@ -118,22 +118,26 @@ async function selectFilter(pill, collections) {
   }
 }
 
+// A variant's attributes look like { description: "White, S", color: { name,
+// swatch }, size: { name } } — a fixed-ish object keyed by attribute type,
+// not a generic list. "description" is just the human-readable summary of
+// the others, so it's excluded from the option groups.
 function attributeGroups(product) {
   const groups = new Map();
   (product.variants || []).forEach((v) => {
-    (v.attributes?.values || []).forEach((attr) => {
-      if (!groups.has(attr.option)) groups.set(attr.option, new Set());
-      groups.get(attr.option).add(attr.value);
+    Object.entries(v.attributes || {}).forEach(([key, val]) => {
+      if (key === "description" || !val || typeof val !== "object" || val.name == null) return;
+      if (!groups.has(key)) groups.set(key, new Map());
+      groups.get(key).set(val.name, val.swatch || null);
     });
   });
   return groups;
 }
 
 function findVariant(product, selection) {
-  return (product.variants || []).find((v) => {
-    const values = v.attributes?.values || [];
-    return Object.entries(selection).every(([option, value]) => values.some((a) => a.option === option && a.value === value));
-  });
+  return (product.variants || []).find((v) =>
+    Object.entries(selection).every(([key, value]) => v.attributes?.[key]?.name === value)
+  );
 }
 
 function openQuickView(product) {
@@ -144,7 +148,7 @@ function openQuickView(product) {
   const groups = attributeGroups(product);
   const selection = {};
   groups.forEach((values, option) => {
-    selection[option] = [...values][0];
+    selection[option] = [...values.keys()][0];
   });
 
   const modal = document.createElement("div");
@@ -177,22 +181,25 @@ function openQuickView(product) {
 
   const optionsEl = modal.querySelector("#qv-options");
   optionsEl.innerHTML = [...groups.entries()]
-    .map(
-      ([option, values]) => `
+    .map(([option, values]) => {
+      const swatches = [...values.entries()]
+        .map(([name, swatch]) =>
+          swatch
+            ? `<button type="button" class="swatch-color" data-option="${option}" data-value="${name}" title="${name}"><span class="chip" style="background:${swatch};"></span><span class="label">${name}</span></button>`
+            : `<button type="button" class="swatch-size" data-option="${option}" data-value="${name}">${name}</button>`
+        )
+        .join("");
+      return `
       <div class="option-group">
         <label>${option}</label>
-        <div class="option-swatches" data-option="${option}">
-          ${[...values]
-            .map((v) => `<button type="button" class="swatch-size" data-option="${option}" data-value="${v}">${v}</button>`)
-            .join("")}
-        </div>
-      </div>`
-    )
+        <div class="option-swatches" data-option="${option}">${swatches}</div>
+      </div>`;
+    })
     .join("");
 
   function syncSelection() {
     const variant = findVariant(product, selection) || product.variants?.[0];
-    modal.querySelectorAll(".swatch-size").forEach((btn) => {
+    modal.querySelectorAll(".swatch-size, .swatch-color").forEach((btn) => {
       btn.classList.toggle("is-selected", selection[btn.dataset.option] === btn.dataset.value);
     });
     modal.querySelector("#qv-price").textContent = variant ? money(variant.unitPrice?.value ?? 0, variant.unitPrice?.currency) : "";
@@ -202,7 +209,7 @@ function openQuickView(product) {
     modal.querySelector("#qv-add").dataset.variantId = variant?.id || "";
   }
 
-  optionsEl.querySelectorAll(".swatch-size").forEach((btn) => {
+  optionsEl.querySelectorAll(".swatch-size, .swatch-color").forEach((btn) => {
     btn.addEventListener("click", () => {
       selection[btn.dataset.option] = btn.dataset.value;
       syncSelection();

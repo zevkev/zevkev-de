@@ -1,10 +1,14 @@
 import { FourthwallAPI } from "./fourthwall-api.js";
 
 const STORAGE_KEY = "zevkev-cart-id";
+// Fourthwall's hosted checkout lives on whichever domain is connected as
+// this shop's custom domain in Settings → Domain. Keep in sync if that ever
+// changes — see the zevkev.me / zevkev.de note in the README.
+const CHECKOUT_DOMAIN = "zevkev.me";
 
 function money(amount, currency) {
   try {
-    return new Intl.NumberFormat("de-DE", { style: "currency", currency: currency || "EUR" }).format(amount);
+    return new Intl.NumberFormat("de-DE", { style: "currency", currency: currency || "USD" }).format(amount);
   } catch {
     return `${amount} ${currency || ""}`;
   }
@@ -37,6 +41,17 @@ function els() {
   };
 }
 
+function computeSubtotal(lineItems) {
+  if (!lineItems.length) return { value: 0, currency: "USD" };
+  const currency = lineItems[0].variant?.unitPrice?.currency || "USD";
+  const value = lineItems.reduce((sum, it) => sum + (it.variant?.unitPrice?.value ?? 0) * (it.quantity || 0), 0);
+  return { value, currency };
+}
+
+function checkoutUrl(cartId, currency) {
+  return `https://${CHECKOUT_DOMAIN}/checkout/?cartCurrency=${encodeURIComponent(currency || "USD")}&cartId=${encodeURIComponent(cartId)}`;
+}
+
 function render() {
   const { badge, items, footer, subtotal, checkout } = els();
   const lineItems = state.cart?.items || [];
@@ -56,30 +71,36 @@ function render() {
 
   items.innerHTML = lineItems
     .map((it) => {
-      const img = it.variant?.image?.url || it.product?.image?.url || "";
-      const name = it.product?.name || it.variant?.name || "Artikel";
-      const attrs = (it.variant?.attributes?.values || []).map((v) => v.value).join(" / ");
-      const price = money(it.unitPrice?.value ?? 0, it.unitPrice?.currency);
+      const v = it.variant || {};
+      const img = v.images?.[0]?.url || "";
+      const name = v.product?.name || v.name || "Artikel";
+      const attrs = v.attributes?.description || "";
+      const price = money(v.unitPrice?.value ?? 0, v.unitPrice?.currency);
       return `
-      <div class="cart-item" data-item-id="${it.id}">
+      <div class="cart-item" data-variant-id="${v.id}">
         ${img ? `<img src="${img}" alt="">` : ""}
         <div class="cart-item-info">
           <div class="name">${name}</div>
           ${attrs ? `<div class="attrs">${attrs}</div>` : ""}
           <div class="attrs">${it.quantity} &times; ${price}</div>
         </div>
-        <button class="cart-item-remove" data-remove="${it.id}">Entfernen</button>
+        <button class="cart-item-remove" data-remove="${v.id}">Entfernen</button>
       </div>`;
     })
     .join("");
 
+  const sub = computeSubtotal(lineItems);
   if (footer) footer.style.display = "block";
-  if (subtotal) subtotal.textContent = money(state.cart?.subtotal?.value ?? 0, state.cart?.subtotal?.currency);
-  if (checkout) checkout.href = state.cart?.checkoutUrl || "#";
+  if (subtotal) subtotal.textContent = money(sub.value, sub.currency);
+  if (checkout) checkout.href = state.cart?.id ? checkoutUrl(state.cart.id, sub.currency) : "#";
 
   items.querySelectorAll("[data-remove]").forEach((btn) => {
     btn.addEventListener("click", () => removeItem(btn.getAttribute("data-remove")));
   });
+}
+
+function itemsForUpdate() {
+  return (state.cart?.items || []).map((it) => ({ variantId: it.variant.id, quantity: it.quantity }));
 }
 
 async function refreshFromApi() {
@@ -102,8 +123,7 @@ async function addItem(variantId, quantity = 1) {
       state.cart = await FourthwallAPI.createCart([{ variantId, quantity }]);
       localStorage.setItem(STORAGE_KEY, state.cart.id);
     } else {
-      const existing = state.cart?.items || [];
-      const items = [...existing.map((it) => ({ variantId: it.variant.id, quantity: it.quantity }))];
+      const items = itemsForUpdate();
       const match = items.find((it) => it.variantId === variantId);
       if (match) match.quantity += quantity;
       else items.push({ variantId, quantity });
@@ -118,12 +138,10 @@ async function addItem(variantId, quantity = 1) {
   }
 }
 
-async function removeItem(itemId) {
+async function removeItem(variantId) {
   const id = localStorage.getItem(STORAGE_KEY);
   if (!id || !state.cart) return;
-  const items = state.cart.items
-    .filter((it) => it.id !== itemId)
-    .map((it) => ({ variantId: it.variant.id, quantity: it.quantity }));
+  const items = itemsForUpdate().filter((it) => it.variantId !== variantId);
   try {
     state.cart = await FourthwallAPI.updateCart(id, items);
     render();
