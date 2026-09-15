@@ -2,7 +2,7 @@
 // to be embedded in client-side code (product read + cart creation only).
 // Real admin credentials must never go in a file like this.
 export const FOURTHWALL_STOREFRONT_TOKEN = "";
-export const TWITCH_CLIENT_ID = "";
+export const TWITCH_CLIENT_ID = "rnvciectlc9kf9tb3utzuzvhrcdy2x";
 
 // Master switch for every Twitch-related feature (live player, chat, OAuth
 // login, "Auf Twitch folgen" buttons, the homepage Twitch section). Flip to
