@@ -109,23 +109,31 @@ html.twitch-disabled .zone--discord {
 .btn-twitch { color: #fff !important; }
 .btn-twitch:hover { color: #fff !important; }
 
-.btn-ghost-light { border: 2px dashed rgba(255, 255, 255, 0.5); background: none; color: #fff !important; }
+.btn-ghost-light { color: #fff !important; }
+.btn-ghost-light::before { background: rgba(0, 0, 0, 0.28) !important; border: 2px dashed rgba(255, 255, 255, 0.55); box-shadow: none !important; filter: none !important; }
 .btn-ghost-light:hover { color: #fff !important; }
+.btn-ghost-light:hover::before { background: rgba(0, 0, 0, 0.4) !important; }
 
 .copy-ok { font-size: 0.88rem; color: #fff !important; min-height: 1.2em; margin: 12px 0 0; text-align: center; }
 
 .how-accordion {
-  width: 95%; max-width: 780px; box-sizing: border-box; margin-top: 26px;
-  background: var(--paper); border: 2px dashed rgba(255,255,255,.4); box-shadow: var(--shadow-soft); color: var(--text-dark);
+  position: relative;
+  width: 95%; max-width: 780px; box-sizing: border-box; margin-top: 34px;
+  color: var(--text-dark); transform: rotate(0.6deg);
 }
-.how-accordion summary { cursor: pointer; list-style: none; padding: 16px 18px; font-weight: bold; font-size: 1rem; display: flex; align-items: center; gap: 10px; }
+.how-accordion summary {
+  cursor: pointer; list-style: none; padding: 18px 22px; font-weight: bold; font-size: 1.02rem;
+  display: flex; align-items: center; gap: 12px; user-select: none;
+}
 .how-accordion summary::-webkit-details-marker { display: none; }
 .how-accordion .chev {
-  display: inline-flex; width: 26px; height: 26px; flex-shrink: 0; align-items: center; justify-content: center;
-  background: var(--discord-blurple); color: #fff; border-radius: 50%; font-size: 0.8rem; transition: transform 0.3s;
+  display: inline-flex; width: 28px; height: 28px; flex-shrink: 0; align-items: center; justify-content: center;
+  background: var(--discord-blurple); color: #fff; border-radius: 50%; font-size: 0.75rem; transition: transform 0.3s;
+  box-shadow: 0 2px 5px rgba(0,0,0,.3);
 }
 .how-accordion[open] .chev { transform: rotate(90deg); }
-.how-accordion ol { margin: 0; padding: 0 22px 18px 46px; line-height: 1.7; font-size: 0.96rem; }
+.how-accordion ol { margin: 0; padding: 0 22px 22px 50px; line-height: 1.75; font-size: 0.96rem; }
+.how-accordion ol li::marker { color: var(--discord-blurple-dark); font-weight: bold; }
 
 .team-lead { color: #fff !important; opacity: 0.9; margin: 40px 0 24px; text-align: center; font-family: "Bebas Neue", sans-serif; font-size: 1.4rem; letter-spacing: 1px; text-transform: uppercase; }
 

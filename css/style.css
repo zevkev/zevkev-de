@@ -41,6 +41,54 @@
   --tear-c: polygon(0% 1.5%, 5% 0%, 12% 2%, 20% 0.4%, 29% 1.9%, 38% 0.2%, 48% 1.6%, 58% 0%, 68% 1.8%, 78% 0.3%, 88% 1.5%, 100% 0%, 100% 98.5%, 89% 100%, 79% 98.2%, 69% 99.7%, 59% 98%, 49% 100%, 39% 98.4%, 30% 99.8%, 21% 98.1%, 13% 100%, 6% 98.3%, 0% 99.6%);
 }
 
+/* Dark mode: same component CSS everywhere, just a different palette.
+   Cool neutral slate for regular cards, a richer warm bronze (not a
+   darkened version of the light-mode gold, which just reads muddy) for
+   accent cards, so there's real contrast between the two instead of
+   everything sliding toward brown. Toggled by js/theme.js via data-theme
+   on <html>. */
+:root[data-theme="dark"] {
+  --blue-mat: #0a1622;
+  --blue-mat-dark: #050c14;
+  --grid: rgba(255, 255, 255, 0.06);
+  --grid-strong: rgba(255, 255, 255, 0.15);
+  --paper: #22252b;
+  --paper-accent: #55431f;
+  --paper-pink: #3a2a30;
+  --tape: rgba(199, 175, 112, 0.55);
+  --text-dark: #f3f1ea;
+  --text-muted: #a8a49c;
+  --photo-mat: #3d4046;
+  --accent-red: #e0564a;
+  --accent-green: #5fb377;
+  --shadow-soft: 0 10px 26px rgba(0, 0, 0, 0.6);
+  --shadow-hover: 0 16px 36px rgba(0, 0, 0, 0.65);
+}
+:root[data-theme="dark"] .site-header,
+:root[data-theme="dark"] .site-footer,
+:root[data-theme="dark"] .site-nav {
+  background-color: var(--paper);
+}
+:root[data-theme="dark"] .site-logo,
+:root[data-theme="dark"] .site-nav a,
+:root[data-theme="dark"] .nav-toggle span,
+:root[data-theme="dark"] .nav-toggle span::before,
+:root[data-theme="dark"] .nav-toggle span::after,
+:root[data-theme="dark"] .footer-links a,
+:root[data-theme="dark"] .footer-note,
+:root[data-theme="dark"] .theme-toggle,
+:root[data-theme="dark"] .cart-button {
+  color: var(--text-dark) !important;
+}
+:root[data-theme="dark"] .site-nav a::after { background: var(--paper-accent); }
+:root[data-theme="dark"] .cart-button {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+:root[data-theme="dark"] .theme-toggle { border-color: rgba(255, 255, 255, 0.16); }
+:root[data-theme="dark"] .footer-socials a { background: rgba(255, 255, 255, 0.08); color: var(--text-dark) !important; }
+:root[data-theme="dark"] .footer-socials a:hover { background: rgba(255, 255, 255, 0.16); }
+
 * { box-sizing: border-box; }
 
 html, body { margin: 0; padding: 0; min-height: 100%; }
@@ -115,7 +163,7 @@ h1, h2, .display-font {
    Paper-craft component kit
    ========================================================================== */
 
-.rip { position: relative; }
+.rip { position: relative; isolation: isolate; }
 
 .rip::before {
   content: "";
@@ -140,11 +188,11 @@ h1, h2, .display-font {
   width: 108px;
   height: 30px;
   background: var(--tape);
-  top: -14px;
-  left: 20px;
+  top: -6px;
+  left: 24px;
   transform: rotate(-12deg);
   z-index: 5;
-  box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.25);
   pointer-events: none;
 }
 
@@ -186,8 +234,8 @@ h1, h2, .display-font {
 
 .scissor-line { width: 100%; max-width: 1100px; margin: 60px auto; border-top: 3px dashed rgba(255, 255, 255, 0.4); position: relative; }
 
-.c-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 36px; width: 100%; max-width: 1100px; }
-.c-card { padding: 32px; display: flex; flex-direction: column; align-items: center; text-align: center; color: var(--text-dark) !important; }
+.c-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 40px 36px; width: 100%; max-width: 1100px; }
+.c-card { padding: 32px 28px; display: flex; flex-direction: column; align-items: center; text-align: center; color: var(--text-dark) !important; }
 .c-card h3 { color: var(--text-dark) !important; margin: 15px 0 5px 0; text-transform: uppercase; letter-spacing: 1px; font-family: "Bebas Neue", sans-serif; font-size: 1.3rem; }
 .c-card p { color: var(--text-dark) !important; margin: 5px 0 15px 0; line-height: 1.45; }
 
@@ -266,6 +314,33 @@ h1, h2, .display-font {
 .site-nav a:hover::after, .site-nav a.is-active::after { width: 100%; }
 
 .header-actions { display: flex; align-items: center; gap: 14px; }
+
+.theme-toggle {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 2px solid rgba(0,0,0,.12);
+  background: linear-gradient(to bottom, #bfe0f5 0%, #eaf3d8 100%);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-dark);
+  overflow: hidden;
+  position: relative;
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), background .5s ease;
+}
+.theme-toggle:hover { transform: scale(1.08); }
+.theme-toggle.is-dark { background: linear-gradient(to bottom, #182035 0%, #2a1f30 100%); }
+
+.theme-toggle-scene { position: relative; width: 100%; height: 100%; }
+.theme-icon {
+  position: absolute; top: 50%; left: 50%; width: 18px; height: 18px;
+  transition: transform 0.55s cubic-bezier(0.65, 0, 0.35, 1), opacity 0.4s ease;
+}
+.theme-icon-sun { transform: translate(-50%, -50%) translateY(0); opacity: 1; color: #d98a2b; }
+.theme-icon-moon { transform: translate(-50%, -50%) translateY(-170%); opacity: 0; color: #dfe3ef; }
+.theme-toggle.is-dark .theme-icon-sun { transform: translate(-50%, -50%) translateY(170%); opacity: 0; }
+.theme-toggle.is-dark .theme-icon-moon { transform: translate(-50%, -50%) translateY(0); opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .theme-icon { transition: opacity 0.3s ease; }
+  .theme-icon-sun, .theme-icon-moon { transform: translate(-50%, -50%) !important; }
+}
 
 .cart-button {
   width: 44px; height: 44px; border-radius: 50%;

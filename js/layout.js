@@ -24,6 +24,14 @@ const ICONS = {
   twitch: '<path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0 1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>',
 };
 
+function themeIconHTML() {
+  return `
+  <span class="theme-toggle-scene">
+    <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4V2M12 22v-2M4.93 4.93 3.51 3.51M20.49 20.49l-1.42-1.42M4 12H2M22 12h-2M4.93 19.07l-1.42 1.42M20.49 3.51l-1.42 1.42"/><circle cx="12" cy="12" r="5"/></svg>
+    <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/><circle cx="17" cy="7" r=".6" fill="currentColor" stroke="none"/><circle cx="14" cy="4" r=".4" fill="currentColor" stroke="none"/></svg>
+  </span>`;
+}
+
 function socialLinksHTML() {
   return SOCIALS.map(
     (s) => `<a href="${s.href}" target="_blank" rel="noopener" aria-label="${s.label}"${s.twitchOnly ? " data-twitch-only" : ""}><svg viewBox="0 0 24 24" fill="currentColor">${ICONS[s.icon]}</svg></a>`
@@ -39,12 +47,13 @@ function headerHTML(isShop) {
         <img src="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png" alt="">
         ZevKev
       </a>
-      <button class="nav-toggle" id="nav-toggle" aria-label="Menü öffnen" aria-expanded="false"><span></span></button>
       <nav class="site-nav" id="site-nav">
         ${NAV.map((n) => `<a href="${n.href}" data-nav="${n.label}"${n.label === "VODs" ? " data-twitch-optional" : ""}>${n.label}</a>`).join("")}
       </nav>
       <div class="header-actions" id="header-actions">
+        <button class="theme-toggle" id="theme-toggle" aria-label="Dunkles Design umschalten" type="button">${themeIconHTML()}</button>
         ${isShop ? cartButtonHTML() : ""}
+        <button class="nav-toggle" id="nav-toggle" aria-label="Menü öffnen" aria-expanded="false"><span></span></button>
       </div>
     </div>
   </header>`;
@@ -102,6 +111,15 @@ export async function mountLayout() {
   const footerSlot = document.getElementById("site-footer");
   if (headerSlot) headerSlot.outerHTML = headerHTML(isShop) + (isShop ? cartDrawerHTML() : "");
   if (footerSlot) footerSlot.outerHTML = footerHTML();
+
+  const { getTheme, toggleTheme } = await import("/js/theme.js");
+  const themeBtn = document.getElementById("theme-toggle");
+  const syncThemeIcon = () => themeBtn?.classList.toggle("is-dark", getTheme() === "dark");
+  syncThemeIcon();
+  themeBtn?.addEventListener("click", () => {
+    toggleTheme();
+    syncThemeIcon();
+  });
 
   const nav = document.getElementById("site-nav");
   const active = NAV.find((n) => n.match(path));
