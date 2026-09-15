@@ -5,7 +5,7 @@ import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const CHANNEL_ID = "UCZuzCW_1h6FUlpTI1G-T-aQ"; // @ZevKevPlus
+const CHANNEL_ID = "UCTTbSiyRUop-hMeZGIJD_QA"; // @ZevKevPlus (verified via canonical link / externalId)
 const FEED_URL = `https://www.youtube.com/feeds/videos.xml?channel_id=${CHANNEL_ID}`;
 const OUT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "assets", "data");
 const OUT_FILE = path.join(OUT_DIR, "videos.json");

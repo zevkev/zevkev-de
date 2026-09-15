@@ -38,3 +38,8 @@
   text-align: center; color: #fff; margin: 54px 0 24px; font-family: "Bebas Neue", sans-serif;
   font-size: 1.7rem; letter-spacing: 1px; text-transform: uppercase;
 }
+
+/* Shorts grid: narrower, taller (9:16) cards instead of the 16:9 VOD ones */
+.yt-grid--shorts { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); max-width: 900px; }
+.yt-grid--shorts .vod-thumb img { aspect-ratio: 9 / 16; object-fit: cover; }
+.yt-grid--shorts .vod-card h3 { font-size: 0.92rem; }

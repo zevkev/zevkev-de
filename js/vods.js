@@ -1,5 +1,5 @@
 import { TWITCH_ENABLED } from "./config.js";
-import { consumeRedirect, getToken, startLogin, logout, getCurrentUser, resolveBroadcasterId, sendChatMessage } from "./twitch-auth.js";
+import { consumeRedirect, getToken, startLogin, logout, getCurrentUser, resolveBroadcasterId, sendChatMessage, onAuthChange } from "./twitch-auth.js";
 
 const TWITCH_CHANNEL = "zevkev_";
 const WATCHLIST_KEY = "zevkev-watchlist";
@@ -56,8 +56,12 @@ async function loadJSON(url, fallback) {
   }
 }
 
-function renderPlayer(status, latestVideo) {
+// Priority for the main player: live on Twitch > latest Twitch VOD (archived
+// broadcast) > latest YouTube video, only falling that far back if nothing
+// has ever aired on Twitch yet.
+function renderPlayer(status, latestTwitchVod, latestYoutubeVideo) {
   if (!playerCol) return;
+
   if (status.live) {
     playerCol.innerHTML = `
       <div class="player-wrap rip">
@@ -68,22 +72,39 @@ function renderPlayer(status, latestVideo) {
         <h2>${status.title || "Live auf Twitch"}</h2>
         <p>${status.game ? `${status.game} &middot; ` : ""}${status.viewerCount != null ? `${status.viewerCount} Zuschauer` : ""}</p>
       </div>`;
-  } else if (latestVideo) {
+    return;
+  }
+
+  if (TWITCH_ENABLED && latestTwitchVod) {
+    playerCol.innerHTML = `
+      <div class="player-wrap rip">
+        <span class="status-badge is-offline">Offline &middot; letztes Twitch VOD</span>
+        <iframe src="https://player.twitch.tv/?video=${latestTwitchVod.id}&${parentParams()}" allowfullscreen></iframe>
+      </div>
+      <div class="player-meta">
+        <h2>${latestTwitchVod.title}</h2>
+        <p>Gerade nicht live. Letzte Aufzeichnung von Twitch.</p>
+      </div>`;
+    return;
+  }
+
+  if (latestYoutubeVideo) {
     playerCol.innerHTML = `
       <div class="player-wrap rip">
         ${TWITCH_ENABLED ? `<span class="status-badge is-offline">Offline</span>` : ""}
-        <iframe src="https://www.youtube.com/embed/${latestVideo.id}" allowfullscreen></iframe>
+        <iframe src="https://www.youtube.com/embed/${latestYoutubeVideo.id}" allowfullscreen></iframe>
       </div>
       <div class="player-meta">
-        <h2>${latestVideo.title}</h2>
-        <p>${TWITCH_ENABLED ? "Gerade nicht live. Hier das neueste Video vom VOD Kanal." : formatDate(latestVideo.publishedAt)}</p>
+        <h2>${latestYoutubeVideo.title}</h2>
+        <p>${TWITCH_ENABLED ? "Noch nichts auf Twitch archiviert. Hier das neueste Video vom VOD Kanal." : formatDate(latestYoutubeVideo.publishedAt)}</p>
       </div>`;
-  } else {
-    playerCol.innerHTML = `
-      <div class="player-wrap rip" style="display:flex; align-items:center; justify-content:center; color:#fff; text-align:center; padding:20px;">
-        <p>Noch keine Videos geladen. Schau später nochmal vorbei.</p>
-      </div>`;
+    return;
   }
+
+  playerCol.innerHTML = `
+    <div class="player-wrap rip" style="display:flex; align-items:center; justify-content:center; color:#fff; text-align:center; padding:20px;">
+      <p>Noch keine Videos geladen. Schau später nochmal vorbei.</p>
+    </div>`;
 }
 
 function renderChat(status) {
@@ -139,10 +160,7 @@ async function mountChatLogin() {
       </div>
       <p class="chat-send-note" id="chat-send-status"></p>`;
 
-    document.getElementById("twitch-logout-btn").addEventListener("click", () => {
-      logout();
-      mountChatLogin();
-    });
+    document.getElementById("twitch-logout-btn").addEventListener("click", () => logout());
 
     const input = document.getElementById("chat-send-input");
     const sendBtn = document.getElementById("chat-send-btn");
@@ -194,7 +212,7 @@ function renderVods(videos, mode) {
   const list = mode === "watchlist" ? videos.filter((v) => watchlist.has(v.id)) : videos;
 
   if (!list.length) {
-    vodGrid.innerHTML = `<div class="empty-state"><h2>${mode === "watchlist" ? "Watchlist ist leer" : "Noch keine VODs"}</h2><p>${mode === "watchlist" ? "Speicher Videos mit dem Stern, um sie hier wiederzufinden." : "Schau bald wieder vorbei."}</p></div>`;
+    vodGrid.innerHTML = `<div class="empty-state"><h2>${mode === "watchlist" ? "Watchlist ist leer" : "Noch keine Videos"}</h2><p>${mode === "watchlist" ? "Speicher Videos mit dem Stern, um sie hier wiederzufinden." : "Schau bald wieder vorbei."}</p></div>`;
     return;
   }
   vodGrid.innerHTML = list.map((v) => vodCardHTML(v, watchlist)).join("");
@@ -217,7 +235,7 @@ function renderVods(videos, mode) {
 function mountTabs(videos) {
   if (!sectionHead) return;
   sectionHead.innerHTML = `
-    <button class="filter-pill rip rip--accent is-active" data-mode="all">Alle VODs</button>
+    <button class="filter-pill rip rip--accent is-active" data-mode="all">Alle Videos</button>
     <button class="filter-pill rip" data-mode="watchlist">${starIcon(false)} Meine Watchlist</button>`;
   sectionHead.querySelectorAll(".filter-pill").forEach((pill) => {
     pill.addEventListener("click", () => {
@@ -229,15 +247,21 @@ function mountTabs(videos) {
 }
 
 async function init() {
-  if (TWITCH_ENABLED) consumeRedirect();
+  if (TWITCH_ENABLED) {
+    if (consumeRedirect()) {
+      // same-tab fallback path only; the popup path notifies via onAuthChange
+    }
+    onAuthChange(() => mountChatLogin());
+  }
 
-  const [status, feed] = await Promise.all([
+  const [status, twitchVods, feed] = await Promise.all([
     TWITCH_ENABLED ? loadJSON("/assets/data/live-status.json", { live: false }) : Promise.resolve({ live: false }),
+    TWITCH_ENABLED ? loadJSON("/assets/data/twitch-vods.json", { videos: [] }) : Promise.resolve({ videos: [] }),
     loadJSON("/assets/data/videos.json", { videos: [] }),
   ]);
 
   const videos = feed.videos || [];
-  renderPlayer(status, videos[0]);
+  renderPlayer(status, twitchVods.videos?.[0], videos[0]);
   renderChat(status);
   mountTabs(videos);
   renderVods(videos, "all");

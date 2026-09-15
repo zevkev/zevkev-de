@@ -1,31 +1,58 @@
-// "Login with Twitch" via the Implicit Grant flow — no client secret involved
-// at any point, since a static site can't keep one safe. The token only ever
-// lives in sessionStorage (cleared when the tab closes) and is used purely
-// client-side to identify the visitor and send chat messages as them.
+// "Login with Twitch" via the Implicit Grant flow, opened in a small popup
+// window instead of navigating the whole page away — no client secret
+// involved at any point, since a static site can't keep one safe. The token
+// only ever lives in sessionStorage (cleared when the tab closes) and is
+// used purely client-side to identify the visitor and send chat messages.
 import { TWITCH_CLIENT_ID } from "./config.js";
 
 const TOKEN_KEY = "zevkev-twitch-token";
 const STATE_KEY = "zevkev-twitch-oauth-state";
 const SCOPES = ["user:write:chat"];
 
+const changeListeners = new Set();
+export function onAuthChange(cb) {
+  changeListeners.add(cb);
+  return () => changeListeners.delete(cb);
+}
+function notifyChange() {
+  changeListeners.forEach((cb) => cb());
+}
+
 function redirectUri() {
   return `${location.origin}${location.pathname}`;
 }
 
-export function startLogin() {
-  const state = crypto.randomUUID();
-  sessionStorage.setItem(STATE_KEY, state);
+function authUrl(state) {
   const url = new URL("https://id.twitch.tv/oauth2/authorize");
   url.searchParams.set("client_id", TWITCH_CLIENT_ID);
   url.searchParams.set("redirect_uri", redirectUri());
   url.searchParams.set("response_type", "token");
   url.searchParams.set("scope", SCOPES.join(" "));
   url.searchParams.set("state", state);
-  location.href = url.toString();
+  return url.toString();
+}
+
+export function startLogin() {
+  const state = crypto.randomUUID();
+  sessionStorage.setItem(STATE_KEY, state);
+  const w = 480;
+  const h = 720;
+  const left = window.screenX + (window.outerWidth - w) / 2;
+  const top = window.screenY + (window.outerHeight - h) / 2;
+  const popup = window.open(
+    authUrl(state),
+    "twitch-login",
+    `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=yes`
+  );
+  if (!popup) {
+    // Popup blocked — fall back to a normal same-tab redirect.
+    location.href = authUrl(state);
+  }
 }
 
 export function logout() {
   sessionStorage.removeItem(TOKEN_KEY);
+  notifyChange();
 }
 
 export function getToken() {
@@ -36,22 +63,57 @@ export function getToken() {
   }
 }
 
-// Call once on every page load — picks up #access_token=... after the
-// Twitch redirect, verifies state, stores it, and cleans the URL.
+function storeToken(accessToken) {
+  sessionStorage.setItem(TOKEN_KEY, JSON.stringify({ accessToken }));
+}
+
+// Call once on every page load. Two cases:
+// - We ARE the popup Twitch just redirected back to: hand the token to the
+//   window that opened us via postMessage, then close ourselves.
+// - We're a normal tab that received that message: store the token and
+//   notify listeners so the UI (e.g. the chat login box) can update.
 export function consumeRedirect() {
-  if (!location.hash.includes("access_token")) return false;
-  const params = new URLSearchParams(location.hash.slice(1));
-  const token = params.get("access_token");
-  const state = params.get("state");
-  const expected = sessionStorage.getItem(STATE_KEY);
-  history.replaceState(null, "", location.pathname + location.search);
-  if (!token || !state || state !== expected) {
-    console.warn("Twitch OAuth: missing/mismatched state, ignoring token.");
+  if (window.opener && !window.opener.closed && location.hash.includes("access_token")) {
+    const params = new URLSearchParams(location.hash.slice(1));
+    const token = params.get("access_token");
+    const state = params.get("state");
+    try {
+      window.opener.postMessage({ source: "zevkev-twitch-auth", accessToken: token, state }, location.origin);
+    } catch {
+      // ignore — opener may have navigated away
+    }
+    window.close();
     return false;
   }
-  sessionStorage.setItem(TOKEN_KEY, JSON.stringify({ accessToken: token }));
-  sessionStorage.removeItem(STATE_KEY);
-  return true;
+
+  window.addEventListener("message", (ev) => {
+    if (ev.origin !== location.origin) return;
+    const data = ev.data;
+    if (!data || data.source !== "zevkev-twitch-auth") return;
+    const expected = sessionStorage.getItem(STATE_KEY);
+    if (!data.accessToken || !data.state || data.state !== expected) {
+      console.warn("Twitch OAuth: missing/mismatched state, ignoring token.");
+      return;
+    }
+    storeToken(data.accessToken);
+    sessionStorage.removeItem(STATE_KEY);
+    notifyChange();
+  });
+
+  // Legacy fallback: same-tab redirect landed here directly (popup blocked).
+  if (location.hash.includes("access_token")) {
+    const params = new URLSearchParams(location.hash.slice(1));
+    const token = params.get("access_token");
+    const state = params.get("state");
+    const expected = sessionStorage.getItem(STATE_KEY);
+    history.replaceState(null, "", location.pathname + location.search);
+    if (token && state && state === expected) {
+      storeToken(token);
+      sessionStorage.removeItem(STATE_KEY);
+      return true;
+    }
+  }
+  return false;
 }
 
 async function helixFetch(path, token, opts = {}) {
