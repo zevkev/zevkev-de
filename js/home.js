@@ -28,7 +28,7 @@ function initInviteCopy() {
     const invite = btn.getAttribute("data-invite");
     try {
       await navigator.clipboard.writeText(invite);
-      if (ok) ok.textContent = "✅ Einladung kopiert. Schick sie weiter!";
+      if (ok) ok.textContent = "Einladung kopiert. Schick sie weiter!";
     } catch {
       if (ok) ok.textContent = invite;
     }

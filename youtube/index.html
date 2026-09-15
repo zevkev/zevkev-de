@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YouTube | ZevKev</title>
+<meta name="description" content="Alle Videos von ZevKev auf YouTube. Videos und Entertainment aus dem Alltag, immer aktuell.">
+
+<link rel="icon" type="image/png" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
+<link rel="apple-touch-icon" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="YouTube | ZevKev">
+<meta property="og:description" content="Alle Videos von ZevKev auf YouTube.">
+<meta property="og:url" content="https://zevkev.de/youtube/">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/vods.css">
+<link rel="stylesheet" href="/css/youtube.css">
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<div class="page-body">
+  <div class="container" style="display:flex; flex-direction:column; align-items:center;">
+
+    <div class="yt-hero rip rip--b">
+      <img class="yt-hero-avatar" src="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png" alt="ZevKev">
+      <div class="yt-hero-text">
+        <h1>ZevKev auf YouTube</h1>
+        <p>Videos und Entertainment aus dem Alltag. Freizeitparks, Vlogs und mehr, immer aktuell.</p>
+        <a class="btn-youtube" href="https://www.youtube.com/@ZevKev?sub_confirmation=1" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+          Abonnieren
+        </a>
+      </div>
+    </div>
+
+    <div class="yt-featured" id="yt-featured"></div>
+
+    <h2 class="yt-section-title">Weitere Videos</h2>
+    <div class="vod-grid" id="yt-grid"></div>
+
+  </div>
+</div>
+
+<div id="site-footer"></div>
+
+<script type="module" src="/js/flags.js"></script>
+<script type="module">
+  import { mountLayout } from "/js/layout.js";
+  mountLayout();
+</script>
+<script type="module" src="/js/youtube.js"></script>
+</body>
+</html>

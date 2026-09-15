@@ -27,7 +27,16 @@ jobs:
       - name: Fetch YouTube VOD feed
         run: node scripts/fetch-vod-feed.mjs
 
+      - name: Fetch YouTube main channel feed
+        run: node scripts/fetch-main-feed.mjs
+
       - name: Fetch Twitch live status
+        # continue-on-error so a missing/not-yet-configured Twitch secret never
+        # blocks the YouTube feeds below from updating and committing. The
+        # real on/off switch for Twitch features is TWITCH_ENABLED in
+        # js/config.js (client-side); this just keeps live-status.json fresh
+        # whenever the secrets happen to be present.
+        continue-on-error: true
         env:
           TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
@@ -37,6 +46,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add assets/data/videos.json assets/data/live-status.json
-          git diff --cached --quiet || git commit -m "chore: refresh VOD feed & live status"
+          git add assets/data/videos.json assets/data/main-videos.json assets/data/live-status.json
+          git diff --cached --quiet || git commit -m "chore: refresh video feeds & live status"
           git push

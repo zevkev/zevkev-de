@@ -3,3 +3,10 @@
 // Real admin credentials must never go in a file like this.
 export const FOURTHWALL_STOREFRONT_TOKEN = "";
 export const TWITCH_CLIENT_ID = "";
+
+// Master switch for every Twitch-related feature (live player, chat, OAuth
+// login, "Auf Twitch folgen" buttons, the homepage Twitch section). Flip to
+// false to keep the site fully functional (YouTube VODs still show) without
+// mentioning Twitch anywhere, until you're ready to announce it. Set true
+// for local testing.
+export const TWITCH_ENABLED = true;

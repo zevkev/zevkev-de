@@ -3,15 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VODs & Live | ZevKev</title>
-<meta name="description" content="ZevKev live auf Twitch (zevkev_) — wenn offline, gibt's hier automatisch das neueste VOD. Chat direkt eingebunden, plus Watchlist zum Später-ansehen.">
+<title>VODs und Live | ZevKev</title>
+<meta name="description" content="ZevKev VODs: das neueste Video, wenn gerade nichts läuft. Watchlist zum Später ansehen.">
 
 <link rel="icon" type="image/png" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
 <link rel="apple-touch-icon" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
 
 <meta property="og:type" content="website">
-<meta property="og:title" content="VODs & Live | ZevKev">
-<meta property="og:description" content="Live auf Twitch oder das neueste VOD — plus Chat und Watchlist.">
+<meta property="og:title" content="VODs und Live | ZevKev">
+<meta property="og:description" content="Das neueste Video von ZevKev, plus Watchlist.">
 <meta property="og:url" content="https://zevkev.de/vods/">
 <meta name="twitter:card" content="summary_large_image">
 
@@ -21,26 +24,20 @@
 </head>
 <body>
 
-<svg width="0" height="0" style="position:absolute;" aria-hidden="true">
-  <filter id="rough-edge">
-    <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="5" result="noise" />
-    <feDisplacementMap in="SourceGraphic" in2="noise" scale="7" />
-  </filter>
-</svg>
-
 <div id="site-header"></div>
 
 <div class="page-body">
   <div class="container" style="display:flex; flex-direction:column; align-items:center;">
 
     <div class="vod-hero">
-      <h1>VODs &amp; Live</h1>
-      <p>Live als <b>zevkev_</b> auf Twitch — offline gibt's hier automatisch das neueste Video.</p>
+      <h1>VODs und Live</h1>
+      <p data-twitch-only>Live als <b>zevkev_</b> auf Twitch. Offline gibt's hier automatisch das neueste Video.</p>
+      <p data-twitch-hidden>Hier findest du immer das neueste Video von ZevKev.</p>
     </div>
 
     <div class="live-layout">
       <div class="player-col" id="player-col"></div>
-      <div class="chat-col" id="chat-col"></div>
+      <div class="chat-col" id="chat-col" data-twitch-only></div>
     </div>
 
     <div class="vod-section-head" id="vod-section-head"></div>
@@ -51,6 +48,7 @@
 
 <div id="site-footer"></div>
 
+<script type="module" src="/js/flags.js"></script>
 <script type="module">
   import { mountLayout } from "/js/layout.js";
   mountLayout();

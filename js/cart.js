@@ -110,11 +110,11 @@ async function addItem(variantId, quantity = 1) {
       state.cart = await FourthwallAPI.updateCart(id, items);
     }
     render();
-    showToast("✅ In den Warenkorb gelegt!");
+    showToast("In den Warenkorb gelegt.");
     openDrawer();
   } catch (err) {
     console.error("Add to cart failed:", err);
-    showToast("⚠️ Konnte nicht zum Warenkorb hinzugefügt werden.");
+    showToast("Konnte nicht zum Warenkorb hinzugefügt werden.");
   }
 }
 
