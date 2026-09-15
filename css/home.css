@@ -3,47 +3,43 @@
    site. Discord + Twitch content is built from small scattered notes/tickets
    rather than a uniform card grid, so it reads as assembled, not templated. */
 
-body.home { background-color: var(--zone-twitch); background-image: none; }
+body.home { background-color: var(--zone-twitch); background-image: none; position: relative; }
 html.twitch-disabled body.home { background-color: var(--zone-discord); }
 
-.zone { width: 100%; padding: 74px 20px 64px; box-sizing: border-box; position: relative; overflow: hidden; }
-
-.zone--hero {
-  background-color: var(--zone-hero);
+/* One texture layer spanning the whole page, instead of one per zone — three
+   independent repeating patterns never line up at the boundary between them,
+   which read as a hard seam where the zones meet. A single continuous layer
+   on the body can't have that problem, since there's only one of it. */
+body.home::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
   background-image:
     repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0, rgba(255,255,255,.05) 1px, transparent 1px, transparent 160px),
     repeating-linear-gradient(-45deg, rgba(255,255,255,.05) 0, rgba(255,255,255,.05) 1px, transparent 1px, transparent 160px),
     radial-gradient(rgba(255,255,255,.15) 1.4px, transparent 1.5px);
   background-size: auto, auto, 26px 26px;
+}
+
+.zone { width: 100%; padding: 74px 20px 64px; box-sizing: border-box; position: relative; overflow: hidden; z-index: 2; }
+
+.zone--hero {
+  background-color: var(--zone-hero);
   padding-top: calc(var(--header-h) + 46px);
 }
 
 .zone--discord {
-  background-repeat: repeat, repeat, repeat, no-repeat;
-  background-image:
-    repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0, rgba(255,255,255,.05) 1px, transparent 1px, transparent 160px),
-    repeating-linear-gradient(-45deg, rgba(255,255,255,.05) 0, rgba(255,255,255,.05) 1px, transparent 1px, transparent 160px),
-    radial-gradient(rgba(255,255,255,.15) 1.4px, transparent 1.5px),
-    linear-gradient(to bottom, var(--zone-hero) 0, var(--zone-discord) 140px, var(--zone-discord) calc(100% - 140px), var(--zone-twitch) 100%);
-  background-size: auto, auto, 26px 26px, 100% 100%;
+  background-image: linear-gradient(to bottom, var(--zone-hero) 0, var(--zone-discord) 140px, var(--zone-discord) calc(100% - 140px), var(--zone-twitch) 100%);
 }
 html.twitch-disabled .zone--discord {
   padding-bottom: 100px;
-  background-image:
-    repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0, rgba(255,255,255,.05) 1px, transparent 1px, transparent 160px),
-    repeating-linear-gradient(-45deg, rgba(255,255,255,.05) 0, rgba(255,255,255,.05) 1px, transparent 1px, transparent 160px),
-    radial-gradient(rgba(255,255,255,.15) 1.4px, transparent 1.5px),
-    linear-gradient(to bottom, var(--zone-hero) 0, var(--zone-discord) 140px);
+  background-image: linear-gradient(to bottom, var(--zone-hero) 0, var(--zone-discord) 140px);
 }
 
 .zone--twitch {
-  background-repeat: repeat, repeat, repeat, no-repeat;
-  background-image:
-    repeating-linear-gradient(45deg, rgba(145,70,255,.12) 0, rgba(145,70,255,.12) 1px, transparent 1px, transparent 160px),
-    repeating-linear-gradient(-45deg, rgba(145,70,255,.12) 0, rgba(145,70,255,.12) 1px, transparent 1px, transparent 160px),
-    radial-gradient(rgba(145,70,255,.2) 1.4px, transparent 1.5px),
-    linear-gradient(to bottom, var(--zone-discord) 0, var(--zone-twitch) 140px, var(--zone-twitch) 100%);
-  background-size: auto, auto, 26px 26px, 100% 100%;
+  background-image: linear-gradient(to bottom, var(--zone-discord) 0, var(--zone-twitch) 140px, var(--zone-twitch) 100%);
   padding-bottom: 100px;
 }
 
