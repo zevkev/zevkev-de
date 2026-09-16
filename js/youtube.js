@@ -1,8 +1,19 @@
 const WATCHLIST_KEY = "zevkev-watchlist";
 
+// How many cards the grid shows before a "load more" click reveals the next
+// batch. Needed now that main-videos.json can hold a long-running channel's
+// entire upload history (hundreds of videos, via scripts/fetch-main-feed.mjs
+// and the YouTube Data API) instead of the old RSS feed's ~15-video cap —
+// rendering all of them into the DOM at once on first paint doesn't scale
+// the same way. Reset to PAGE_SIZE on every Videos/Shorts tab switch
+// (mountFilters below) and bumped by PAGE_SIZE on every "load more" click.
+const PAGE_SIZE = 24;
+let visibleCount = PAGE_SIZE;
+
 const featuredEl = document.getElementById("yt-featured");
 const gridEl = document.getElementById("yt-grid");
 const filterBarEl = document.getElementById("yt-filter-bar");
+const loadMoreEl = document.getElementById("yt-load-more");
 
 function starIcon(filled) {
   return `<svg viewBox="0 0 24 24" width="18" height="18" fill="${filled ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.8"><path d="M12 3.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z" stroke-linejoin="round"/></svg>`;
@@ -18,6 +29,9 @@ function eyeIcon() {
 }
 function emptyIcon() {
   return `<svg class="yt-empty-icon" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M10 9.3v5.4l4.5-2.7Z" fill="currentColor" stroke="none"/></svg>`;
+}
+function chevronDownIcon(size = 14) {
+  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`;
 }
 
 function escapeHTML(str) {
@@ -170,10 +184,12 @@ function renderGrid(videos, mode) {
 
   if (!list.length) {
     gridEl.innerHTML = `<div class="empty-state">${emptyIcon()}<h2>${mode === "shorts" ? "Noch keine Shorts" : "Noch keine Videos"}</h2><p>Schau bald wieder vorbei.</p></div>`;
+    renderLoadMore(videos, mode, 0, 0);
     return;
   }
+  const shown = list.slice(0, visibleCount);
   const watchlist = getWatchlist();
-  gridEl.innerHTML = list.map((v) => cardHTML(v, watchlist, mode === "shorts")).join("");
+  gridEl.innerHTML = shown.map((v) => cardHTML(v, watchlist, mode === "shorts")).join("");
 
   gridEl.querySelectorAll("[data-watch-id]").forEach((btn) => {
     btn.addEventListener("click", (ev) => {
@@ -193,9 +209,30 @@ function renderGrid(videos, mode) {
     card.addEventListener("click", (ev) => {
       if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
       ev.preventDefault();
-      const video = list.find((v) => v.id === card.dataset.videoId);
+      const video = shown.find((v) => v.id === card.dataset.videoId);
       if (video) openVideoModal(video);
     });
+  });
+
+  renderLoadMore(videos, mode, shown.length, list.length);
+}
+
+// Reveals the next PAGE_SIZE cards on click instead of rendering the whole
+// (potentially hundreds-long) list at once. Re-renders via renderGrid rather
+// than only appending new cards, so this stays in sync with the exact same
+// slicing/empty-state logic above instead of duplicating it.
+function renderLoadMore(videos, mode, shownCount, totalCount) {
+  if (!loadMoreEl) return;
+  if (shownCount >= totalCount) {
+    loadMoreEl.innerHTML = "";
+    return;
+  }
+  const label = mode === "shorts" ? "Weitere Shorts laden" : "Weitere Videos laden";
+  loadMoreEl.innerHTML = `<button type="button" class="filter-pill rip yt-load-more-btn">${chevronDownIcon()}${label} &middot; noch ${totalCount - shownCount}</button>`;
+  loadMoreEl.querySelector(".yt-load-more-btn").addEventListener("click", () => {
+    visibleCount += PAGE_SIZE;
+    renderGrid(videos, mode);
+    loadMoreEl.querySelector(".yt-load-more-btn")?.focus();
   });
 }
 
@@ -210,19 +247,20 @@ function mountFilters(videos) {
     pill.addEventListener("click", () => {
       filterBarEl.querySelectorAll(".filter-pill").forEach((p) => p.classList.remove("is-active"));
       pill.classList.add("is-active");
+      visibleCount = PAGE_SIZE; // fresh first page for the newly selected tab
       renderGrid(videos, pill.dataset.mode);
     });
   });
 }
 
 async function init() {
-  // main-videos.json mirrors YouTube's public RSS feed (feeds/videos.xml),
-  // which YouTube itself caps at the channel's ~15 most recent uploads —
-  // there's no page 2 to request. Every entry the feed returns is rendered
-  // below; nothing in this file (or in scripts/fetch-main-feed.mjs) trims
-  // that list further. Showing the full upload history would need a
-  // different data source (YouTube Data API v3 with paginated
-  // playlistItems.list), which is a bigger, separate change.
+  // main-videos.json now comes from scripts/fetch-main-feed.mjs's YouTube
+  // Data API v3 pass (paginated playlistItems.list against the uploads
+  // playlist), not the old public RSS feed — so it holds the channel's full
+  // upload history, not just the last ~15. Every entry is still rendered
+  // here; renderGrid just reveals it PAGE_SIZE cards at a time (see
+  // renderLoadMore above) instead of dumping the whole history into the DOM
+  // on first paint.
   const feed = await loadJSON("/assets/data/main-videos.json", { videos: [] });
   const videos = feed.videos || [];
   renderFeatured(videos[0]);

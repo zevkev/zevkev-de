@@ -28,6 +28,14 @@ jobs:
         run: node scripts/fetch-vod-feed.mjs
 
       - name: Fetch YouTube main channel feed
+        # continue-on-error so a not-yet-configured (or quota-exhausted)
+        # YOUTUBE_API_KEY never blocks the Twitch status step or the commit
+        # step below — same reasoning as the Twitch step's continue-on-error
+        # just below. See the setup comment atop scripts/fetch-main-feed.mjs
+        # for how to create/add that secret.
+        continue-on-error: true
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: node scripts/fetch-main-feed.mjs
 
       - name: Fetch Twitch live status

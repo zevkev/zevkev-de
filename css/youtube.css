@@ -165,6 +165,17 @@
   #yt-grid .vod-card { animation-delay: 0ms !important; }
 }
 
+/* ---------- Load more ----------
+   Revealed by youtube.js/renderLoadMore whenever the active tab (Videos or
+   Shorts) has more cards than are currently shown — keeps a long-running
+   channel's full history (hundreds of entries once scripts/fetch-main-
+   feed.mjs pulls from the YouTube Data API instead of the old ~15-video RSS
+   cap) from being dumped into the DOM in one go. */
+.yt-load-more-row { width: 100%; max-width: 1200px; display: flex; justify-content: center; margin: 8px 0 12px; }
+.yt-load-more-btn { display: inline-flex; align-items: center; gap: 8px; }
+.yt-load-more-btn svg { flex-shrink: 0; transition: transform 0.2s ease; }
+.yt-load-more-btn:hover svg { transform: translateY(2px); }
+
 /* ---------- Empty / not-loaded state icon (youtube.js-generated only) ---------- */
 .yt-empty-icon { color: rgba(255, 255, 255, 0.5); margin-bottom: 12px; }
 
