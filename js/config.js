@@ -4,9 +4,6 @@
 export const FOURTHWALL_STOREFRONT_TOKEN = "ptkn_6c46cc3a-a035-40c9-a48a-2f828c860d9f";
 export const TWITCH_CLIENT_ID = "rnvciectlc9kf9tb3utzuzvhrcdy2x";
 
-// Master switch for every Twitch-related feature (live player, chat, OAuth
-// login, "Auf Twitch folgen" buttons, the homepage Twitch section). Flip to
-// false to keep the site fully functional (YouTube VODs still show) without
-// mentioning Twitch anywhere, until you're ready to announce it. Set true
-// for local testing.
-export const TWITCH_ENABLED = true;
+// The Twitch on/off switch lives in its own file so it's a one-line edit
+// directly on GitHub — see js/twitch-toggle.js.
+export { TWITCH_ENABLED } from "./twitch-toggle.js";
