@@ -122,7 +122,10 @@ function itemsForUpdate() {
 
 async function refreshFromApi() {
   const id = localStorage.getItem(STORAGE_KEY);
-  if (!id) return;
+  if (!id) {
+    render();
+    return;
+  }
   try {
     state.cart = await FourthwallAPI.getCart(id);
   } catch (err) {
