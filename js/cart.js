@@ -2,9 +2,11 @@ import { FourthwallAPI } from "./fourthwall-api.js";
 
 const STORAGE_KEY = "zevkev-cart-id";
 // Fourthwall's hosted checkout lives on whichever domain is connected as
-// this shop's custom domain in Settings → Domain. Keep in sync if that ever
-// changes — see the zevkev.me / zevkev.de note in the README.
-const CHECKOUT_DOMAIN = "zevkev.me";
+// this shop's custom domain in Settings → Domain (confirmed live there as
+// "shop.zevkev.me — Connected"). This is deliberately the shop subdomain,
+// not the zevkev.me apex — the apex redirects to zevkev.de, so pointing
+// checkout at it would loop. Keep in sync if the connected domain changes.
+const CHECKOUT_DOMAIN = "shop.zevkev.me";
 
 function money(amount, currency) {
   try {
@@ -64,7 +66,13 @@ function render() {
   if (!items) return;
 
   if (!lineItems.length) {
-    items.innerHTML = `<p class="cart-empty">Dein Warenkorb ist leer.<br>Schau dich im <a href="/shop/">Shop</a> um!</p>`;
+    items.innerHTML = `
+      <div class="cart-empty">
+        <svg class="cart-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h2l2.4 12.4a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="9" cy="21" r="1"/><circle cx="18" cy="21" r="1"/></svg>
+        <p class="cart-empty-title">Dein Warenkorb ist leer.</p>
+        <p class="cart-empty-text">Schau dich im Shop um!</p>
+        <a href="/shop/" class="p-btn rip btn-accent cart-empty-cta">Zum Shop</a>
+      </div>`;
     if (footer) footer.style.display = "none";
     return;
   }
@@ -75,16 +83,25 @@ function render() {
       const img = v.images?.[0]?.url || "";
       const name = v.product?.name || v.name || "Artikel";
       const attrs = v.attributes?.description || "";
-      const price = money(v.unitPrice?.value ?? 0, v.unitPrice?.currency);
+      const qty = it.quantity || 0;
+      const unit = v.unitPrice?.value ?? 0;
+      const currency = v.unitPrice?.currency;
+      const unitPrice = money(unit, currency);
+      const lineTotal = money(unit * qty, currency);
       return `
-      <div class="cart-item" data-variant-id="${v.id}">
+      <div class="cart-item rip" data-variant-id="${v.id}">
         ${img ? `<img src="${img}" alt="">` : ""}
         <div class="cart-item-info">
-          <div class="name">${name}</div>
-          ${attrs ? `<div class="attrs">${attrs}</div>` : ""}
-          <div class="attrs">${it.quantity} &times; ${price}</div>
+          <div class="cart-item-name">${name}</div>
+          ${attrs ? `<div class="cart-item-attrs">${attrs}</div>` : ""}
+          <div class="cart-item-meta">
+            ${qty > 1 ? `<span class="cart-item-qty">${qty} &times; ${unitPrice}</span>` : ""}
+            <span class="cart-item-total">${lineTotal}</span>
+          </div>
         </div>
-        <button class="cart-item-remove" data-remove="${v.id}">Entfernen</button>
+        <button class="cart-item-remove" data-remove="${v.id}" aria-label="${name} entfernen" title="Entfernen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        </button>
       </div>`;
     })
     .join("");
