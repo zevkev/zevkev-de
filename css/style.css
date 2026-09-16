@@ -17,7 +17,8 @@
   --tape: rgba(230, 220, 170, 0.6);
   --text-dark: #1a1a1a;
   --text-muted: #4a4a40;
-  --photo-mat: #bfae87;
+  --photo-mat: #c19464;
+  --photo-mat-dark: #8a6a42;
   --accent-red: #c0392b;
   --accent-green: #3c7a4b;
   --shadow-soft: 0 8px 20px rgba(0, 0, 0, 0.3);
@@ -58,7 +59,8 @@
   --tape: rgba(150, 165, 195, 0.45);
   --text-dark: #f0f1f5;
   --text-muted: #9d9fa8;
-  --photo-mat: #383c46;
+  --photo-mat: #6b5133;
+  --photo-mat-dark: #4a3620;
   --accent-red: #e0564a;
   --accent-green: #5fb377;
   --shadow-soft: 0 10px 26px rgba(0, 0, 0, 0.65);
@@ -80,7 +82,7 @@
 :root[data-theme="dark"] .cart-button {
   color: var(--text-dark) !important;
 }
-:root[data-theme="dark"] .site-nav a::after { background: var(--paper-accent); }
+:root[data-theme="dark"] .site-nav a:hover { background: rgba(255, 255, 255, 0.08); }
 :root[data-theme="dark"] .cart-button {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.16);
@@ -88,6 +90,22 @@
 :root[data-theme="dark"] .theme-toggle { border-color: rgba(255, 255, 255, 0.16); }
 :root[data-theme="dark"] .footer-socials a { background: rgba(255, 255, 255, 0.08); color: var(--text-dark) !important; }
 :root[data-theme="dark"] .footer-socials a:hover { background: rgba(255, 255, 255, 0.16); }
+
+/* Cart drawer: the light-mode rgba(0,0,0,..) washes used for the tray,
+   close button and remove button read as almost nothing against the dark
+   paper tone, so dark mode gets its own lighter set (same pattern as
+   .footer-socials above). The receipt-tear perforation flips from a black
+   to a white wash for the same reason. */
+:root[data-theme="dark"] .cart-items { background: rgba(0, 0, 0, 0.22); }
+:root[data-theme="dark"] .cart-drawer .cart-close { background: rgba(255, 255, 255, 0.08); }
+:root[data-theme="dark"] .cart-drawer .cart-close:hover { background: rgba(255, 255, 255, 0.16); }
+:root[data-theme="dark"] .cart-item-remove { background: rgba(255, 255, 255, 0.08); }
+:root[data-theme="dark"] .cart-drawer-header { border-bottom-color: rgba(255, 255, 255, 0.16); }
+:root[data-theme="dark"] .receipt-tear {
+  background: linear-gradient(-45deg, transparent 8px, rgba(255, 255, 255, 0.14) 8px) 0 0/16px 16px repeat-x,
+    linear-gradient(45deg, transparent 8px, rgba(255, 255, 255, 0.14) 8px) 0 0/16px 16px repeat-x;
+  background-position: bottom;
+}
 
 * { box-sizing: border-box; }
 
@@ -181,7 +199,29 @@ h1, h2, .display-font {
 .rip--c::before { clip-path: var(--tear-c); }
 .rip--accent::before { background-color: var(--paper-accent); }
 .rip--pink::before { background-color: var(--paper-pink); }
-.rip--photo::before { background-color: var(--photo-mat); }
+/* Cork-board mat: two speckle tiers (tiny sharp pores + small soft flecks,
+   each in both a dark and a light-cream tone so it doesn't go flat in dark
+   mode), two large soft "mottling" clouds for irregular cloudy variation,
+   a radial vignette, and a diagonal multiply wash for a hint of uneven
+   studio light. Everything is built from --photo-mat/--photo-mat-dark plus
+   neutral black/cream — no new hue. Kept in sync with .product-photo-frame
+   in shop.css, which uses the same recipe. */
+.rip--photo::before {
+  background-color: var(--photo-mat);
+  background-image:
+    radial-gradient(rgba(0,0,0,.26) .5px, transparent 1.1px),
+    radial-gradient(rgba(255,244,222,.2) .5px, transparent 1.1px),
+    radial-gradient(rgba(0,0,0,.15) 1px, transparent 1.8px),
+    radial-gradient(rgba(255,244,222,.14) 1.1px, transparent 2px),
+    radial-gradient(ellipse at 30% 40%, rgba(0,0,0,.09), transparent 65%),
+    radial-gradient(ellipse at 65% 60%, rgba(255,244,222,.08), transparent 65%),
+    radial-gradient(ellipse at center, transparent 58%, rgba(0,0,0,.16) 100%),
+    linear-gradient(135deg, transparent 15%, var(--photo-mat-dark) 160%);
+  background-size: 5px 6px, 7px 8px, 13px 11px, 17px 15px, 120px 90px, 150px 110px, 100% 100%, 100% 100%;
+  background-position: 0 0, 3px 2px, 2px 6px, 8px 3px, 0 0, 40px 20px, 0 0, 0 0;
+  background-blend-mode: normal, normal, normal, normal, normal, normal, multiply, multiply;
+  box-shadow: inset 0 0 12px rgba(0,0,0,.18);
+}
 
 .tape {
   position: absolute;
@@ -275,7 +315,6 @@ h1, h2, .display-font {
   background-blend-mode: multiply;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
-.site-header .header-tape { top: -6px; left: 36px; transform: rotate(-9deg); }
 .site-header .container { display: flex; align-items: center; justify-content: space-between; gap: 20px; height: 100%; }
 
 .site-logo {
@@ -291,7 +330,10 @@ h1, h2, .display-font {
 }
 .site-logo img { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--text-dark); }
 
-.site-nav { display: flex; align-items: center; gap: 28px; }
+/* Tab-like pills instead of bare underlined text, matching the filter-pill
+   / size-swatch chip treatment used elsewhere, so the active page reads as
+   a clearly "pressed" tab rather than a thin line easy to miss. */
+.site-nav { display: flex; align-items: center; gap: 4px; }
 .site-nav a {
   color: var(--text-dark) !important;
   text-decoration: none;
@@ -299,19 +341,12 @@ h1, h2, .display-font {
   font-size: 0.95rem;
   letter-spacing: 0.2px;
   position: relative;
-  padding: 6px 2px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  transition: background-color 0.2s ease;
 }
-.site-nav a::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  height: 2px;
-  width: 0;
-  background: var(--blue-mat);
-  transition: width 0.25s ease;
-}
-.site-nav a:hover::after, .site-nav a.is-active::after { width: 100%; }
+.site-nav a:hover { background: rgba(0, 0, 0, 0.06); }
+.site-nav a.is-active { background: var(--paper-accent); }
 
 .header-actions { display: flex; align-items: center; gap: 14px; }
 
@@ -351,6 +386,7 @@ h1, h2, .display-font {
   position: relative;
 }
 .cart-button:hover { transform: scale(1.08); background: #fff; }
+.cart-button:focus-visible { outline: 2px solid var(--accent-red); outline-offset: 3px; }
 .cart-button svg { width: 20px; height: 20px; }
 
 .cart-badge {
@@ -387,9 +423,18 @@ h1, h2, .display-font {
 .cart-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
 .cart-backdrop.is-open { opacity: 1; pointer-events: auto; }
 
+/* Chrome, not content: flat rectangle with the same paper-grain texture as
+   the header/footer (see the "Chrome" comment above) rather than a .rip
+   torn edge — the panel is flush with the viewport's top and bottom, so a
+   horizontal tear (the only kind --tear-* draws) would just run offscreen.
+   Line items below get the actual torn-card treatment instead. */
 .cart-drawer {
   position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 100%); z-index: 201;
-  background: var(--paper); box-shadow: -10px 0 30px rgba(0, 0, 0, 0.4);
+  background-color: var(--paper);
+  background-image: url("/assets/img/paper-grain.jpg");
+  background-size: 160px 160px;
+  background-blend-mode: multiply;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.4);
   transform: translateX(100%); transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   display: flex; flex-direction: column; padding: 26px 24px;
 }
@@ -397,15 +442,56 @@ h1, h2, .display-font {
 
 .cart-drawer-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px dashed rgba(0, 0, 0, 0.2); padding-bottom: 16px; margin-bottom: 10px; }
 .cart-drawer-header h2 { margin: 0; font-size: 1.5rem; }
+/* .cart-close is shared with the shop quick-view modal's close button
+   (js/catalog.js) via the same class name — the bare rule must keep
+   working unmodified there, so the icon-button treatment below is scoped
+   to .cart-drawer only and never touches the quick-view modal. */
 .cart-close { background: none; border: none; font-size: 1.6rem; line-height: 1; }
+.cart-drawer .cart-close {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.06);
+  font-size: 1.6rem; line-height: 1; color: var(--text-dark);
+  transition: background 0.2s ease, transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.cart-drawer .cart-close:hover { background: rgba(0, 0, 0, 0.12); transform: scale(1.08) rotate(90deg); }
+.cart-drawer .cart-close:focus-visible { outline: 2px solid var(--accent-red); outline-offset: 2px; }
 
-.cart-items { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding: 14px 0; }
-.cart-item { display: flex; gap: 12px; align-items: center; padding-bottom: 14px; border-bottom: 1px dashed rgba(0, 0, 0, 0.25); }
-.cart-item img { width: 58px; height: 58px; object-fit: cover; background: var(--photo-mat); padding: 3px; flex-shrink: 0; }
-.cart-item-info { flex: 1; }
-.cart-item-info .name { font-weight: bold; font-size: 0.92rem; }
-.cart-item-info .attrs { font-size: 0.8rem; color: var(--text-muted); }
-.cart-item-remove { background: none; border: none; color: var(--accent-red); font-size: 0.8rem; text-decoration: underline; padding: 2px 0; }
+/* Line items sit in a faintly recessed tray so the paper-toned .rip cards
+   read as distinct pieces resting in the drawer, instead of blending into
+   the drawer's own paper background. */
+.cart-items {
+  flex: 1; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 14px 10px; margin-top: 4px;
+  background: rgba(0, 0, 0, 0.035);
+  border-radius: 6px;
+}
+
+.cart-item { display: flex; gap: 12px; align-items: center; padding: 12px 14px; }
+.cart-item.rip:nth-child(even)::before { clip-path: var(--tear-b); }
+.cart-item.rip:nth-child(odd)::before { clip-path: var(--tear-c); }
+.cart-item img {
+  width: 58px; height: 58px; object-fit: cover; flex-shrink: 0;
+  background: var(--photo-mat); padding: 3px;
+  box-shadow: 1px 2px 5px rgba(0, 0, 0, 0.25);
+}
+.cart-item-info { flex: 1; min-width: 0; }
+.cart-item-name { font-weight: bold; font-size: 0.92rem; }
+.cart-item-attrs { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+.cart-item-meta { display: flex; align-items: baseline; gap: 8px; margin-top: 5px; }
+.cart-item-qty { font-size: 0.76rem; color: var(--text-muted); }
+.cart-item-total { font-weight: bold; font-size: 0.95rem; color: var(--text-dark); margin-left: auto; white-space: nowrap; }
+
+.cart-item-remove {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.06); color: var(--text-muted); border: none;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.cart-item-remove svg { width: 16px; height: 16px; }
+.cart-item-remove:hover { background: var(--accent-red); color: #fff; transform: scale(1.08); }
+.cart-item-remove:focus-visible { outline: 2px solid var(--accent-red); outline-offset: 2px; }
 
 .receipt-tear {
   height: 16px; margin: 0 -24px; flex-shrink: 0;
@@ -415,8 +501,24 @@ h1, h2, .display-font {
 }
 
 .cart-footer { padding-top: 16px; }
-.cart-subtotal { display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1rem; margin-bottom: 14px; }
-.cart-empty { text-align: center; color: var(--text-muted); margin-top: 40px; }
+.cart-subtotal { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.cart-subtotal-label { font-size: 0.78rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+.cart-subtotal-value {
+  font-size: 1.25rem; font-weight: bold; color: var(--text-dark);
+  background: var(--paper-accent); padding: 4px 12px; border-radius: 3px;
+  transform: rotate(-2deg); box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.cart-empty { text-align: center; color: var(--text-muted); margin: 50px auto 0; max-width: 260px; }
+.cart-empty-icon { width: 52px; height: 52px; margin: 0 auto 14px; color: var(--text-muted); opacity: 0.5; transform: rotate(-6deg); }
+.cart-empty-title { color: var(--text-dark); font-weight: bold; font-size: 1.05rem; margin: 0 0 6px; }
+.cart-empty-text { margin: 0 0 20px; font-size: 0.9rem; line-height: 1.4; }
+.cart-empty-cta { margin: 0 auto; }
+
+@media (max-width: 480px) {
+  .cart-drawer { padding: 22px 16px; }
+  .receipt-tear { margin: 0 -16px; }
+}
 
 .toast {
   position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(30px);
@@ -487,9 +589,8 @@ h1, h2, .display-font {
     z-index: 90;
   }
   .site-nav.is-open { transform: translateY(0); opacity: 1; pointer-events: auto; }
-  .site-nav a { padding: 14px 24px; text-align: center; }
-  .site-nav a::after { display: none; }
-  .site-nav a.is-active { background: rgba(0, 0, 0, 0.06); font-weight: 900; }
+  .site-nav a { padding: 14px 24px; text-align: center; border-radius: 0; }
+  .site-nav a.is-active { background: rgba(0, 0, 0, 0.1); font-weight: 900; }
   .nav-toggle { display: block; }
   .cart-drawer { width: 100%; }
 }

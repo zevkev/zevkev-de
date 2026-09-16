@@ -36,6 +36,9 @@
   width: 100%;
   max-width: 1200px;
 }
+/* A lone .empty-state/.error-state inside this auto-fill grid otherwise
+   only occupies the first track and sits pinned to the left. */
+.product-grid > .empty-state, .product-grid > .error-state { grid-column: 1 / -1; }
 .product-card {
   padding: 18px 18px 22px;
   display: flex;
@@ -50,8 +53,29 @@
 .product-card:hover { transform: rotate(0deg) scale(1.035) translateY(-6px) !important; }
 .product-card:hover::before { box-shadow: var(--shadow-hover); }
 
-.product-photo-frame { padding: 10px; margin-bottom: 14px; position: relative; }
-.product-photo-frame img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; transition: transform 0.5s ease; }
+/* Same cork-mat recipe as .rip--photo::before in style.css (used by the
+   quick-view's main photo) — kept in sync so the grid thumbnails and the
+   enlarged view read as the same material. */
+.product-photo-frame {
+  padding: 14px;
+  margin-bottom: 14px;
+  position: relative;
+  background-color: var(--photo-mat);
+  background-image:
+    radial-gradient(rgba(0,0,0,.26) .5px, transparent 1.1px),
+    radial-gradient(rgba(255,244,222,.2) .5px, transparent 1.1px),
+    radial-gradient(rgba(0,0,0,.15) 1px, transparent 1.8px),
+    radial-gradient(rgba(255,244,222,.14) 1.1px, transparent 2px),
+    radial-gradient(ellipse at 30% 40%, rgba(0,0,0,.09), transparent 65%),
+    radial-gradient(ellipse at 65% 60%, rgba(255,244,222,.08), transparent 65%),
+    radial-gradient(ellipse at center, transparent 58%, rgba(0,0,0,.16) 100%),
+    linear-gradient(135deg, transparent 15%, var(--photo-mat-dark) 160%);
+  background-size: 5px 6px, 7px 8px, 13px 11px, 17px 15px, 120px 90px, 150px 110px, 100% 100%, 100% 100%;
+  background-position: 0 0, 3px 2px, 2px 6px, 8px 3px, 0 0, 40px 20px, 0 0, 0 0;
+  background-blend-mode: normal, normal, normal, normal, normal, normal, multiply, multiply;
+  box-shadow: inset 0 0 12px rgba(0,0,0,.18), inset 0 0 0 1px rgba(0,0,0,.15);
+}
+.product-photo-frame img { width: 100%; aspect-ratio: 1 / 1; object-fit: contain; transition: transform 0.5s ease; cursor: zoom-in; }
 .product-card:hover .product-photo-frame img { transform: scale(1.06); }
 
 .product-card h3 { margin: 0 0 6px; font-size: 1.05rem; color: var(--text-dark); line-height: 1.3; }
@@ -95,6 +119,66 @@
 .badge-soldout { color: var(--accent-red); }
 .badge-sale { color: var(--accent-green); }
 
+/* ---------- Quick-view modal ---------- */
+.qv-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 92%;
+  max-width: 1000px;
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 20px;
+  box-sizing: border-box;
+  z-index: 250;
+}
+.qv-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.08);
+  font-size: 1.4rem;
+  line-height: 1;
+  z-index: 2;
+}
+.qv-divider { border-top: 2px dashed rgba(0, 0, 0, 0.15); margin: 18px 0; }
+.qv-zoom-hint {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--text-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.qv-zoom-hint svg { width: 18px; height: 18px; }
+
+.qv-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  box-sizing: border-box;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.qv-lightbox.is-open { opacity: 1; pointer-events: auto; }
+.qv-lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.qv-lightbox .qv-close { background: rgba(255, 255, 255, 0.15); color: #fff; top: 20px; right: 20px; }
+
 /* ---------- Product detail page ---------- */
 .product-page {
   display: grid;
@@ -130,7 +214,10 @@
 .swatch-color .clip { font-size: 1.15rem; transform: rotate(-20deg); margin-bottom: -9px; filter: drop-shadow(1px 2px 1px rgba(0, 0, 0, 0.35)); transition: transform 0.2s ease; }
 .swatch-color:nth-child(3n + 1) .clip { transform: rotate(-14deg); }
 .swatch-color:nth-child(3n + 2) .clip { transform: rotate(10deg); }
-.swatch-color .chip { width: 32px; height: 32px; border-radius: 2px; border: 3px solid #fff; box-shadow: 1px 2px 5px rgba(0, 0, 0, 0.3); transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+/* The white swatch's own fill is white, same as the border below it — the
+   extra thin ring keeps it from disappearing into a light-mode panel;
+   barely visible for any other color. */
+.swatch-color .chip { width: 32px; height: 32px; border-radius: 2px; border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.18), 1px 2px 5px rgba(0, 0, 0, 0.3); transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
 .swatch-color .label { font-size: 0.62rem; font-weight: bold; color: var(--text-muted); max-width: 50px; text-align: center; line-height: 1.1; }
 .swatch-color:hover .chip { transform: scale(1.08) rotate(-3deg); }
 .swatch-color.is-selected .chip { transform: scale(1.1) rotate(-2deg); box-shadow: 0 0 0 3px var(--blue-mat), 1px 2px 5px rgba(0, 0, 0, 0.3); }
@@ -164,4 +251,8 @@
 @media (max-width: 860px) {
   .product-page { grid-template-columns: 1fr; }
   .product-info { padding: 26px 6px; }
+}
+
+@media (max-width: 640px) {
+  .product-card:nth-child(3n + 2), .product-card:nth-child(3n + 3) { margin-top: 0; }
 }

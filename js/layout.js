@@ -41,7 +41,6 @@ function socialLinksHTML() {
 function headerHTML(isShop) {
   return `
   <header class="site-header">
-    <div class="tape header-tape"></div>
     <div class="container">
       <a class="site-logo" href="/">
         <img src="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png" alt="">
@@ -62,7 +61,7 @@ function headerHTML(isShop) {
 function cartButtonHTML() {
   return `
   <button class="cart-button" id="cart-open" aria-label="Warenkorb öffnen">
-    <svg viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="2"><path d="M3 3h2l2.4 12.4a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="9" cy="21" r="1"/><circle cx="18" cy="21" r="1"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h2l2.4 12.4a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="9" cy="21" r="1"/><circle cx="18" cy="21" r="1"/></svg>
     <span class="cart-badge" id="cart-badge">0</span>
   </button>`;
 }
@@ -78,8 +77,14 @@ function cartDrawerHTML() {
     <div class="cart-items" id="cart-items"></div>
     <div class="receipt-tear"></div>
     <div class="cart-footer" id="cart-footer" style="display:none;">
-      <div class="cart-subtotal"><span>Zwischensumme</span><span id="cart-subtotal">0,00 €</span></div>
-      <a class="p-btn rip btn-accent" id="cart-checkout" style="width:100%; justify-content:center;">Zur Kasse</a>
+      <div class="cart-subtotal">
+        <span class="cart-subtotal-label">Zwischensumme</span>
+        <span class="cart-subtotal-value" id="cart-subtotal">0,00 €</span>
+      </div>
+      <a class="p-btn rip btn-accent" id="cart-checkout" style="width:100%; justify-content:center;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        Zur Kasse
+      </a>
     </div>
   </aside>`;
 }

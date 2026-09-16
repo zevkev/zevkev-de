@@ -15,7 +15,11 @@ body.home::before {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 1;
+  /* Above the zones (z-index 2), not below: each zone paints an opaque
+     background color, so a texture layer behind them was fully hidden
+     across the whole page. Low opacity keeps it a subtle overlay rather
+     than obscuring the zone content it now sits in front of. */
+  z-index: 3;
   background-image:
     repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0, rgba(255,255,255,.05) 1px, transparent 1px, transparent 160px),
     repeating-linear-gradient(-45deg, rgba(255,255,255,.05) 0, rgba(255,255,255,.05) 1px, transparent 1px, transparent 160px),
@@ -38,8 +42,13 @@ html.twitch-disabled .zone--discord {
   background-image: linear-gradient(to bottom, var(--zone-hero) 0, var(--zone-discord) 140px);
 }
 
+/* .zone--discord already fades into --zone-twitch by its own bottom edge;
+   re-blending from --zone-discord here too meant the two gradients
+   disagreed right at the shared edge (one already at --zone-twitch, the
+   other restarting from --zone-discord), which showed up as a thin
+   off-color band at the seam. Just continue in the same color instead. */
 .zone--twitch {
-  background-image: linear-gradient(to bottom, var(--zone-discord) 0, var(--zone-twitch) 140px, var(--zone-twitch) 100%);
+  background-color: var(--zone-twitch);
   padding-bottom: 100px;
 }
 
@@ -58,6 +67,21 @@ body.home .site-footer {
   z-index: 2;
 }
 body.home .scissor-line { border-top-color: rgba(255, 255, 255, 0.3); }
+/* The footer normally sits on --paper (light in light mode, dark in dark
+   mode) so .footer-links a can just use --text-dark for either. Here it
+   sits directly on the permanently-dark zone color instead (see above),
+   so it needs permanently-light text regardless of site theme, same as
+   the rest of this page's zone content (.hint-pill, .team-lead, etc). */
+body.home .footer-links a,
+body.home .footer-note,
+body.home .footer-note a {
+  color: #fff !important;
+}
+body.home .footer-socials a {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff !important;
+}
+body.home .footer-socials a:hover { background: rgba(255, 255, 255, 0.22); }
 
 /* ---------- Hero ---------- */
 

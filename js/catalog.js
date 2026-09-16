@@ -140,44 +140,74 @@ function findVariant(product, selection) {
   );
 }
 
+// Each variant carries its own images array; for apparel it's identical
+// across sizes of one color but differs across colors, so the gallery
+// should follow the selected color instead of showing every color's
+// photos at once (a shirt with 6 colors x 7 angles is 42 thumbnails).
+function imagesForSelection(product, selection) {
+  if (selection.color) {
+    const variant = (product.variants || []).find((v) => v.attributes?.color?.name === selection.color);
+    if (variant?.images?.length) return variant.images;
+  }
+  return product.images?.length ? product.images : product.image ? [product.image] : [];
+}
+
 function openQuickView(product) {
   const existing = document.getElementById("quick-view");
   existing?.remove();
 
-  const images = product.images?.length ? product.images : product.image ? [product.image] : [];
   const groups = attributeGroups(product);
   const selection = {};
   groups.forEach((values, option) => {
     selection[option] = [...values.keys()][0];
   });
+  let images = imagesForSelection(product, selection);
 
   const modal = document.createElement("div");
   modal.id = "quick-view";
   modal.className = "cart-backdrop is-open";
-  modal.style.zIndex = "250";
   modal.innerHTML = `
-    <div class="product-page rip" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); max-height:90vh; overflow-y:auto; background:transparent; padding:30px;">
-      <button class="cart-close" id="qv-close" style="position:absolute; top:10px; right:16px;">&times;</button>
-      <div class="product-gallery-main rip">
-        <img id="qv-main-image" src="${images[0]?.url || ""}" alt="${product.name}">
-      </div>
-      <div class="product-info">
-        <h1>${product.name}</h1>
-        <div class="product-price-block"><span class="price-tag" id="qv-price"></span></div>
-        <div class="product-description">${product.description || ""}</div>
-        <div id="qv-options"></div>
-        <div class="add-to-cart-row">
-          <div class="qty-stepper">
-            <button type="button" id="qv-qty-minus">&minus;</button>
-            <input type="number" id="qv-qty" value="1" min="1">
-            <button type="button" id="qv-qty-plus">+</button>
+    <div class="qv-panel rip">
+      <button class="cart-close qv-close" id="qv-close" aria-label="Schließen">&times;</button>
+      <div class="product-page">
+        <div>
+          <div class="product-gallery-main rip rip--photo" id="qv-main-frame">
+            <img id="qv-main-image" src="${images[0]?.url || ""}" alt="${product.name}">
+            <span class="qv-zoom-hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/></svg></span>
           </div>
-          <button class="p-btn rip btn-accent" id="qv-add">In den Warenkorb</button>
         </div>
-        <p class="stock-note" id="qv-stock"></p>
+        <div class="product-info">
+          <h1>${product.name}</h1>
+          <div class="product-price-block"><span class="price-tag" id="qv-price"></span></div>
+          <div class="qv-divider"></div>
+          <div class="product-description">${product.description || ""}</div>
+          <div class="qv-divider"></div>
+          <div id="qv-options"></div>
+          <div class="qv-divider"></div>
+          <div class="add-to-cart-row">
+            <div class="qty-stepper">
+              <button type="button" id="qv-qty-minus">&minus;</button>
+              <input type="number" id="qv-qty" value="1" min="1">
+              <button type="button" id="qv-qty-plus">+</button>
+            </div>
+            <button class="p-btn rip btn-accent" id="qv-add">In den Warenkorb</button>
+          </div>
+          <p class="stock-note" id="qv-stock"></p>
+        </div>
       </div>
-    </div>`;
+    </div>
+    <div class="qv-lightbox" id="qv-lightbox"><img id="qv-lightbox-img" src="" alt=""><button class="cart-close qv-close" id="qv-lightbox-close" aria-label="Schließen">&times;</button></div>`;
   document.body.appendChild(modal);
+
+  modal.querySelector("#qv-main-frame").addEventListener("click", () => {
+    modal.querySelector("#qv-lightbox-img").src = modal.querySelector("#qv-main-image").src;
+    modal.querySelector("#qv-lightbox").classList.add("is-open");
+  });
+  const closeLightbox = () => modal.querySelector("#qv-lightbox").classList.remove("is-open");
+  modal.querySelector("#qv-lightbox-close").addEventListener("click", closeLightbox);
+  modal.querySelector("#qv-lightbox").addEventListener("click", (ev) => {
+    if (ev.target.id === "qv-lightbox") closeLightbox();
+  });
 
   const optionsEl = modal.querySelector("#qv-options");
   optionsEl.innerHTML = [...groups.entries()]
@@ -212,23 +242,32 @@ function openQuickView(product) {
   optionsEl.querySelectorAll(".swatch-size, .swatch-color").forEach((btn) => {
     btn.addEventListener("click", () => {
       selection[btn.dataset.option] = btn.dataset.value;
+      if (btn.dataset.option === "color") {
+        images = imagesForSelection(product, selection);
+        renderGallery();
+      }
       syncSelection();
     });
   });
 
-  const thumbs = images
-    .map((img, i) => `<button class="product-thumb${i === 0 ? " is-active" : ""}" data-src="${img.url}"><img src="${img.url}" alt=""></button>`)
-    .join("");
-  if (images.length > 1) {
-    modal.querySelector(".product-gallery-main").insertAdjacentHTML("afterend", `<div class="product-thumbs">${thumbs}</div>`);
-    modal.querySelectorAll(".product-thumb").forEach((t) => {
-      t.addEventListener("click", () => {
-        modal.querySelector("#qv-main-image").src = t.dataset.src;
-        modal.querySelectorAll(".product-thumb").forEach((x) => x.classList.remove("is-active"));
-        t.classList.add("is-active");
+  function renderGallery() {
+    modal.querySelector("#qv-main-image").src = images[0]?.url || "";
+    modal.querySelector(".product-thumbs")?.remove();
+    if (images.length > 1) {
+      const thumbsHTML = images
+        .map((img, i) => `<button class="product-thumb${i === 0 ? " is-active" : ""}" data-src="${img.url}"><img src="${img.url}" alt=""></button>`)
+        .join("");
+      modal.querySelector(".product-gallery-main").insertAdjacentHTML("afterend", `<div class="product-thumbs">${thumbsHTML}</div>`);
+      modal.querySelectorAll(".product-thumb").forEach((t) => {
+        t.addEventListener("click", () => {
+          modal.querySelector("#qv-main-image").src = t.dataset.src;
+          modal.querySelectorAll(".product-thumb").forEach((x) => x.classList.remove("is-active"));
+          t.classList.add("is-active");
+        });
       });
-    });
+    }
   }
+  renderGallery();
 
   modal.querySelector("#qv-qty-minus").addEventListener("click", () => {
     const input = modal.querySelector("#qv-qty");
