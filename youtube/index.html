@@ -33,6 +33,7 @@
   <div class="container" style="display:flex; flex-direction:column; align-items:center;">
 
     <div class="yt-hero rip rip--b">
+      <div class="tape yt-hero-tape" aria-hidden="true"></div>
       <img class="yt-hero-avatar" src="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png" alt="ZevKev">
       <div class="yt-hero-text">
         <h1>ZevKev auf YouTube</h1>
@@ -44,11 +45,25 @@
       </div>
     </div>
 
-    <div class="yt-featured" id="yt-featured"></div>
+    <div class="yt-featured" id="yt-featured">
+      <div class="yt-featured-frame rip"><div class="skeleton-card yt-featured-skeleton"></div></div>
+      <div class="yt-featured-body">
+        <div class="skeleton-line yt-skeleton-line--title"></div>
+        <div class="skeleton-line yt-skeleton-line--meta"></div>
+      </div>
+    </div>
 
     <h2 class="yt-section-title">Mehr von ZevKev</h2>
-    <div class="filter-bar" id="yt-filter-bar"></div>
-    <div class="vod-grid" id="yt-grid"></div>
+    <div class="filter-bar" id="yt-filter-bar">
+      <span class="yt-pill-skeleton"></span>
+      <span class="yt-pill-skeleton"></span>
+    </div>
+    <div class="vod-grid" id="yt-grid">
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+    </div>
 
   </div>
 </div>
