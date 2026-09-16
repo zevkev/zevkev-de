@@ -201,21 +201,25 @@ h1, h2, .display-font {
 .rip--pink::before { background-color: var(--paper-pink); }
 /* Cork-board mat: an SVG feTurbulence noise filter for the grain (not
    stacked gradients — those tile in an obviously regular grid at this
-   scale, which is why the first attempt at this still read as a fake
-   printed pattern next to the rest of the site's photographic paper-grain
-   texture above). A radial vignette and a diagonal multiply wash add a
-   hint of uneven studio light on top. Built from --photo-mat/
+   scale). stitchTiles="stitch" needs the filter region pinned to exactly
+   the tile size (x/y/width/height + userSpaceOnUse) to actually wrap
+   seamlessly — left at SVG's default expanded region, the noise didn't
+   align at the tile edge, showing up as a visible seam down the middle of
+   every photo. Kept deliberately low-contrast and fine-grained (high
+   baseFrequency, low numOctaves, a gentle linear contrast curve,
+   soft-light not overlay) — an earlier, punchier version read as blobby
+   ("melted cheese") or harshly rough rather than the smooth, even,
+   understated grain real cork actually has. Built from --photo-mat/
    --photo-mat-dark plus neutral gray/black — no new hue. Kept in sync
    with .product-photo-frame in shop.css, which uses the same recipe. */
 .rip--photo::before {
   background-color: var(--photo-mat);
   background-image:
-    url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22220%22%20height%3D%22220%22%3E%3Cfilter%20id%3D%22n%22%3E%3CfeTurbulence%20type%3D%22fractalNoise%22%20baseFrequency%3D%220.018%200.024%22%20numOctaves%3D%225%22%20seed%3D%227%22%20stitchTiles%3D%22stitch%22%2F%3E%3CfeColorMatrix%20type%3D%22matrix%22%20values%3D%220.33%200.33%200.33%200%200%200.33%200.33%200.33%200%200%200.33%200.33%200.33%200%200%200%200%200%200%201%22%2F%3E%3CfeComponentTransfer%3E%3CfeFuncR%20type%3D%22linear%22%20slope%3D%221.8%22%20intercept%3D%22-0.4%22%2F%3E%3CfeFuncG%20type%3D%22linear%22%20slope%3D%221.8%22%20intercept%3D%22-0.4%22%2F%3E%3CfeFuncB%20type%3D%22linear%22%20slope%3D%221.8%22%20intercept%3D%22-0.4%22%2F%3E%3C%2FfeComponentTransfer%3E%3C%2Ffilter%3E%3Crect%20width%3D%22220%22%20height%3D%22220%22%20filter%3D%22url(%23n)%22%2F%3E%3C%2Fsvg%3E"),
-    radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.18) 100%),
-    linear-gradient(135deg, transparent 10%, var(--photo-mat-dark) 150%);
-  background-size: 220px 220px, 100% 100%, 100% 100%;
-  background-blend-mode: overlay, multiply, multiply;
-  box-shadow: inset 0 0 12px rgba(0,0,0,.18);
+    url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22220%22%20height%3D%22220%22%3E%3Cfilter%20id%3D%22n%22%20x%3D%220%22%20y%3D%220%22%20width%3D%22220%22%20height%3D%22220%22%20filterUnits%3D%22userSpaceOnUse%22%20primitiveUnits%3D%22userSpaceOnUse%22%3E%3CfeTurbulence%20type%3D%22fractalNoise%22%20baseFrequency%3D%220.22%200.26%22%20numOctaves%3D%222%22%20seed%3D%227%22%20stitchTiles%3D%22stitch%22%20x%3D%220%22%20y%3D%220%22%20width%3D%22220%22%20height%3D%22220%22%2F%3E%3CfeColorMatrix%20type%3D%22matrix%22%20values%3D%220.33%200.33%200.33%200%200%200.33%200.33%200.33%200%200%200.33%200.33%200.33%200%200%200%200%200%200%201%22%2F%3E%3CfeComponentTransfer%3E%3CfeFuncR%20type%3D%22linear%22%20slope%3D%220.9%22%20intercept%3D%220.05%22%2F%3E%3CfeFuncG%20type%3D%22linear%22%20slope%3D%220.9%22%20intercept%3D%220.05%22%2F%3E%3CfeFuncB%20type%3D%22linear%22%20slope%3D%220.9%22%20intercept%3D%220.05%22%2F%3E%3C%2FfeComponentTransfer%3E%3C%2Ffilter%3E%3Crect%20width%3D%22220%22%20height%3D%22220%22%20filter%3D%22url(%23n)%22%2F%3E%3C%2Fsvg%3E"),
+    radial-gradient(ellipse at center, transparent 65%, rgba(0,0,0,.1) 100%);
+  background-size: 220px 220px, 100% 100%;
+  background-blend-mode: soft-light, multiply;
+  box-shadow: inset 0 0 8px rgba(0,0,0,.12);
 }
 
 .tape {
