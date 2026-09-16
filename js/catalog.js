@@ -180,8 +180,7 @@ function openQuickView(product) {
           <h1>${product.name}</h1>
           <div class="product-price-block"><span class="price-tag" id="qv-price"></span></div>
           <div class="qv-divider"></div>
-          <div class="product-description">${product.description || ""}</div>
-          <div class="qv-divider"></div>
+          ${product.description ? `<div class="product-description">${product.description}</div><div class="qv-divider"></div>` : ""}
           <div id="qv-options"></div>
           <div class="qv-divider"></div>
           <div class="add-to-cart-row">
