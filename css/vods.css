@@ -1,4 +1,6 @@
-/* VODs-page-only additions on top of style.css */
+/* VODs-page-only additions on top of style.css. The card grid at the bottom
+   (.vod-grid / .vod-card / .watchlist-toggle) is also reused as-is by
+   youtube.css/js/youtube.js, so changes here apply to both video pages. */
 
 .vod-hero { text-align: center; max-width: 760px; margin: 10px auto 30px; }
 .vod-hero h1 { font-size: 2.2rem; margin: 0 0 10px; color: #fff; }
@@ -26,20 +28,29 @@
 }
 .player-wrap iframe { width: 100%; height: 100%; border: 0; }
 
+/* No video at all yet (fresh install, feeds empty) — keeps the aspect-ratio
+   frame instead of collapsing, so the layout below doesn't jump. */
+.player-empty { display: flex; align-items: center; justify-content: center; }
+.player-empty .empty-state { padding: 24px 20px; }
+
+/* In-flow above the title, not an overlay on the player: a plain YouTube
+   embed shows its own title/channel name over its thumbnail before play,
+   spanning most of the frame's width, so any absolutely-positioned badge
+   overlapped it somewhere no matter which corner it sat in. Twitch's
+   player doesn't have that pre-play overlay, but keeping one rule for all
+   three states is simpler than special-casing just the YouTube branch. */
 .status-badge {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  z-index: 5;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  margin-bottom: 8px;
   padding: 6px 14px;
   border-radius: 999px;
   font-weight: 800;
   font-size: 0.82rem;
   letter-spacing: 0.5px;
   text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 .status-badge.is-live { background: var(--accent-red); color: #fff; }
 .status-badge.is-live .dot {
@@ -47,6 +58,7 @@
   animation: pulseDot 1.4s ease-in-out infinite;
 }
 .status-badge.is-offline { background: rgba(0, 0, 0, 0.65); color: #fff; }
+.status-badge-icon { flex-shrink: 0; }
 
 @keyframes pulseDot {
   0%, 100% { opacity: 1; transform: scale(1); }
@@ -62,7 +74,7 @@
   display: flex;
   flex-direction: column;
   padding: 16px;
-  height: 560px;
+  height: 520px;
   box-sizing: border-box;
 }
 .chat-panel h2 { margin: 0 0 10px; font-size: 1.1rem; }
@@ -79,6 +91,7 @@
   padding: 20px;
   line-height: 1.5;
 }
+.chat-offline-note a { color: var(--text-dark); font-weight: bold; }
 
 .chat-login-row { padding-top: 12px; border-top: 2px dashed rgba(0, 0, 0, 0.15); margin-top: 12px; }
 .chat-user { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
@@ -88,11 +101,20 @@
 .chat-send-row { display: flex; gap: 8px; }
 .chat-send-row input {
   flex: 1;
+  min-width: 0;
   padding: 10px 12px;
-  border: 2px solid var(--blue-mat);
+  background: var(--paper);
+  color: var(--text-dark);
+  border: 2px solid var(--text-muted);
   border-radius: 4px;
   font-family: inherit;
   font-size: 0.92rem;
+  transition: border-color 0.2s ease;
+}
+.chat-send-row input:focus-visible {
+  outline: none;
+  border-color: var(--twitch-purple);
+  box-shadow: 0 0 0 3px rgba(145, 70, 255, 0.25);
 }
 .chat-send-row button {
   padding: 10px 16px;
@@ -101,7 +123,9 @@
   color: #fff;
   font-weight: bold;
   border-radius: 4px;
+  transition: background 0.2s ease;
 }
+.chat-send-row button:hover:not(:disabled) { background: var(--twitch-purple-dark); }
 .chat-send-row button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-twitch-login {
@@ -121,13 +145,21 @@
 .btn-twitch-login:hover { background: var(--twitch-purple-dark); }
 .chat-send-note { font-size: 0.75rem; color: var(--text-muted); margin: 6px 0 0; }
 
+/* ---------- Loading skeletons ----------
+   Deliberately plain (no .rip) and sitting directly on the mat, same as the
+   shop grid's shimmer (js/catalog.js) — .skeleton-card's shimmer is a fixed
+   light tone meant for that dark backdrop, so these stay off the paper
+   cards rather than nesting inside .chat-panel/.player-wrap. */
+.player-skeleton { width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 4px; }
+.chat-skeleton { width: 100%; height: 520px; border-radius: 4px; }
+
 /* ---------- VOD grid ---------- */
 .vod-section-head {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 14px;
-  margin: 60px 0 26px;
+  margin: 20px 0 30px;
   flex-wrap: wrap;
 }
 
@@ -138,6 +170,10 @@
   width: 100%;
   max-width: 1200px;
 }
+/* Without this, a lone .empty-state sits in the grid's first track only
+   (auto-fill still lays out the other empty tracks) and reads as pinned to
+   the left instead of centered. */
+.vod-grid > .empty-state { grid-column: 1 / -1; }
 
 .vod-card {
   padding: 14px 14px 18px;
@@ -147,10 +183,65 @@
   animation: fadeUp 0.5s ease both;
   transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
-.vod-card:hover { transform: rotate(0deg) scale(1.02) translateY(-4px) !important; }
+/* Same hand-placed stagger as .product-card in shop.css, tuned a little
+   lighter for these shorter cards. Reset on narrow single-column screens
+   below so it doesn't just read as uneven gaps between stacked cards. */
+.vod-card:nth-child(3n + 2) { margin-top: 20px; }
+.vod-card:nth-child(3n + 3) { margin-top: -8px; }
+.vod-card:hover, .vod-card:focus-visible { transform: rotate(0deg) scale(1.02) translateY(-4px) !important; }
+.vod-card:hover::before, .vod-card:focus-visible::before { box-shadow: var(--shadow-hover); }
+.vod-card:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 
-.vod-thumb { position: relative; margin-bottom: 12px; }
-.vod-thumb img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.vod-thumb { position: relative; margin-bottom: 12px; overflow: hidden; }
+.vod-thumb img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.5s ease;
+}
+.vod-card:hover .vod-thumb img, .vod-card:focus-visible .vod-thumb img { transform: scale(1.08); }
+
+/* Play-button hint on hover/focus, so the thumbnail reads as "click to
+   watch" the way a video card should, not just a static photo. */
+.vod-thumb::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.8);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: none;
+}
+.vod-thumb::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 11px 0 11px 18px;
+  border-color: transparent transparent transparent rgba(255, 255, 255, 0.95);
+  opacity: 0;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  transform: translate(calc(-50% + 2px), -50%) scale(0.8);
+  pointer-events: none;
+}
+.vod-card:hover .vod-thumb::before, .vod-card:focus-visible .vod-thumb::before {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+.vod-card:hover .vod-thumb::after, .vod-card:focus-visible .vod-thumb::after {
+  opacity: 1;
+  transform: translate(calc(-50% + 2px), -50%) scale(1);
+}
 
 .watchlist-toggle {
   position: absolute;
@@ -169,13 +260,32 @@
   transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 .watchlist-toggle:hover { transform: scale(1.12); }
-.watchlist-toggle.is-saved { color: var(--paper-accent); }
+.watchlist-toggle:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+/* Fixed gold rather than var(--paper-accent): this button's own background
+   stays a dark translucent circle in both themes, but --paper-accent turns
+   into a dark slate in dark mode and would nearly disappear against it. */
+.watchlist-toggle.is-saved { color: #ffd35e; }
 
-.vod-card h3 { margin: 0 0 6px; font-size: 1rem; line-height: 1.35; color: var(--text-dark); }
+.vod-card h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  line-height: 1.35;
+  color: var(--text-dark);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+}
 .vod-card .vod-date { font-size: 0.8rem; color: var(--text-muted); margin-top: auto; }
 
 @media (max-width: 980px) {
   .live-layout { flex-direction: column; }
   .chat-col { width: 100%; flex-basis: auto; }
   .chat-panel { height: 420px; }
+  .chat-skeleton { height: 420px; }
+}
+
+@media (max-width: 640px) {
+  .vod-card:nth-child(3n + 2), .vod-card:nth-child(3n + 3) { margin-top: 0; }
 }
