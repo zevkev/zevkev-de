@@ -229,6 +229,39 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
   depends on backlinks, competition, and how long the site's been
   indexed, none of which a code change controls. Don't imply to Kevin
   that a #1 ranking is now assured.
+- **Actual root cause of the texture-bleed complaint, found after three
+  earlier fixes addressed real-but-secondary bugs.** `.reveal.is-visible`
+  used to run `animation: fadeUp 0.6s ease forwards`, interpolating
+  `opacity` 0->1 alongside the slide-up — every card was genuinely
+  semi-transparent for that whole 0.6s while scrolling into view,
+  letting the body's grid/dot mat texture show through blended with
+  the card underneath, on every load and every scroll. A screenshot
+  taken after waiting (the natural instinct) would never catch this —
+  it only exists during the transition. Fixed in `css/style.css`: opacity
+  is no longer in `transition-property`, so it snaps instantly instead of
+  interpolating (verified by sampling computed opacity across animation
+  frames — jumps straight 0 to 1, never partial), while the slide-up still
+  animates smoothly via `transform` alone. If a "something bleeds through
+  during page load/scroll" report ever comes up again for a *different*
+  element, check for this same opacity-interpolation pattern first.
+- **Nav label "VODs" renamed to "Streams"** (`js/layout.js`'s `NAV` array,
+  footer link, `vods/index.html`'s `<title>`/`og:*`) — the page covers
+  live Twitch streams, the Twitch VOD archive, and the YouTube "ZevKev+"
+  VOD channel, so "VODs" undersold the live half. URL path (`/vods/`)
+  deliberately unchanged, so none of the SEO/canonical/sitemap work
+  breaks. Verified via direct `curl`/`fetch()` of the served file (the
+  browser tool's module cache wouldn't show it — see Testing caveat #1).
+- **Full YouTube upload history fetched**: `assets/data/main-videos.json`
+  now has 206 videos (195 regular + 11 Shorts), up from the old RSS-feed
+  cap of ~15 — a one-time manual run of `scripts/fetch-main-feed.mjs`
+  using the API key Kevin provided directly in chat (used transiently as
+  a local env var, never written to any file or committed). This does
+  **not** set up ongoing automation — `YOUTUBE_API_KEY` still isn't a
+  real GitHub secret, so `main-videos.json` will NOT keep itself updated
+  with new uploads until Kevin adds it himself (Settings → Secrets and
+  variables → Actions). Don't assume new uploads are showing up
+  automatically; check the file's video count/dates against the real
+  channel before claiming it's current.
 
 ## Known issues / next fixes (as of 2026-09-17)
 
@@ -294,9 +327,16 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
 This project's dev-preview browser session has, in practice, shown several
 environment quirks worth knowing about before assuming something is broken:
 1. Its JS module cache can be extremely sticky (survives reload, hard
-   refresh, even a dev-server restart). Cache-bust before trusting a JS
-   behavior check: `fetch(url, {cache:'no-store'})` or
-   `import(url + '?bust=' + Date.now())`.
+   refresh, even a dev-server restart) — confirmed once even a *full*
+   preview-server stop/restart plus a brand new preview session still
+   rendered a stale module (a nav-label rename kept showing the old
+   label in every fresh tab tried). `fetch(url, {cache:'no-store'})`
+   and `import(url + '?bust=' + Date.now())` *usually* work but aren't
+   guaranteed — when they don't, fall back to `curl`/a plain `fetch()`
+   of the raw file from Bash instead of fighting the browser tool
+   further; it's never been wrong. Don't conclude a fix didn't land
+   just because the rendered page still shows the old text — check the
+   served bytes directly first.
 2. Screenshot pixel coordinates and `getBoundingClientRect()`/CSS-pixel
    coordinates were observed to NOT match 1:1 in at least one session
    (`window.innerWidth` reported 961 while screenshots rendered at 800px
