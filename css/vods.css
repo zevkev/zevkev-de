@@ -44,7 +44,13 @@
 
 .vod-hero { position: relative; width: 100%; }
 
+/* plain vh is sized against the largest-possible mobile viewport (as if the
+   address bar were hidden), not what's actually visible -- causes the hero
+   to run taller than the real screen and clip/overflow on phones. dvh
+   tracks the real visible viewport; kept as a second declaration so
+   browsers without dvh support silently keep the vh fallback above. */
 .vod-hero-row { display: flex; gap: 20px; width: 100%; height: clamp(520px, 82vh, 860px); }
+.vod-hero-row { height: clamp(520px, 82dvh, 860px); }
 
 .vod-hero-player { position: relative; flex: 1 1 auto; min-width: 0; background: #000; }
 /* Fills the player column edge-to-edge instead of the old fixed-aspect-ratio
