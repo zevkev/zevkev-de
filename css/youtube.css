@@ -35,13 +35,21 @@ body.yt-page:not(.yt-scrolled) .site-header {
   box-shadow: none;
 }
 body.yt-page:not(.yt-scrolled) .site-logo,
-body.yt-page:not(.yt-scrolled) .site-nav a,
 body.yt-page:not(.yt-scrolled) .cart-button,
 body.yt-page:not(.yt-scrolled) .theme-toggle,
 body.yt-page:not(.yt-scrolled) .nav-toggle {
   color: #fff !important;
 }
-body.yt-page:not(.yt-scrolled) .site-nav a:hover { background: rgba(255, 255, 255, 0.15); }
+/* .site-nav a's white-on-transparent treatment only makes sense for the
+   desktop floating-bar nav sitting directly over the hero. Below 700px the
+   nav becomes a dropdown PANEL with its own solid --paper-accent background
+   (style.css's mobile media query) -- forcing white text there produced
+   white-on-cream in light theme, nearly unreadable. Scoped to match
+   style.css's own mobile breakpoint exactly. */
+@media (min-width: 701px) {
+  body.yt-page:not(.yt-scrolled) .site-nav a { color: #fff !important; }
+  body.yt-page:not(.yt-scrolled) .site-nav a:hover { background: rgba(255, 255, 255, 0.15); }
+}
 body.yt-page:not(.yt-scrolled) .nav-toggle span,
 body.yt-page:not(.yt-scrolled) .nav-toggle span::before,
 body.yt-page:not(.yt-scrolled) .nav-toggle span::after {
