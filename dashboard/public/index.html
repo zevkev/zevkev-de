@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZevKev Privat – Analytics</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="mat">
+
+  <header class="topbar">
+    <h1 class="brand">ZevKev <span>Privat</span></h1>
+    <button id="logout-btn" class="btn-small" hidden>Abmelden</button>
+  </header>
+
+  <!-- Login view -->
+  <main id="login-view" class="login-wrap">
+    <form id="login-form" class="rip">
+      <h2>Nur für dich, Kevin.</h2>
+      <p class="hint">Passwort eingeben, um die Statistiken zu sehen.</p>
+      <label for="password-input" class="visually-hidden">Passwort</label>
+      <input type="password" id="password-input" name="password" placeholder="Passwort" autocomplete="current-password" required>
+      <button type="submit" class="btn-primary">Anmelden</button>
+      <p id="login-error" class="error-msg" role="alert" hidden></p>
+    </form>
+  </main>
+
+  <!-- Dashboard view -->
+  <main id="dashboard-view" hidden>
+
+    <div class="range-bar">
+      <span class="range-label">Zeitraum:</span>
+      <div class="range-buttons" role="group" aria-label="Zeitraum wählen">
+        <button type="button" class="range-btn" data-range="24h">24 Std.</button>
+        <button type="button" class="range-btn" data-range="7d" aria-pressed="true">7 Tage</button>
+        <button type="button" class="range-btn" data-range="30d">30 Tage</button>
+        <button type="button" class="range-btn" data-range="all">Gesamt</button>
+      </div>
+    </div>
+
+    <p id="dashboard-error" class="error-msg" role="alert" hidden></p>
+
+    <div class="card-grid">
+
+      <section class="rip rip--accent card card--rot-a">
+        <h2>Seitenaufrufe</h2>
+        <div class="stat-row">
+          <div class="stat">
+            <span class="stat-value" id="stat-pageviews-total">–</span>
+            <span class="stat-label">Insgesamt</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" id="stat-pageviews-vods">–</span>
+            <span class="stat-label">VOD-Seiten</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" id="stat-pageviews-youtube">–</span>
+            <span class="stat-label">YouTube-Seiten</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="rip rip--pink card card--rot-b">
+        <h2>Sehdauer</h2>
+        <p class="section-hint">Pro Video, VOD- und YouTube-Inhalte zusammen.</p>
+        <ul class="bar-list" id="list-watchtime"></ul>
+        <p class="empty-hint" id="empty-watchtime" hidden>Noch keine Daten.</p>
+      </section>
+
+      <section class="rip card card--rot-c">
+        <h2>Klicks</h2>
+        <p class="section-hint">Nach Button- bzw. Link-Label.</p>
+        <ul class="bar-list" id="list-clicks"></ul>
+        <p class="empty-hint" id="empty-clicks" hidden>Noch keine Daten.</p>
+      </section>
+
+      <section class="rip rip--accent card card--rot-b">
+        <h2>Produktaufrufe</h2>
+        <ul class="bar-list" id="list-products"></ul>
+        <p class="empty-hint" id="empty-products" hidden>Noch keine Daten.</p>
+      </section>
+
+      <section class="rip rip--pink card card--rot-a">
+        <h2>Warenkorb</h2>
+        <div class="stat-row">
+          <div class="stat">
+            <span class="stat-value" id="stat-cart-count">–</span>
+            <span class="stat-label">Hinzugefügt</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" id="stat-cart-qty">–</span>
+            <span class="stat-label">Menge gesamt</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="rip card card--rot-c">
+        <h2>Impressionen</h2>
+        <p class="section-hint">Nach Video.</p>
+        <ul class="bar-list" id="list-impressions"></ul>
+        <p class="empty-hint" id="empty-impressions" hidden>Noch keine Daten.</p>
+      </section>
+
+    </div>
+  </main>
+
+</div>
+
+<script src="app.js" defer></script>
+</body>
+</html>

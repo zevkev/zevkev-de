@@ -2,8 +2,17 @@
 # Deployed separately from the main site (zevkev.de / GitHub Pages) at
 # privat.zevkev.de.
 #
-# Deploy with (from the repo root):
-#   wrangler pages deploy dashboard/public --project-name=zevkev-privat
+# Deploy with (from INSIDE this dashboard/ directory, not the repo root):
+#   cd dashboard
+#   wrangler pages deploy public --project-name=zevkev-privat
+#
+# Why cwd matters: Wrangler auto-detects the Pages Functions directory
+# (functions/api/*.js) relative to the current working directory, not
+# relative to the "public" output directory argument. Since functions/
+# lives at dashboard/functions/ (sibling to dashboard/public/), the
+# command has to run with dashboard/ as the working directory -- running
+# `wrangler pages deploy dashboard/public` from the repo root would only
+# upload the static files and silently skip the API routes.
 #
 # See dashboard/README.md for the full one-time setup checklist
 # (create the D1 database, run the schema, set secrets, deploy).
