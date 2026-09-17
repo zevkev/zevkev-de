@@ -136,6 +136,9 @@ function openModal() {
   wireModal();
   document.getElementById("auth-email")?.focus();
 }
+// Exported for other modules (js/comments.js's "melde dich an" prompt) that
+// need to open the same login modal without duplicating its markup/wiring.
+export const openAuthModal = openModal;
 
 function renderAccountSlot(user) {
   const slot = document.getElementById("account-slot");

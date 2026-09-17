@@ -480,6 +480,46 @@ h1, h2, .display-font {
 .auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: rgba(0,0,0,.15); }
 :root[data-theme="dark"] .auth-divider::before, :root[data-theme="dark"] .auth-divider::after { background: rgba(255,255,255,.15); }
 .auth-google { width: 100%; justify-content: center; gap: 10px; }
+
+/* ---------- Comments (js/comments.js) ---------- */
+.comments-section { width: 100%; max-width: 900px; }
+.comment-form { display: flex; flex-direction: column; gap: 10px; margin: 14px 0 24px; }
+.comment-form textarea {
+  width: 100%; min-height: 70px; padding: 10px 12px; box-sizing: border-box;
+  background: var(--paper); color: var(--text-dark);
+  border: 2px solid var(--text-muted); border-radius: 4px;
+  font-family: inherit; font-size: 0.92rem; resize: vertical;
+  transition: border-color 0.2s ease;
+}
+.comment-form textarea:focus-visible { outline: none; border-color: var(--twitch-purple); box-shadow: 0 0 0 3px rgba(145,70,255,.2); }
+.comment-form-row { display: flex; align-items: center; gap: 12px; }
+.comment-cancel-reply { color: var(--text-muted); font-size: 0.85rem; text-decoration: underline; background: none; border: none; }
+.comment-form-error { color: var(--accent-red); font-size: 0.82rem; margin: 0; min-height: 1em; }
+.comment-form--reply { margin: 12px 0 4px; }
+.comments-login-prompt { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--text-muted); margin: 14px 0 24px; }
+.comments-empty { color: var(--text-muted); padding: 20px 0; }
+
+.comment-list { display: flex; flex-direction: column; gap: 4px; }
+.comment { padding: 14px 4px; border-bottom: 2px dashed rgba(0, 0, 0, 0.12); }
+:root[data-theme="dark"] .comment { border-bottom-color: rgba(255, 255, 255, 0.12); }
+.comment:last-child { border-bottom: none; }
+.comment-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.comment-author { font-weight: bold; font-size: 0.92rem; }
+.comment-time { font-size: 0.76rem; color: var(--text-muted); }
+.comment-text { margin: 0 0 8px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.comment-actions { display: flex; gap: 16px; }
+.comment-reply-btn, .comment-delete-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: none; border: none; padding: 0;
+  font-size: 0.78rem; font-weight: bold; color: var(--text-muted);
+}
+.comment-reply-btn:hover, .comment-delete-btn:hover { color: var(--text-dark); }
+.comment-delete-btn { color: var(--accent-red); opacity: 0.75; }
+.comment-delete-btn:hover { color: var(--accent-red); opacity: 1; }
+.comment-replies { margin: 10px 0 0 20px; padding-left: 16px; border-left: 2px solid rgba(0, 0, 0, 0.1); display: flex; flex-direction: column; gap: 10px; }
+:root[data-theme="dark"] .comment-replies { border-left-color: rgba(255, 255, 255, 0.12); }
+.comment--reply { padding: 4px 0; border-bottom: none; }
+
 /* .cart-close's own `background: none` (further down this file) has equal
    specificity to .qv-close's and is declared later, so it wins over plain
    .qv-close on a button carrying both classes -- same reason the YouTube/

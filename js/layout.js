@@ -55,7 +55,7 @@ function socialLinksHTML() {
   ).join("");
 }
 
-function headerHTML(isShop) {
+function headerHTML(isShop, showAccount) {
   return `
   <header class="site-header">
     <div class="container">
@@ -69,7 +69,7 @@ function headerHTML(isShop) {
       <div class="header-actions" id="header-actions">
         <button class="theme-toggle" id="theme-toggle" aria-label="Dunkles Design umschalten" type="button">${themeIconHTML()}</button>
         ${isShop ? cartButtonHTML() : ""}
-        <div id="account-slot"></div>
+        ${showAccount ? `<div id="account-slot"></div>` : ""}
         <button class="nav-toggle" id="nav-toggle" aria-label="Menü öffnen" aria-expanded="false"><span></span></button>
       </div>
     </div>
@@ -132,16 +132,28 @@ function footerHTML() {
 export async function mountLayout() {
   const path = window.location.pathname;
   const isShop = path.startsWith("/shop");
+  // Login only matters where it actually does something (comments, saved
+  // watchlist, resume position) -- YouTube, Mehr/VODs, Watchlist and the
+  // individual video/VOD/live pages. Everywhere else (home, shop, legal
+  // pages) it'd just be a button that does nothing relevant, so it's left
+  // out of the header entirely there rather than shown and unused.
+  const showAccount =
+    path.startsWith("/youtube") ||
+    path.startsWith("/vods") ||
+    path.startsWith("/watchlist") ||
+    path.startsWith("/video/") ||
+    path.startsWith("/vod/") ||
+    path.startsWith("/live");
 
   track("page_view", path);
 
   const headerSlot = document.getElementById("site-header");
   const footerSlot = document.getElementById("site-footer");
-  if (headerSlot) headerSlot.outerHTML = headerHTML(isShop) + (isShop ? cartDrawerHTML() : "");
+  if (headerSlot) headerSlot.outerHTML = headerHTML(isShop, showAccount) + (isShop ? cartDrawerHTML() : "");
   if (footerSlot) footerSlot.outerHTML = footerHTML();
 
   mountConsentBanner();
-  import("/js/auth-ui.js").then(({ mountAccountUI }) => mountAccountUI());
+  if (showAccount) import("/js/auth-ui.js").then(({ mountAccountUI }) => mountAccountUI());
   document.getElementById("cookie-settings-link")?.addEventListener("click", async (ev) => {
     ev.preventDefault();
     const { openConsentSettings } = await import("/js/consent.js");
