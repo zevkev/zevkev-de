@@ -32,7 +32,7 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
 | `js/vods.js` + `js/twitch-auth.js` | VODs page: live > Twitch VOD > YouTube fallback player, Twitch OAuth popup login + chat |
 | `js/youtube.js` | YouTube page: Videos/Shorts grid, custom modal player |
 | `js/watchlist.js` | Dedicated Watchlist page — reads the shared `zevkev-watchlist` key, resolves ids against both `videos.json` and `main-videos.json` |
-| `scripts/fetch-main-feed.mjs` | Fetches full YouTube upload history via Data API v3 (needs `YOUTUBE_API_KEY` secret — not yet set) |
+| `scripts/fetch-main-feed.mjs` | Fetches full YouTube upload history via Data API v3 (needs `YOUTUBE_API_KEY` secret — Kevin has a key and was walked through adding it to GitHub Settings → Secrets on 2026-09-17; check whether `assets/data/main-videos.json` actually has more than ~4 videos to confirm it landed, don't assume) |
 | `scripts/fetch-twitch-status.mjs`, `fetch-vod-feed.mjs` | Twitch live status + VOD archive fetch |
 | `scripts/fetch-exchange-rate.mjs` | Fetches USD->EUR from Frankfurter (free, keyless) into `assets/data/exchange-rate.json` for `js/currency.js` |
 | `.github/workflows/data-refresh.yml` | Cron (every 5 min): runs the fetch scripts, commits data back via `github-actions[bot]` |
@@ -141,6 +141,40 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
   checkout's displayed order-summary currency (confirmed via Fourthwall's
   own already-enabled "Local currencies" EUR support), whereas `USD` or no
   param at all both showed USD even for a Germany-detected visitor.
+- **Post-redesign bug pass (2026-09-17), all fixed:**
+  - VODs chat column now fully collapses (`display:none`, no placeholder
+    note) when offline instead of showing a "chat only during live streams"
+    panel — the player (`flex:1`) reclaims the full hero width.
+  - `.p-btn` buttons (all the homepage quick-links, Discord/Twitch CTAs,
+    etc.) no longer use the shared `.rip::before` paper-grain image — at
+    button size, the fine speckle texture multiply-blended against
+    mid-tone accent colors produced a visible grid-like moire pattern on
+    some displays/zoom levels. Confirmed via a forced solid-color override
+    (rendered clean with the image removed). Photo/video/product cards
+    keep the grain, it's fine at their larger size — don't remove it there
+    without a similar reported issue.
+  - Mobile hero scaling on `/vods/` and `/youtube/`: plain `vh` units are
+    sized against the largest-possible mobile viewport (as if the address
+    bar were permanently hidden), not the real visible one — caused
+    overflow/clipping on some phones. Added `dvh` as a second declaration
+    after each `vh` value (silently ignored by browsers without `dvh`
+    support, so the old value stays as fallback).
+  - **Real regression, worth remembering**: the YouTube gronkh.tv
+    restructure deleted the base (unscoped) `.yt-section-title` rule in
+    `css/youtube.css` while restructuring that file's own library section
+    — despite a comment right next to the deletion still describing it as
+    present. VODs' "Die neusten Streams"/"Aus dem Archiv"/"Vom YouTube VOD
+    Kanal" headings depend on that exact class for their color (fixed
+    white, since they sit directly on the dark mat, not a paper section).
+    Without it they fell back to inherited body text color, which is
+    near-black in light theme — nearly invisible on the dark mat, but
+    happened to still look fine in dark theme (where the inherited color
+    is already light), which is why it wasn't caught during initial
+    testing. **Lesson**: when one page's CSS file also supplies shared
+    classes for another page (see the header comment in `css/youtube.css`
+    itself), a restructure of that file needs to grep the OTHER page's
+    HTML/JS for class usage before deleting anything that looks unused
+    locally — test the borrowing page too, not just the one being redesigned.
 
 ## Known issues / next fixes (as of 2026-09-17)
 
