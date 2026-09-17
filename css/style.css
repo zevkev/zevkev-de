@@ -415,6 +415,78 @@ h1, h2, .display-font {
 }
 .cart-badge.is-visible { transform: scale(1); }
 
+/* ---------- Account: header login state + auth modal ---------- */
+.account-button {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 2px solid rgba(0,0,0,.12);
+  background: rgba(255,255,255,.5);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-dark);
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), background .2s;
+  flex-shrink: 0;
+}
+.account-button:hover { transform: scale(1.08); background: #fff; }
+.account-button:focus-visible { outline: 2px solid var(--accent-red); outline-offset: 3px; }
+:root[data-theme="dark"] .account-button { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.16); color: var(--text-dark); }
+
+.account-chip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 6px 6px 14px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.5);
+  border: 2px solid rgba(0,0,0,.12);
+  font-size: 0.82rem;
+  font-weight: bold;
+  color: var(--text-dark);
+  white-space: nowrap;
+}
+:root[data-theme="dark"] .account-chip { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.16); color: var(--text-dark) !important; }
+.account-logout {
+  width: 26px; height: 26px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.08);
+  color: inherit;
+  flex-shrink: 0;
+  transition: background .2s;
+}
+.account-logout:hover { background: rgba(0,0,0,.18); }
+:root[data-theme="dark"] .account-logout { background: rgba(255,255,255,.1); }
+:root[data-theme="dark"] .account-logout:hover { background: rgba(255,255,255,.2); }
+@media (max-width: 700px) {
+  .account-chip span { display: none; }
+  .account-chip { padding: 6px; }
+}
+
+.auth-tabs { display: flex; gap: 8px; margin-bottom: 18px; }
+.auth-tab {
+  flex: 1; padding: 10px; border-radius: 999px; font-weight: bold;
+  background: transparent; color: var(--text-muted); border: 2px solid transparent;
+  transition: background .2s, color .2s;
+}
+.auth-tab.is-active { background: var(--paper-accent); color: var(--text-dark); }
+.auth-field { margin-bottom: 14px; }
+.auth-field label { display: block; font-size: 0.8rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px; }
+.auth-field input {
+  width: 100%; padding: 10px 12px; box-sizing: border-box;
+  background: var(--paper); color: var(--text-dark);
+  border: 2px solid var(--text-muted); border-radius: 4px;
+  font-family: inherit; font-size: 0.95rem;
+  transition: border-color 0.2s ease;
+}
+.auth-field input:focus-visible { outline: none; border-color: var(--twitch-purple); box-shadow: 0 0 0 3px rgba(145,70,255,.2); }
+.auth-error { color: var(--accent-red); font-size: 0.85rem; margin: -4px 0 14px; min-height: 1em; }
+.auth-submit { width: 100%; justify-content: center; }
+.auth-divider { display: flex; align-items: center; gap: 12px; margin: 18px 0; color: var(--text-muted); font-size: 0.8rem; }
+.auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: rgba(0,0,0,.15); }
+:root[data-theme="dark"] .auth-divider::before, :root[data-theme="dark"] .auth-divider::after { background: rgba(255,255,255,.15); }
+.auth-google { width: 100%; justify-content: center; gap: 10px; }
+/* .cart-close's own `background: none` (further down this file) has equal
+   specificity to .qv-close's and is declared later, so it wins over plain
+   .qv-close on a button carrying both classes -- same reason the YouTube/
+   Twitch video modals scope their own .qv-close background instead of
+   relying on the bare class. */
+.auth-panel .qv-close { background: rgba(0, 0, 0, 0.08); }
+
 .nav-toggle {
   display: none;
   width: 40px; height: 40px;
@@ -478,6 +550,39 @@ h1, h2, .display-font {
    behind it. Click-outside-to-close still works; there's just nothing
    visible to click on. */
 #quick-view.cart-backdrop { background: transparent; }
+
+/* Generic floating-panel modal chrome -- originated as the shop's
+   quick-view modal (see the comment above .rip::before for its history),
+   now shared by the YouTube/Twitch video modals and the account login
+   modal too. Lives here (not shop.css) so it works on every page, not
+   just ones that happen to load shop.css. */
+.qv-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 92%;
+  max-width: 1000px;
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 20px;
+  box-sizing: border-box;
+  z-index: 250;
+}
+.qv-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.08);
+  font-size: 1.4rem;
+  line-height: 1;
+  z-index: 2;
+}
+.qv-divider { border-top: 2px dashed rgba(0, 0, 0, 0.15); margin: 18px 0; }
+.auth-panel { max-width: 420px; }
 
 /* Chrome, not content: flat rectangle with the same paper-grain texture as
    the header/footer (see the "Chrome" comment above) rather than a .rip

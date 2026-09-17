@@ -69,6 +69,7 @@ function headerHTML(isShop) {
       <div class="header-actions" id="header-actions">
         <button class="theme-toggle" id="theme-toggle" aria-label="Dunkles Design umschalten" type="button">${themeIconHTML()}</button>
         ${isShop ? cartButtonHTML() : ""}
+        <div id="account-slot"></div>
         <button class="nav-toggle" id="nav-toggle" aria-label="Menü öffnen" aria-expanded="false"><span></span></button>
       </div>
     </div>
@@ -140,6 +141,7 @@ export async function mountLayout() {
   if (footerSlot) footerSlot.outerHTML = footerHTML();
 
   mountConsentBanner();
+  import("/js/auth-ui.js").then(({ mountAccountUI }) => mountAccountUI());
   document.getElementById("cookie-settings-link")?.addEventListener("click", async (ev) => {
     ev.preventDefault();
     const { openConsentSettings } = await import("/js/consent.js");

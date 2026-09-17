@@ -126,33 +126,12 @@
 .badge-soldout { color: var(--accent-red); }
 .badge-sale { color: var(--accent-green); }
 
-/* ---------- Quick-view modal ---------- */
-.qv-panel {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 92%;
-  max-width: 1000px;
-  max-height: 88vh;
-  overflow-y: auto;
-  padding: 20px;
-  box-sizing: border-box;
-  z-index: 250;
-}
-.qv-close {
-  position: absolute;
-  top: 12px;
-  right: 16px;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.08);
-  font-size: 1.4rem;
-  line-height: 1;
-  z-index: 2;
-}
-.qv-divider { border-top: 2px dashed rgba(0, 0, 0, 0.15); margin: 18px 0; }
+/* ---------- Quick-view modal ----------
+   .qv-panel/.qv-close/.qv-divider themselves moved to style.css -- they're
+   generic modal chrome now (reused by the YouTube/Twitch video modals and
+   the account login modal, on pages that never load this file), not
+   shop-specific. What's left here is the shop's own lightbox/gallery
+   pieces built on top of that shared chrome. */
 .qv-zoom-hint {
   position: absolute;
   bottom: 10px;
