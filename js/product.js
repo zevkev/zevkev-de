@@ -1,0 +1,274 @@
+// Product detail page — reads ?slug=... from the URL and renders one
+// product full-page. This replaces js/catalog.js's old openQuickView()
+// modal; the swatch/gallery/stock/qty/add-to-cart logic below is ported
+// close to as-is from that modal, just targeting page elements (#pd-*)
+// instead of a modal (#qv-*).
+import { FourthwallAPI } from "./fourthwall-api.js";
+import { Cart } from "./cart.js";
+
+const root = document.getElementById("product-root");
+
+function money(amount, currency) {
+  try {
+    return new Intl.NumberFormat("de-DE", { style: "currency", currency: currency || "USD" }).format(amount);
+  } catch {
+    return `${amount} ${currency || ""}`;
+  }
+}
+
+// Same fixed-ish attribute shape as catalog.js: a variant's attributes look
+// like { description: "White, S", color: { name, swatch }, size: { name } }.
+// "description" is just the human-readable summary of the others, so it's
+// excluded from the option groups.
+function attributeGroups(product) {
+  const groups = new Map();
+  (product.variants || []).forEach((v) => {
+    Object.entries(v.attributes || {}).forEach(([key, val]) => {
+      if (key === "description" || !val || typeof val !== "object" || val.name == null) return;
+      if (!groups.has(key)) groups.set(key, new Map());
+      groups.get(key).set(val.name, val.swatch || null);
+    });
+  });
+  return groups;
+}
+
+function findVariant(product, selection) {
+  return (product.variants || []).find((v) =>
+    Object.entries(selection).every(([key, value]) => v.attributes?.[key]?.name === value)
+  );
+}
+
+// Each variant carries its own images array; for apparel it's identical
+// across sizes of one color but differs across colors, so the gallery
+// should follow the selected color instead of showing every color's
+// photos at once (a shirt with 6 colors x 7 angles is 42 thumbnails).
+function imagesForSelection(product, selection) {
+  if (selection.color) {
+    const variant = (product.variants || []).find((v) => v.attributes?.color?.name === selection.color);
+    if (variant?.images?.length) return variant.images;
+  }
+  return product.images?.length ? product.images : product.image ? [product.image] : [];
+}
+
+function renderSkeleton() {
+  if (!root) return;
+  root.innerHTML = `
+    <div class="product-page">
+      <div class="skeleton-card" style="height:420px;"></div>
+      <div class="skeleton-card" style="height:420px;"></div>
+    </div>`;
+}
+
+function renderMessage(title, text) {
+  if (!root) return;
+  root.innerHTML = `
+    <div class="empty-state">
+      <h2>${title}</h2>
+      <p>${text}</p>
+      <a href="/shop/" class="p-btn rip btn-accent">Zurück zum Shop</a>
+    </div>`;
+}
+
+// getProduct() is the direct "one product by slug" endpoint Fourthwall
+// exposes. If it ever fails (wrong slug shape, product unpublished from
+// that endpoint, transient error) fall back to the same collection-walk
+// loadCatalog() in catalog.js already does, and find the matching slug
+// client-side.
+async function fetchProduct(slug) {
+  try {
+    const data = await FourthwallAPI.getProduct(slug);
+    const product = data?.results ?? data?.product ?? data;
+    if (product && (product.variants || product.id)) return product;
+  } catch (err) {
+    console.warn("getProduct failed, falling back to catalog scan:", err);
+  }
+
+  const { results: collections = [] } = await FourthwallAPI.getCollections();
+  const catchAll = collections.find((c) => /all/i.test(c.slug) || /all/i.test(c.name));
+  if (catchAll) {
+    const { results = [] } = await FourthwallAPI.getCollectionProducts(catchAll.slug);
+    const found = results.find((p) => p.slug === slug);
+    if (found) return found;
+  }
+  const lists = await Promise.all(
+    collections.map((c) => FourthwallAPI.getCollectionProducts(c.slug).catch(() => ({ results: [] })))
+  );
+  for (const list of lists) {
+    const found = (list.results || []).find((p) => p.slug === slug);
+    if (found) return found;
+  }
+  return null;
+}
+
+function updateMeta(product, imageUrl) {
+  document.title = `${product.name} | ZevKev Shop`;
+  const desc = `${product.name} — im ZevKev Merch Shop. Sicher bestellen über Fourthwall.`;
+  document.querySelector('meta[name="description"]')?.setAttribute("content", desc);
+  document.querySelector('meta[property="og:title"]')?.setAttribute("content", `${product.name} | ZevKev Shop`);
+  document.querySelector('meta[property="og:description"]')?.setAttribute("content", desc);
+  if (imageUrl) {
+    document.querySelector('meta[property="og:image"]')?.setAttribute("content", imageUrl);
+    document.querySelector('meta[name="twitter:image"]')?.setAttribute("content", imageUrl);
+  }
+}
+
+function renderProduct(product) {
+  if (!root) return;
+
+  const groups = attributeGroups(product);
+  const selection = {};
+  groups.forEach((values, option) => {
+    selection[option] = [...values.keys()][0];
+  });
+  let images = imagesForSelection(product, selection);
+
+  updateMeta(product, images[0]?.url);
+
+  root.innerHTML = `
+    <div class="product-page reveal">
+      <div>
+        <div class="product-gallery-main rip rip--photo" id="pd-main-frame">
+          <img id="pd-main-image" src="${images[0]?.url || ""}" alt="${product.name}">
+          <span class="qv-zoom-hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/></svg></span>
+        </div>
+      </div>
+      <div class="product-info rip">
+        <h1>${product.name}</h1>
+        <div class="product-price-block"><span class="price-tag" id="pd-price"></span></div>
+        <div class="qv-divider"></div>
+        ${product.description ? `<div class="product-description">${product.description}</div><div class="qv-divider"></div>` : ""}
+        <div id="pd-options"></div>
+        <div class="qv-divider"></div>
+        <div class="add-to-cart-row">
+          <div class="qty-stepper">
+            <button type="button" id="pd-qty-minus" aria-label="Weniger">&minus;</button>
+            <input type="number" id="pd-qty" value="1" min="1">
+            <button type="button" id="pd-qty-plus" aria-label="Mehr">+</button>
+          </div>
+          <button class="p-btn rip btn-accent" id="pd-add">In den Warenkorb</button>
+        </div>
+        <p class="stock-note" id="pd-stock"></p>
+      </div>
+    </div>
+    <div class="qv-lightbox" id="pd-lightbox"><img id="pd-lightbox-img" src="" alt=""><button class="cart-close qv-close" id="pd-lightbox-close" aria-label="Schließen">&times;</button></div>`;
+
+  root.querySelector("#pd-main-frame").addEventListener("click", () => {
+    root.querySelector("#pd-lightbox-img").src = root.querySelector("#pd-main-image").src;
+    root.querySelector("#pd-lightbox").classList.add("is-open");
+  });
+  const closeLightbox = () => root.querySelector("#pd-lightbox").classList.remove("is-open");
+  root.querySelector("#pd-lightbox-close").addEventListener("click", closeLightbox);
+  root.querySelector("#pd-lightbox").addEventListener("click", (ev) => {
+    if (ev.target.id === "pd-lightbox") closeLightbox();
+  });
+
+  const optionsEl = root.querySelector("#pd-options");
+  optionsEl.innerHTML = [...groups.entries()]
+    .map(([option, values]) => {
+      const swatches = [...values.entries()]
+        .map(([name, swatch]) =>
+          swatch
+            ? `<button type="button" class="swatch-color" data-option="${option}" data-value="${name}" title="${name}"><span class="chip" style="background:${swatch};"></span><span class="label">${name}</span></button>`
+            : `<button type="button" class="swatch-size" data-option="${option}" data-value="${name}">${name}</button>`
+        )
+        .join("");
+      return `
+      <div class="option-group">
+        <label>${option}</label>
+        <div class="option-swatches" data-option="${option}">${swatches}</div>
+      </div>`;
+    })
+    .join("");
+
+  function syncSelection() {
+    const variant = findVariant(product, selection) || product.variants?.[0];
+    root.querySelectorAll(".swatch-size, .swatch-color").forEach((btn) => {
+      btn.classList.toggle("is-selected", selection[btn.dataset.option] === btn.dataset.value);
+    });
+    root.querySelector("#pd-price").textContent = variant ? money(variant.unitPrice?.value ?? 0, variant.unitPrice?.currency) : "";
+    const outOfStock = variant?.stock?.type === "LIMITED" && (variant?.stock?.quantity ?? 0) <= 0;
+    root.querySelector("#pd-stock").textContent = outOfStock ? "Gerade nicht auf Lager." : "";
+    root.querySelector("#pd-add").disabled = !!outOfStock || !variant;
+    root.querySelector("#pd-add").dataset.variantId = variant?.id || "";
+  }
+
+  optionsEl.querySelectorAll(".swatch-size, .swatch-color").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      selection[btn.dataset.option] = btn.dataset.value;
+      if (btn.dataset.option === "color") {
+        images = imagesForSelection(product, selection);
+        renderGallery();
+      }
+      syncSelection();
+    });
+  });
+
+  function renderGallery() {
+    root.querySelector("#pd-main-image").src = images[0]?.url || "";
+    root.querySelector(".product-thumbs")?.remove();
+    if (images.length > 1) {
+      const thumbsHTML = images
+        .map((img, i) => `<button class="product-thumb${i === 0 ? " is-active" : ""}" data-src="${img.url}"><img src="${img.url}" alt=""></button>`)
+        .join("");
+      root.querySelector(".product-gallery-main").insertAdjacentHTML("afterend", `<div class="product-thumbs">${thumbsHTML}</div>`);
+      root.querySelectorAll(".product-thumb").forEach((t) => {
+        t.addEventListener("click", () => {
+          root.querySelector("#pd-main-image").src = t.dataset.src;
+          root.querySelectorAll(".product-thumb").forEach((x) => x.classList.remove("is-active"));
+          t.classList.add("is-active");
+        });
+      });
+    }
+  }
+  renderGallery();
+
+  root.querySelector("#pd-qty-minus").addEventListener("click", () => {
+    const input = root.querySelector("#pd-qty");
+    input.value = Math.max(1, Number(input.value) - 1);
+  });
+  root.querySelector("#pd-qty-plus").addEventListener("click", () => {
+    const input = root.querySelector("#pd-qty");
+    input.value = Number(input.value) + 1;
+  });
+
+  root.querySelector("#pd-add").addEventListener("click", (ev) => {
+    const variantId = ev.currentTarget.dataset.variantId;
+    const qtyInput = root.querySelector("#pd-qty");
+    const qty = Number(qtyInput.value) || 1;
+    if (!variantId) return;
+    // Cart.addItem() (js/cart.js) already shows a toast and opens the cart
+    // drawer on success — that's the "what happens next" for a real page,
+    // replacing the modal's old closeModal() call.
+    Cart.addItem(variantId, qty);
+    qtyInput.value = 1;
+  });
+
+  syncSelection();
+
+  // Same generic .reveal fade-in / IntersectionObserver used site-wide
+  // (and by catalog.js's product grid) — imported after the markup exists
+  // since initReveal() reads the DOM once at import time.
+  import("/js/home.js").catch(() => {});
+}
+
+async function init() {
+  const slug = new URLSearchParams(window.location.search).get("slug");
+  if (!slug) {
+    renderMessage("Kein Produkt ausgewählt", "Für diesen Link fehlt die Produktangabe. Schau stattdessen im Shop vorbei.");
+    return;
+  }
+  renderSkeleton();
+  try {
+    const product = await fetchProduct(slug);
+    if (!product) {
+      renderMessage("Produkt nicht gefunden", "Es gibt dieses Produkt nicht (mehr) — vielleicht wurde es entfernt oder der Link stimmt nicht mehr.");
+      return;
+    }
+    renderProduct(product);
+  } catch (err) {
+    console.error("Product load failed:", err);
+    renderMessage("Produkt lädt gerade nicht", "Bitte versuch's gleich nochmal.");
+  }
+}
+
+init();

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Produkt | ZevKev Shop</title>
+<meta name="description" content="Entdecke dieses Teil aus dem ZevKev Merch Shop. Sicher bestellen über Fourthwall.">
+
+<link rel="icon" type="image/png" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
+<link rel="apple-touch-icon" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Produkt | ZevKev Shop">
+<meta property="og:description" content="Entdecke dieses Teil aus dem ZevKev Merch Shop.">
+<meta property="og:image" content="https://zevkev.github.io/Medienspeicher/Bilder/ZevKev.png">
+<meta property="og:url" content="https://zevkev.de/shop/product/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://zevkev.github.io/Medienspeicher/Bilder/ZevKev.png">
+
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/shop.css">
+</head>
+<body>
+
+<script type="module" src="/js/theme.js"></script>
+
+<div id="site-header"></div>
+
+<div class="page-body">
+  <div class="container">
+    <a href="/shop/" class="shop-back-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Zurück zum Shop
+    </a>
+
+    <div id="product-root"></div>
+
+  </div>
+</div>
+
+<div id="site-footer"></div>
+
+<script type="module" src="/js/flags.js"></script>
+<script type="module">
+  import { mountLayout } from "/js/layout.js";
+  mountLayout();
+</script>
+<script type="module" src="/js/product.js"></script>
+</body>
+</html>
