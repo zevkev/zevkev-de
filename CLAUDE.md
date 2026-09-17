@@ -25,9 +25,11 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
 | `js/twitch-toggle.js` | `TWITCH_ENABLED` boolean — the master on/off switch for all Twitch features, deliberately isolated in its own file for easy direct GitHub web-UI edits |
 | `js/config.js` | Public tokens (Fourthwall storefront token, Twitch client ID) — re-exports `TWITCH_ENABLED` |
 | `js/cart.js` + `js/fourthwall-api.js` | Cart state + Fourthwall Storefront API client |
-| `js/catalog.js` | Shop grid + product **quick-view modal** (not a full page — see Known Issues) |
+| `js/catalog.js` | Shop grid — clicking a product navigates to `js/product.js` now, no more modal |
+| `js/product.js` | Shop product detail page (`shop/product/?slug=...`), full page not a modal |
 | `js/vods.js` + `js/twitch-auth.js` | VODs page: live > Twitch VOD > YouTube fallback player, Twitch OAuth popup login + chat |
 | `js/youtube.js` | YouTube page: Videos/Shorts grid, custom modal player |
+| `js/watchlist.js` | Dedicated Watchlist page — reads the shared `zevkev-watchlist` key, resolves ids against both `videos.json` and `main-videos.json` |
 | `scripts/fetch-main-feed.mjs` | Fetches full YouTube upload history via Data API v3 (needs `YOUTUBE_API_KEY` secret — not yet set) |
 | `scripts/fetch-twitch-status.mjs`, `fetch-vod-feed.mjs` | Twitch live status + VOD archive fetch |
 | `.github/workflows/data-refresh.yml` | Cron (every 5 min): runs the fetch scripts, commits data back via `github-actions[bot]` |
@@ -98,7 +100,28 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
   light / `#060c14` dark) — only paper cards, text and chrome actually flip
   between cream and charcoal. If this still gets reported as "broken," the
   real ask is probably a visual design change (e.g. a genuinely light mat
-  in light mode), not a functional fix — clarify which before touching it.
+  in light mode), not a functional fix. Kevin kept reporting it as broken
+  after being told this, so as of the 2026-09-17 VOD/YouTube ground-up
+  redesigns, both pages were told to make their own light theme genuinely
+  lighter locally (not by touching the shared `--blue-mat`) — check whether
+  that actually landed and reads as "obviously different now" before
+  assuming this is still open.
+- **Shop: product page instead of quick-view modal — done.** `js/catalog.js`
+  no longer has `openQuickView()` (deleted, confirmed nothing else
+  referenced it); clicking a product now navigates to
+  `shop/product/?slug=<slug>`, rendered by the new `js/product.js` using
+  the `.product-page` CSS that was already scaffolded for this. Verified
+  in-browser: gallery + color-filtered thumbnails + lightbox zoom, variant
+  selection, add-to-cart (opens the cart drawer, matching what "closing
+  the modal" used to do), sold-out state, missing/unknown slug shows a
+  friendly "Produkt nicht gefunden" message instead of a blank page,
+  desktop/mobile, light/dark.
+- **Watchlist page — done.** New `/watchlist/` page (`js/watchlist.js`,
+  `css/watchlist.css`, `watchlist/index.html`), added to both the header
+  nav (`js/layout.js` `NAV`) and footer links. Reads the shared
+  `zevkev-watchlist` key and resolves ids against both `videos.json` and
+  `main-videos.json`, tagging each card with a source badge. Verified
+  in-browser with a real saved id.
 
 ## Known issues / next fixes (as of 2026-09-17)
 
@@ -123,31 +146,14 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
       genuinely global primitives (color tokens, font-face declarations)
       in one minimal shared file, make every actual component/page style
       local to that page — ask which one is actually wanted if unsure.
-- [ ] **Shop: product click should open a full page, not the quick-view
-      modal.** `js/catalog.js`'s `openQuickView()` currently builds a modal.
-      Needs to become real navigation to a per-product page instead
-      (there's already unused `.product-page` CSS in `shop.css` from an
-      earlier plan — check whether it fits before writing new CSS). This
-      was requested after the quick-view had already been redesigned twice
-      and was still described as hard to follow — a real page (its own
-      URL, no cramped modal, room to lay things out) is the actual fix
-      being asked for, not another round of modal tweaks.
-- [ ] **New dedicated Watchlist page**, separate from both `/vods/` and
-      `/youtube/`. Both pages already save starred items to the same
-      localStorage key (`WATCHLIST_KEY` in `js/vods.js` / `js/youtube.js` —
-      confirm it's literally the same key before building a page that reads
-      both). Requested so a visitor with saved items has one place to see
-      them all, instead of the star only ever filtering within whichever
-      page it was clicked on.
-- [ ] **Quick-view/product page bottom edge — needs a decision, not just a
-      fix.** With the backdrop now fully transparent (see "Already done"),
-      the user flagged that where the panel's own paper background/torn
-      edge ends, the ordinary page content behind it becomes visible right
-      up against that edge, which read as visually broken ("Papier hört
-      auf" / paper stops, looks see-through) rather than as an intentional
-      "note on top of the page" look. Once product pages replace the modal
-      (item above), this specific complaint may become moot — but if any
-      modal/overlay pattern remains anywhere (e.g. the video player
+- [ ] **Quick-view bottom-edge complaint — likely moot now, verify.** This
+      was about the *modal's* torn paper edge cutting off against the
+      undimmed page behind it. Since the shop quick-view modal is gone
+      (replaced by the real product page — see "Already done"), this
+      specific complaint has no more surface to apply to on the shop side.
+      Worth a quick visual check that nothing similar shows up on the new
+      product page, but don't treat this as still-open work on its own. If
+      any modal/overlay pattern remains anywhere (e.g. the video player
       modals), keep this in mind: a transparent backdrop only reads as
       "clean, not dimmed" when the foreground panel's own edges don't
       abruptly cut off against page content — consider whether the panel
@@ -178,23 +184,26 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
       waiting for it; this is purely a "ask Kevin to do this one console
       step" item, not something to implement further.
 
-## Deliberately deferred — do not start without asking first
+## Currency conversion (was deferred, now in progress as of 2026-09-17)
 
 - **Shop prices show USD, should show EUR.** Root cause fully diagnosed:
   Fourthwall's base currency is permanently fixed to USD for every shop
   (confirmed via their own help docs — not something any settings toggle
   changes). Their "Local currencies" feature (already enabled for EUR in
   Settings → Checkout) only converts within Fourthwall's own hosted
-  checkout page — confirmed live there for a German-detected visitor — but
-  never reaches the Storefront API data this site's `js/cart.js`/
-  `js/catalog.js` read directly, which always returns USD. The real fix
-  is a client-side display conversion (fetch + cache a USD→EUR rate,
-  probably via a GitHub Actions script writing a JSON file, same pattern
-  as the video-feed fetchers) while leaving `cartCurrency` in the actual
-  checkout URL as USD, since Fourthwall's own checkout already localizes
-  correctly for the visitor. The user explicitly said to park this and
-  focus on shop/VODs/YouTube first — don't start it without confirming
-  that's still the priority order.
+  checkout page, never reaches the Storefront API data this site's
+  `js/cart.js`/`js/catalog.js`/`js/product.js` read directly, which always
+  returns USD. Originally parked at the user's request to focus on shop/
+  VODs/YouTube first — they've since explicitly asked for it, so it's back
+  in scope. Approach: a `scripts/fetch-exchange-rate.mjs` cron script
+  (same GitHub Actions pattern as the video-feed fetchers) caching a
+  USD→EUR rate into `/assets/data/exchange-rate.json`, read by a new
+  `js/currency.js` module, applied everywhere a price displays. Whether
+  the actual Fourthwall checkout URL's `cartCurrency` param can also be
+  switched to EUR (vs. leaving it USD and relying on Fourthwall's own
+  checkout to auto-localize) needed live verification — check this file's
+  "Already done" section above (once updated) or the commit history for
+  what was actually found and shipped, rather than assuming either way.
 
 ## Testing caveat (not a site bug)
 
@@ -218,6 +227,17 @@ environment quirks worth knowing about before assuming something is broken:
    coordinates computed via `getBoundingClientRect()` — right up until the
    same click, aimed using a screenshot's own pixel position instead,
    worked perfectly. Trust the screenshot's pixels for click coordinates.
+4. **A screenshot taken immediately after navigating to a fresh page can
+   show content at very low opacity/contrast** (text barely visible,
+   paper-card backgrounds missing) for roughly 2-5 seconds — fonts/images
+   still decoding, not a real rendering bug. Wait a couple seconds and
+   re-screenshot before concluding a page is broken or a theme's colors
+   are missing. Also: this dev-preview browser tool occasionally reuses a
+   stale tab whose title/URL doesn't match what it actually shows (seen
+   after several `navigate()` calls in a row) — if a screenshot looks like
+   it's showing two pages' content overlapping or a URL that doesn't match
+   the visible content, close the tab and open a fresh one rather than
+   trying to debug it as a site bug.
 3. The dev-preview server (plain `python -m http.server`, no cache-control
    headers) lets the browser cache CSS files aggressively across
    navigations in the same tab — editing a `.css` file and reloading the

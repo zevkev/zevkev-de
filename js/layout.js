@@ -100,6 +100,7 @@ function footerHTML() {
         <a href="/shop/">Shop</a>
         <a href="/vods/">VODs</a>
         <a href="/youtube/">YouTube</a>
+        <a href="/watchlist/">Watchlist</a>
         <a href="/impressum/">Impressum</a>
         <a href="/datenschutz/">Datenschutz</a>
         <a href="/kontakt/">Kontakt</a>
