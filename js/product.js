@@ -125,11 +125,23 @@ function updateMeta(product, imageUrl) {
   document.querySelector('meta[name="description"]')?.setAttribute("content", desc);
   document.querySelector('meta[property="og:title"]')?.setAttribute("content", `${product.name} | ZevKev Shop`);
   document.querySelector('meta[property="og:description"]')?.setAttribute("content", desc);
-  // Point the share URL at the clean, canonical /shop/<slug> form regardless
-  // of which URL form actually served this page (?slug= or the 404.html
-  // path fallback) — that's the link this site now hands out from the
-  // product grid (see catalog.js), so it's the one worth sharing further.
-  document.querySelector('meta[property="og:url"]')?.setAttribute("content", `https://zevkev.de/shop/${product.slug}`);
+  // Point the share URL (and the SEO canonical tag) at the clean
+  // /shop/<slug> form regardless of which URL form actually served this
+  // page (?slug=, the 404.html path fallback, or the plain product-not-
+  // found 404.html render) — that's the link this site now hands out from
+  // the product grid (see catalog.js), so it's the one worth sharing/
+  // indexing. 404.html has no canonical <link> in its static HTML at all
+  // (it's a generic error-page shell reused for a real render), so create
+  // one on demand rather than assuming it exists.
+  const canonicalUrl = `https://zevkev.de/shop/${product.slug}`;
+  document.querySelector('meta[property="og:url"]')?.setAttribute("content", canonicalUrl);
+  let canonical = document.querySelector('link[rel="canonical"]');
+  if (!canonical) {
+    canonical = document.createElement("link");
+    canonical.rel = "canonical";
+    document.head.appendChild(canonical);
+  }
+  canonical.href = canonicalUrl;
   if (imageUrl) {
     document.querySelector('meta[property="og:image"]')?.setAttribute("content", imageUrl);
     document.querySelector('meta[name="twitter:image"]')?.setAttribute("content", imageUrl);
