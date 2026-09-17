@@ -15,6 +15,7 @@
 <body>
 
 <script type="module" src="/js/theme.js"></script>
+<script type="module" src="/js/consent.js"></script>
 
 <div id="site-header"></div>
 
@@ -35,33 +36,37 @@
 
       <h2>2. Hosting (GitHub Pages)</h2>
       <p>Diese Seite wird über GitHub Pages (GitHub Inc., 88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, USA) ausgeliefert. Beim Aufruf verarbeitet GitHub automatisch technische Daten wie IP Adresse, Browsertyp und Zugriffszeit (Server Logfiles), um die Seite auszuliefern und Missbrauch zu verhindern. Details: <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">GitHub Privacy Statement</a>.</p>
-      <p>Wir selbst binden keinerlei eigene Analyse oder Tracking Tools ein (zum Beispiel kein Google Analytics).</p>
 
-      <h2 data-twitch-only>3. Twitch Einbindungen</h2>
+      <h2>3. Google Analytics</h2>
+      <p>Wir nutzen Google Analytics 4 (Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irland), um zu verstehen, wie die Seite genutzt wird — zum Beispiel welche Seiten aufgerufen werden, welche Buttons geklickt werden und wie lange Videos angesehen werden. Dabei können Cookies gesetzt und Daten (unter anderem eine gekürzte IP Adresse, Gerät und Browserinformationen sowie Ihr Nutzungsverhalten auf dieser Seite) an Google-Server, auch in die USA, übertragen werden.</p>
+      <p><strong>Google Analytics lädt nur, wenn Sie aktiv zustimmen</strong> — über das Cookie-Banner, das beim ersten Besuch erscheint. Ohne Ihre Zustimmung wird kein Skript geladen und keine Verbindung zu Google aufgebaut. Sie können Ihre Entscheidung jederzeit über den Link „Cookie-Einstellungen" im Footer dieser Seite ändern. Rechtsgrundlage ist Ihre Einwilligung (Art. 6 Abs. 1 lit. a DSGVO); Sie können diese jederzeit mit Wirkung für die Zukunft widerrufen. Details: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Datenschutzerklärung</a> und <a href="https://support.google.com/analytics/answer/12017362" target="_blank" rel="noopener">Google Analytics Datenverarbeitung</a>.</p>
+
+      <h2 data-twitch-only>4. Twitch Einbindungen</h2>
       <p data-twitch-only>Auf der <a href="/vods/">VODs Seite</a> binden wir bei Live Sendungen den offiziellen Twitch Player und Twitch Chat per iframe ein (twitch.tv, Twitch Interactive Inc.). Dabei kann Twitch bereits beim Laden der Seite Cookies setzen und Daten verarbeiten, unter anderem die IP Adresse, unabhängig davon, ob Sie ein Twitch Konto haben. Weitere Informationen: <a href="https://www.twitch.tv/p/legal/privacy-notice/" target="_blank" rel="noopener">Twitch Datenschutzerklärung</a>.</p>
 
-      <h3 data-twitch-only>3.1 „Mit Twitch einloggen"</h3>
+      <h3 data-twitch-only>4.1 „Mit Twitch einloggen"</h3>
       <p data-twitch-only>Wenn Sie den Button „Mit Twitch einloggen" nutzen, werden Sie zu Twitch weitergeleitet und melden sich dort mit Ihrem eigenen Twitch Konto an (OAuth, Berechtigung <code>user:write:chat</code>). Twitch übergibt uns danach ein Zugriffstoken sowie Ihren Anzeigenamen, Ihr Profilbild und Ihre Nutzer ID. Diese Daten werden ausschließlich lokal in Ihrem Browser gespeichert (sessionStorage, gelöscht beim Schließen des Tabs) und genutzt, um Nachrichten über den offiziellen Twitch API Endpunkt in Ihrem Namen in den Chat zu senden. Wir speichern diese Daten nicht auf eigenen Servern, denn wir haben keinen eigenen Server, der sie speichern könnte. Rechtsgrundlage: Art. 6 Abs. 1 lit. a DSGVO (Einwilligung durch aktives Anklicken).</p>
 
-      <h2>4. YouTube Einbindungen</h2>
+      <h2>5. YouTube Einbindungen</h2>
       <p>Videos werden per YouTube iframe (Google Ireland Limited) eingebettet. Beim Abspielen können Cookies gesetzt und Daten an Google übertragen werden. Details: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Datenschutzerklärung</a>.</p>
 
-      <h2>5. Shop und Bestellungen (Fourthwall)</h2>
-      <p>Der <a href="/shop/">Shop</a> lädt Produktdaten direkt im Browser über die öffentliche Storefront API von Fourthwall (Fourthwall Inc.). Beim Hinzufügen zum Warenkorb wird ein Warenkorb bei Fourthwall angelegt. Die Warenkorb ID speichern wir in Ihrem <code>localStorage</code>, damit der Warenkorb bei einem erneuten Besuch erhalten bleibt. Der eigentliche Bestellvorgang mit Adress, Zahlungs und Rechnungsdaten findet vollständig auf den Seiten von Fourthwall statt. Wir sehen und speichern diese Daten nicht. Es gilt die <a href="https://fourthwall.com/privacy-policy" target="_blank" rel="noopener">Datenschutzerklärung von Fourthwall</a>.</p>
+      <h2>6. Shop und Bestellungen (Fourthwall)</h2>
+      <p>Der <a href="/shop/">Shop</a> lädt Produktdaten direkt im Browser über die öffentliche Storefront API von Fourthwall (Fourthwall Inc.). Beim Hinzufügen zum Warenkorb wird ein Warenkorb bei Fourthwall angelegt. Die Warenkorb ID speichern wir in Ihrem <code>localStorage</code>, damit der Warenkorb bei einem erneuten Besuch erhalten bleibt. Der eigentliche Bestellvorgang mit Adress, Zahlungs und Rechnungsdaten findet vollständig auf den Seiten von Fourthwall statt. Wir sehen und speichern diese Daten nicht. Es gilt die <a href="https://fourthwall.com/privacy-policy" target="_blank" rel="noopener">Datenschutzerklärung von Fourthwall</a> sowie die <a href="https://fourthwall.com/legal/terms-of-service" target="_blank" rel="noopener">Allgemeinen Geschäftsbedingungen von Fourthwall</a>.</p>
 
-      <h2>6. localStorage und sessionStorage</h2>
-      <p>Wir nutzen den lokalen Speicher Ihres Browsers, aber keine Tracking Cookies.</p>
+      <h2>7. localStorage und sessionStorage</h2>
+      <p>Wir nutzen den lokalen Speicher Ihres Browsers für einiges davon, aber keine Tracking Cookies außerhalb dessen, was Google Analytics selbst nach Ihrer Zustimmung setzt (siehe Punkt 3).</p>
       <ul>
+        <li><strong>Cookie-Einstellung</strong> (localStorage): ob Sie Google Analytics zugestimmt oder es abgelehnt haben.</li>
         <li><strong>Warenkorb ID</strong> (localStorage): damit Ihr Warenkorb beim nächsten Besuch noch da ist.</li>
         <li data-twitch-only><strong>Watchlist</strong> (localStorage): die von Ihnen markierten VODs, rein auf Ihrem Gerät.</li>
-        <li data-twitch-only><strong>Twitch Zugriffstoken</strong> (sessionStorage): nur nach aktivem Login, nur für die Dauer des Tabs, siehe Punkt 3.1.</li>
+        <li data-twitch-only><strong>Twitch Zugriffstoken</strong> (sessionStorage): nur nach aktivem Login, nur für die Dauer des Tabs, siehe Punkt 4.1.</li>
       </ul>
       <p>Diese Daten verlassen Ihr Gerät nicht, außer dort, wo es technisch nötig ist, zum Beispiel das Twitch Token beim Senden einer Chat Nachricht an Twitch selbst. Sie können sie jederzeit über die Einstellungen Ihres Browsers löschen.</p>
 
-      <h2>7. Externe Links</h2>
+      <h2>8. Externe Links</h2>
       <p>Wir verlinken auf YouTube, Instagram, TikTok, Discord<span data-twitch-only> und Twitch</span>. Diese Plattformen verarbeiten nach dem Klick Daten gemäß ihrer eigenen Datenschutzerklärungen, auf die wir keinen Einfluss haben.</p>
 
-      <h2>8. Ihre Rechte</h2>
+      <h2>9. Ihre Rechte</h2>
       <p>Sie haben nach der DSGVO das Recht auf Auskunft (Art. 15), Berichtigung (Art. 16), Löschung (Art. 17), Einschränkung der Verarbeitung (Art. 18), Datenübertragbarkeit (Art. 20) und Widerspruch (Art. 21) bezüglich Ihrer personenbezogenen Daten. Wenden Sie sich dazu an die oben genannte Kontaktadresse.</p>
       <p>Sie haben außerdem das Recht, sich bei einer Datenschutz Aufsichtsbehörde zu beschweren.</p>
     </div>
