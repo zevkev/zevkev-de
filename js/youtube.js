@@ -1,4 +1,4 @@
-import { observeImpressions, track } from "./track.js";
+import { observeImpressions } from "./track.js";
 
 const WATCHLIST_KEY = "zevkev-watchlist";
 
@@ -129,176 +129,15 @@ async function loadJSON(url, fallback) {
   }
 }
 
-/* ---------- Video modal ----------
-   A custom-styled, on-brand launcher (play-button card, or the full-bleed
-   hero below) opens this instead of sending people straight to youtube.com.
-   Actual playback is still a real YouTube iframe embed under the hood (per
-   YouTube's terms), just presented in the site's own torn-paper chrome.
-   Reuses .cart-backdrop / .qv-panel / .qv-close (already loaded via
-   style.css + shop.css) for the floating-panel shell, matching the shop's
-   quick-view exactly. */
-let modalLastFocused = null;
-let modalYTPlayer = null;
-let modalWatchTracker = null;
-
-// ---------- Watch-time analytics ----------
-// The YouTube IFrame Player API (loaded lazily below, once per page, the
-// first time a video is actually opened) exposes real play/pause/ended
-// state changes -- this turns those into periodic heartbeats while a video
-// is actively playing, not just one call at the end, so a visitor closing
-// the tab without a clean pause/unload event doesn't lose the segment. Each
-// tracker resets its own elapsed-time counter right after sending a
-// heartbeat so totals summed on the dashboard don't double count.
-const HEARTBEAT_MS = 30000;
-
-function createWatchTimeTracker(path) {
-  let intervalId = null;
-  let segmentStart = null;
-
-  function flush() {
-    if (segmentStart == null) return;
-    const elapsed = (Date.now() - segmentStart) / 1000;
-    segmentStart = Date.now();
-    if (elapsed > 0.5) track("watch_time", path, elapsed);
-  }
-
-  function start() {
-    if (intervalId != null) return; // already accumulating
-    segmentStart = Date.now();
-    intervalId = setInterval(flush, HEARTBEAT_MS);
-  }
-
-  function stop() {
-    if (intervalId != null) {
-      clearInterval(intervalId);
-      intervalId = null;
-    }
-    flush(); // final heartbeat for whatever accumulated since the last tick
-    segmentStart = null;
-  }
-
-  function onVisibilityChange() {
-    if (document.hidden) flush();
-  }
-  document.addEventListener("visibilitychange", onVisibilityChange);
-
-  function destroy() {
-    stop();
-    document.removeEventListener("visibilitychange", onVisibilityChange);
-  }
-
-  return { start, stop, destroy };
-}
-
-// YouTube IFrame Player API: loaded lazily (no static <script> tag, so a page
-// load where nobody opens a video doesn't pay for it). The API's own script
-// calls a *global* window.onYouTubeIframeAPIReady callback once ready (this
-// is the API's documented contract) -- wrapped in a promise here so callers
-// can just await it. Chains onto any pre-existing callback rather than
-// clobbering it.
-let youtubeAPIPromise = null;
-function ensureYouTubeAPI() {
-  if (window.YT && window.YT.Player) return Promise.resolve(window.YT);
-  if (youtubeAPIPromise) return youtubeAPIPromise;
-  youtubeAPIPromise = new Promise((resolve) => {
-    const prev = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => {
-      prev?.();
-      resolve(window.YT);
-    };
-    const tag = document.createElement("script");
-    tag.src = "https://www.youtube.com/iframe_api";
-    document.head.appendChild(tag);
-  });
-  return youtubeAPIPromise;
-}
-
-function videoModalHTML(video) {
-  const meta = [
-    video.publishedAt ? formatDate(video.publishedAt) : "",
-    video.views != null ? `${formatViews(video.views)} Aufrufe` : "",
-  ].filter(Boolean).join(" &middot; ");
-  // enablejsapi=1 + origin let the YT IFrame API attach to this iframe after
-  // it's already in the DOM (see openVideoModal below) without needing to
-  // know/rebuild the video id or any other embed params itself -- same
-  // src/autoplay behavior as before, just two extra query params. Works
-  // identically for a regular video or a Short: this modal (and its embed
-  // URL) doesn't branch on video.isShort at all.
-  const src = `https://www.youtube.com/embed/${video.id}?autoplay=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`;
-  return `
-  <div class="qv-panel rip yt-modal-panel">
-    <button class="cart-close qv-close" id="yt-modal-close" aria-label="Schließen">&times;</button>
-    <div class="yt-modal-frame">
-      <iframe
-        id="yt-modal-iframe"
-        src="${src}"
-        title="${escapeHTML(video.title)}"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        allowfullscreen></iframe>
-    </div>
-    <div class="yt-modal-title">${video.title}</div>
-    ${meta ? `<div class="yt-modal-meta">${meta}</div>` : ""}
-  </div>`;
-}
-
-function onModalKeydown(ev) {
-  if (ev.key === "Escape") closeVideoModal();
-}
-
-function closeVideoModal() {
-  const modal = document.getElementById("yt-video-modal");
-  if (!modal) return;
-  modal.remove();
-  document.removeEventListener("keydown", onModalKeydown);
-  modalWatchTracker?.destroy();
-  modalWatchTracker = null;
-  modalYTPlayer?.destroy?.();
-  modalYTPlayer = null;
-  modalLastFocused?.focus?.();
-}
-
-function openVideoModal(video) {
-  closeVideoModal();
-  modalLastFocused = document.activeElement;
-
-  const modal = document.createElement("div");
-  modal.id = "yt-video-modal";
-  modal.className = "cart-backdrop is-open";
-  modal.innerHTML = videoModalHTML(video);
-  document.body.appendChild(modal);
-
-  modal.querySelector("#yt-modal-close").addEventListener("click", closeVideoModal);
-  modal.addEventListener("click", (ev) => {
-    if (ev.target === modal) closeVideoModal();
-  });
-  document.addEventListener("keydown", onModalKeydown);
-  modal.querySelector("#yt-modal-close").focus();
-
-  const tracker = createWatchTimeTracker(video.id);
-  modalWatchTracker = tracker;
-  ensureYouTubeAPI().then((YT) => {
-    const el = document.getElementById("yt-modal-iframe");
-    if (!el || modalWatchTracker !== tracker) return; // modal closed/replaced before the API finished loading
-    modalYTPlayer = new YT.Player("yt-modal-iframe", {
-      events: {
-        onStateChange: (event) => {
-          if (event.data === YT.PlayerState.PLAYING) tracker.start();
-          else if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED || event.data === YT.PlayerState.BUFFERING) tracker.stop();
-        },
-      },
-    });
-  });
-}
-
 /* ---------- Full-bleed hero ----------
    Gronkh.tv-style structural reference: the latest upload fills the page's
    full width/height as a background image right from y=0, with the site nav
    floating on top of it (see initHeroScrollObserver below) instead of a
    bounded card sitting underneath a solid nav bar. Click the image or the
-   "Video ansehen" button to open the same on-brand modal every card uses --
-   this stays a thumbnail + our own overlay rather than an autoplaying
-   full-viewport iframe, so it's stylable (gradient scrim, overlaid title)
-   and light to load. */
+   "Video ansehen" button to go to that video's own page (js/watch.js,
+   /video/<id>/) -- videos used to open in an on-page modal here; now every
+   video/VOD gets a real page with comments, so this just links there like
+   any other card. */
 function renderFeatured(video) {
   if (!heroMediaEl || !heroContentEl) return;
 
@@ -315,7 +154,9 @@ function renderFeatured(video) {
   }
 
   heroMediaEl.innerHTML = `<img src="${video.thumbnail}" alt="">`;
-  heroMediaEl.querySelector("img")?.addEventListener("click", () => openVideoModal(video));
+  heroMediaEl.querySelector("img")?.addEventListener("click", () => {
+    location.href = `/video/${video.id}/`;
+  });
 
   const stats = [
     video.publishedAt ? `<span class="stat">${calendarIcon()}${formatDate(video.publishedAt)}</span>` : "",
@@ -330,12 +171,11 @@ function renderFeatured(video) {
     <div class="yt-hero-title">${video.title}</div>
     ${stats ? `<div class="yt-hero-stats">${stats}</div>` : ""}
     <div class="yt-hero-actions">
-      <button type="button" class="yt-hero-play-btn" id="yt-hero-play" data-track-click="youtube-hero-play">${playIcon(16)}Video ansehen</button>
+      <a href="/video/${video.id}/" class="yt-hero-play-btn" id="yt-hero-play" data-track-click="youtube-hero-play">${playIcon(16)}Video ansehen</a>
       <a class="btn-youtube" href="https://www.youtube.com/@ZevKev?sub_confirmation=1" target="_blank" rel="noopener" data-track-click="youtube-subscribe">${youtubeGlyph()}Abonnieren</a>
       <button type="button" class="watchlist-toggle yt-hero-watch${saved ? " is-saved" : ""}" data-watch-id="${video.id}" aria-label="Zur Watchlist">${starIcon(saved)}</button>
     </div>`;
 
-  heroContentEl.querySelector("#yt-hero-play")?.addEventListener("click", () => openVideoModal(video));
   const watchBtn = heroContentEl.querySelector(".yt-hero-watch");
   watchBtn?.addEventListener("click", () => {
     const updated = toggleWatchlist(video.id);
@@ -370,7 +210,7 @@ function cardHTML(video, watchlist, isShort) {
   const saved = watchlist.has(video.id);
   const views = video.views != null ? formatViews(video.views) : "";
   return `
-  <a href="${video.url}" target="_blank" rel="noopener" class="vod-card rip reveal${isShort ? " vod-card--short" : ""}" data-video-id="${video.id}">
+  <a href="/video/${video.id}/" class="vod-card rip reveal${isShort ? " vod-card--short" : ""}" data-video-id="${video.id}">
     <div class="vod-thumb">
       <img src="${video.thumbnail}" alt="" loading="lazy">
       <span class="yt-play-overlay" aria-hidden="true"><span class="yt-play-circle">${playIcon(20)}</span></span>
@@ -385,10 +225,11 @@ function cardHTML(video, watchlist, isShort) {
   </a>`;
 }
 
-// Shared by renderGrid and renderSpotlight so the watchlist-star and
-// open-modal wiring (and the "let ctrl/cmd/shift/alt/middle click still open
-// a real new tab" carve-out) lives in one place instead of two copies.
-function attachCardHandlers(container, clickableVideos) {
+// Shared by renderGrid and renderSpotlight for the watchlist-star wiring.
+// Cards themselves are now plain links to their own /video/<id>/ page (see
+// cardHTML above), so clicking one just navigates natively -- no click
+// interception needed there anymore.
+function attachCardHandlers(container) {
   container.querySelectorAll("[data-watch-id]").forEach((btn) => {
     btn.addEventListener("click", (ev) => {
       ev.preventDefault();
@@ -397,15 +238,6 @@ function attachCardHandlers(container, clickableVideos) {
       const isSaved = updated.has(btn.dataset.watchId);
       btn.classList.toggle("is-saved", isSaved);
       btn.innerHTML = starIcon(isSaved);
-    });
-  });
-
-  container.querySelectorAll(".vod-card").forEach((card) => {
-    card.addEventListener("click", (ev) => {
-      if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
-      ev.preventDefault();
-      const video = clickableVideos.find((v) => v.id === card.dataset.videoId);
-      if (video) openVideoModal(video);
     });
   });
 }
@@ -499,7 +331,7 @@ function renderSpotlight(mode) {
       <div class="yt-shelf" id="yt-spotlight-shelf">${spotlightVideos.map((v) => cardHTML(v, watchlist, false)).join("")}</div>
       <button type="button" class="yt-shelf-nav yt-shelf-nav--next" aria-label="Weiter scrollen">${chevronRightIcon()}</button>
     </div>`;
-  attachCardHandlers(spotlightEl, spotlightVideos);
+  attachCardHandlers(spotlightEl);
   initShelf(spotlightEl.querySelector(".yt-shelf-wrap"));
   observeImpressions(".vod-card[data-video-id]", (el) => el.dataset.videoId, spotlightEl);
 }
@@ -551,7 +383,7 @@ function renderGrid(videos, mode) {
   const shown = ordered.slice(0, visibleCount);
   const watchlist = getWatchlist();
   gridEl.innerHTML = shown.map((v) => cardHTML(v, watchlist, mode === "shorts")).join("");
-  attachCardHandlers(gridEl, shown);
+  attachCardHandlers(gridEl);
   observeImpressions(".vod-card[data-video-id]", (el) => el.dataset.videoId, gridEl);
 
   renderLoadMore(videos, mode, shown.length, ordered.length);

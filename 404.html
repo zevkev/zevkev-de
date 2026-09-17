@@ -29,12 +29,13 @@
   URLs as "real" pages — an accepted, unavoidable tradeoff of this technique
   on GitHub Pages specifically, not a bug here).
 
-  This page is structurally identical to shop/product/index.html on
-  purpose: when the unmatched path looks like a clean product URL
-  (/shop/<slug> — see the inline script below), it loads the exact same
-  js/product.js used there, which already knows how to pull the slug out of
-  location.pathname when there's no ?slug= query string. Nothing about the
-  product page's rendering is duplicated here.
+  This page is structurally identical to shop/product/index.html and
+  watch/index.html on purpose: when the unmatched path looks like a clean
+  product URL (/shop/<slug>) or a clean video URL (/video/<id> or
+  /vod/<id> — see the inline script below), it loads the exact same
+  js/product.js or js/watch.js used on those real pages, both of which
+  already know how to pull their id out of location.pathname when there's
+  no query string. Nothing about either page's rendering is duplicated here.
 
   All /js/, /css/ etc. references below are root-absolute, so they resolve
   correctly no matter what URL this was actually served for (this file
@@ -43,6 +44,9 @@
 
 <link rel="stylesheet" href="/css/style.css">
 <link rel="stylesheet" href="/css/shop.css">
+<link rel="stylesheet" href="/css/vods.css">
+<link rel="stylesheet" href="/css/youtube.css">
+<link rel="stylesheet" href="/css/watch.css">
 </head>
 <body>
 
@@ -52,13 +56,19 @@
 <div id="site-header"></div>
 
 <div class="page-body">
-  <div class="container">
-    <a href="/shop/" class="shop-back-link">
+  <div class="container" id="fallback-container">
+    <a href="/shop/" class="shop-back-link" id="shop-back-link">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
       Zurück zum Shop
     </a>
 
     <div id="product-root"></div>
+
+    <div class="watch-page" id="watch-page" style="display:none;">
+      <div class="watch-player-wrap" id="watch-player"><div class="skeleton-card player-skeleton"></div></div>
+      <div class="watch-meta rip" id="watch-meta"></div>
+    </div>
+    <div class="comments-section rip" id="comments-root"></div>
 
   </div>
 </div>
@@ -71,21 +81,33 @@
   mountLayout();
 </script>
 <script>
-  // Only mount the product page's script when the unmatched path actually
-  // looks like a clean product URL: a single segment directly under
-  // /shop/, not /shop/product/ itself (a real path — it just never reaches
-  // this file, since shop/product/index.html exists) and not /shop/ alone
-  // (also real, shop/index.html). Anything else that lands on this 404
-  // page (a typo'd path anywhere else on the site, a link to a removed
-  // page, etc.) gets a plain, generic "not found" message instead of
-  // js/product.js's shop-specific "Produkt nicht gefunden" wording.
+  // Which real page's script (if any) this unmatched path actually maps to.
+  // Anything that doesn't match one of these shapes (a typo'd path anywhere
+  // else on the site, a link to a removed page, etc.) gets a plain generic
+  // "not found" message instead of borrowing either page's own wording.
   const parts = location.pathname.split("/").filter(Boolean);
   const looksLikeProductSlug = parts.length === 2 && parts[0] === "shop" && parts[1] !== "product";
+  const looksLikeWatchPath = parts.length === 2 && (parts[0] === "video" || parts[0] === "vod");
 
   if (looksLikeProductSlug) {
     const script = document.createElement("script");
     script.type = "module";
     script.src = "/js/product.js";
+    document.body.appendChild(script);
+  } else if (looksLikeWatchPath) {
+    document.getElementById("shop-back-link").style.display = "none";
+    document.getElementById("watch-page").style.display = "";
+    // watch/index.html's own .container carries this same inline style
+    // (its content, unlike the product page's grid, needs to be a centered
+    // column) -- applied here in JS since this container is shared with the
+    // product-slug branch above, which must NOT get it.
+    const container = document.getElementById("fallback-container");
+    container.style.display = "flex";
+    container.style.flexDirection = "column";
+    container.style.alignItems = "center";
+    const script = document.createElement("script");
+    script.type = "module";
+    script.src = "/js/watch.js";
     document.body.appendChild(script);
   } else {
     const root = document.getElementById("product-root");

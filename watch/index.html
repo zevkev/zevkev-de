@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Video | ZevKev</title>
+<meta name="description" content="Video ansehen und mitreden bei ZevKev.">
+
+<link rel="icon" type="image/png" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
+<link rel="apple-touch-icon" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+
+<meta property="og:type" content="video.other">
+<meta property="og:title" content="Video | ZevKev">
+<meta property="og:image" content="https://zevkev.github.io/Medienspeicher/Bilder/ZevKev.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://zevkev.github.io/Medienspeicher/Bilder/ZevKev.png">
+
+<!-- This page is reached two ways, same pattern as shop/product/index.html:
+     directly at /watch/?id=<id>&type=video|vod, or via a clean URL
+     (/video/<id>/ or /vod/<id>/) that 404.html catches and mounts this same
+     js/watch.js into -- js/watch.js reads whichever form is present. -->
+
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/shop.css">
+<link rel="stylesheet" href="/css/vods.css">
+<link rel="stylesheet" href="/css/youtube.css">
+<link rel="stylesheet" href="/css/watch.css">
+</head>
+<body>
+
+<script type="module" src="/js/theme.js"></script>
+<script type="module" src="/js/consent.js"></script>
+
+<div id="site-header"></div>
+
+<div class="page-body">
+  <div class="container" style="display:flex; flex-direction:column; align-items:center;">
+
+    <div class="watch-page" id="watch-page">
+      <div class="watch-player-wrap" id="watch-player">
+        <div class="skeleton-card player-skeleton"></div>
+      </div>
+      <div class="watch-meta rip" id="watch-meta"></div>
+    </div>
+
+    <div class="comments-section rip" id="comments-root"></div>
+
+  </div>
+</div>
+
+<div id="site-footer"></div>
+
+<script type="module" src="/js/flags.js"></script>
+<script type="module">
+  import { mountLayout } from "/js/layout.js";
+  mountLayout();
+</script>
+<script type="module" src="/js/watch.js"></script>
+</body>
+</html>

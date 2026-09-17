@@ -347,7 +347,7 @@ function renderPlayer(status, latestTwitchVod, latestYoutubeVideo) {
           ${status.startedAt ? `<span class="stat">${clockIcon()}seit <span id="live-elapsed">${formatElapsedSince(status.startedAt)}</span></span>` : ""}
         </div>
         <div class="vod-hero-actions">
-          <a class="vod-hero-btn vod-hero-btn--primary" href="https://www.twitch.tv/${TWITCH_CHANNEL}" target="_blank" rel="noopener">Jetzt zuschauen</a>
+          <a class="vod-hero-btn vod-hero-btn--primary" href="/live/">Jetzt zuschauen</a>
           <a class="vod-hero-btn vod-hero-btn--ghost" href="https://www.twitch.tv/${TWITCH_CHANNEL}/schedule" target="_blank" rel="noopener">Zeitplan</a>
         </div>
       </div>`;
@@ -638,7 +638,7 @@ function twitchVodCardHTML(vod, tone = "") {
   const views = vod.viewCount != null ? formatViews(vod.viewCount) : "";
   const classes = ["vod-card", "rip", tone, "reveal"].filter(Boolean).join(" ");
   return `
-  <a href="${vod.url}" target="_blank" rel="noopener" class="${classes}" data-twitch-vod-id="${vod.id}">
+  <a href="/vod/${vod.id}/" class="${classes}" data-twitch-vod-id="${vod.id}">
     <div class="vod-thumb">
       <img src="${vod.thumbnail}" alt="" loading="lazy">
       ${dur ? `<span class="vod-duration-badge">${dur}</span>` : ""}
@@ -651,29 +651,16 @@ function twitchVodCardHTML(vod, tone = "") {
   </a>`;
 }
 
-// Cards link straight to the Twitch VOD by default (keyboard, middle-click,
-// ctrl/cmd-click all keep working via the real href), but a plain click opens
-// the on-brand modal instead — the same pattern youtube.js uses for its grid.
-function attachTwitchCardHandlers(container, vods) {
-  if (!container) return;
-  container.querySelectorAll("[data-twitch-vod-id]").forEach((card) => {
-    card.addEventListener("click", (ev) => {
-      if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
-      ev.preventDefault();
-      const vod = vods.find((v) => v.id === card.dataset.twitchVodId);
-      if (vod) openTwitchModal(vod);
-    });
-  });
-}
-
-function paintTwitchRow(list, allVods) {
+function paintTwitchRow(list) {
   if (!twitchVodRow) return;
   if (!list.length) {
     twitchVodRow.innerHTML = `<div class="empty-state"><h2>Noch keine Twitch VODs</h2><p>Hier sammeln sich vergangene Streams, sobald welche archiviert sind. Bis dahin gibt's unten die YouTube Videos.</p></div>`;
     return;
   }
+  // Cards are plain links to their own /vod/<id>/ page (see twitchVodCardHTML
+  // above) -- no click handling needed here, native navigation already does
+  // the right thing (including ctrl/cmd/middle-click opening a new tab).
   twitchVodRow.innerHTML = list.map((v) => twitchVodCardHTML(v)).join("");
-  attachTwitchCardHandlers(twitchVodRow, allVods);
   observeImpressions("[data-twitch-vod-id]", (el) => el.dataset.twitchVodId, twitchVodRow);
 }
 
@@ -693,7 +680,6 @@ function renderTwitchArchive(vods, featuredId) {
     if (vods.length >= 4 && pool.length >= 3) {
       const picks = shuffledSample(pool, Math.min(6, pool.length));
       twitchSpotlightRow.innerHTML = picks.map((v) => twitchVodCardHTML(v, "rip--accent")).join("");
-      attachTwitchCardHandlers(twitchSpotlightRow, vods);
       observeImpressions("[data-twitch-vod-id]", (el) => el.dataset.twitchVodId, twitchSpotlightRow);
       twitchSpotlightWrap.style.display = "";
     } else {
@@ -715,7 +701,7 @@ function renderTwitchArchive(vods, featuredId) {
           twitchArchiveHead.querySelectorAll(".filter-pill").forEach((p) => p.classList.remove("is-active"));
           pill.classList.add("is-active");
           const ordered = pill.dataset.sort === "views" ? [...vods].sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0)) : vods;
-          paintTwitchRow(ordered, vods);
+          paintTwitchRow(ordered);
         });
       });
     } else {
@@ -723,89 +709,7 @@ function renderTwitchArchive(vods, featuredId) {
     }
   }
 
-  paintTwitchRow(vods, vods);
-}
-
-// ---------- Twitch VOD modal ----------
-// Mirrors js/youtube.js's on-brand video modal (same .cart-backdrop /
-// .qv-panel / .qv-close shell, already loaded via style.css + shop.css on
-// this page) so both platforms get equally considered custom playback
-// chrome. Not sharing youtube.css's own .yt-modal-* classes for it — that
-// file documents those as scoped to youtube.js's own elements on purpose, so
-// this defines its own (near-identical) .twitch-modal-* rules in vods.css.
-let twitchModalLastFocused = null;
-let modalTwitchPlayer = null;
-let modalWatchTracker = null;
-
-function twitchModalHTML(vod) {
-  const dur = formatTwitchDuration(vod.duration);
-  const views = vod.viewCount != null ? `${formatViews(vod.viewCount)} Aufrufe` : "";
-  const meta = [formatDateTime(vod.publishedAt), dur, views].filter(Boolean).join(" &middot; ");
-  return `
-  <div class="qv-panel rip twitch-modal-panel">
-    <button class="cart-close qv-close" id="twitch-modal-close" aria-label="Schließen">&times;</button>
-    <div class="twitch-modal-frame">
-      <div id="twitch-modal-target"></div>
-    </div>
-    <div class="twitch-modal-title">${vod.title}</div>
-    ${meta ? `<div class="twitch-modal-meta">${meta}</div>` : ""}
-  </div>`;
-}
-
-function onTwitchModalKeydown(ev) {
-  if (ev.key === "Escape") closeTwitchModal();
-}
-
-function closeTwitchModal() {
-  const modal = document.getElementById("twitch-video-modal");
-  if (!modal) return;
-  modal.remove();
-  document.removeEventListener("keydown", onTwitchModalKeydown);
-  modalWatchTracker?.destroy();
-  modalWatchTracker = null;
-  // No documented Twitch.Player.destroy() -- modal.remove() above already
-  // tore down its iframe; just drop the reference.
-  modalTwitchPlayer = null;
-  twitchModalLastFocused?.focus?.();
-}
-
-function openTwitchModal(vod) {
-  closeTwitchModal();
-  twitchModalLastFocused = document.activeElement;
-
-  const modal = document.createElement("div");
-  modal.id = "twitch-video-modal";
-  modal.className = "cart-backdrop is-open";
-  modal.innerHTML = twitchModalHTML(vod);
-  document.body.appendChild(modal);
-
-  modal.querySelector("#twitch-modal-close").addEventListener("click", closeTwitchModal);
-  modal.addEventListener("click", (ev) => {
-    if (ev.target === modal) closeTwitchModal();
-  });
-  document.addEventListener("keydown", onTwitchModalKeydown);
-  modal.querySelector("#twitch-modal-close").focus();
-
-  // .twitch-modal-frame's iframe rule uses position:absolute + inset:0, so
-  // the SDK's injected iframe sizes itself against the nearest *positioned*
-  // ancestor (.twitch-modal-frame, position:relative) regardless of the
-  // plain static #twitch-modal-target div sitting in between -- no inline
-  // sizing needed here the way the hero targets above need it.
-  const tracker = createWatchTimeTracker(vod.id);
-  modalWatchTracker = tracker;
-  ensureTwitchSDK().then((Twitch) => {
-    const el = document.getElementById("twitch-modal-target");
-    if (!el || modalWatchTracker !== tracker) return; // modal closed/replaced before the SDK finished loading
-    modalTwitchPlayer = new Twitch.Player("twitch-modal-target", {
-      video: vod.id,
-      parent: parentHosts(),
-      autoplay: true,
-      muted: false,
-      width: "100%",
-      height: "100%",
-    });
-    attachTwitchTracking(modalTwitchPlayer, Twitch, tracker);
-  });
+  paintTwitchRow(vods);
 }
 
 async function init() {

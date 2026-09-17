@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live | ZevKev</title>
+<meta name="description" content="ZevKev live auf Twitch, mit Live-Chat.">
+
+<link rel="icon" type="image/png" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
+<link rel="apple-touch-icon" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Live | ZevKev">
+<meta property="og:description" content="ZevKev live auf Twitch, mit Live-Chat.">
+<meta property="og:image" content="https://zevkev.github.io/Medienspeicher/Bilder/ZevKev.png">
+<link rel="canonical" href="https://zevkev.de/live/">
+<meta property="og:url" content="https://zevkev.de/live/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://zevkev.github.io/Medienspeicher/Bilder/ZevKev.png">
+
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/shop.css">
+<link rel="stylesheet" href="/css/vods.css">
+<link rel="stylesheet" href="/css/watch.css">
+</head>
+<body>
+
+<script type="module" src="/js/theme.js"></script>
+<script type="module" src="/js/consent.js"></script>
+
+<div id="site-header"></div>
+
+<div class="page-body">
+  <div class="container" style="display:flex; flex-direction:column; align-items:center;">
+
+    <div class="live-layout" id="live-layout">
+      <div class="live-player-col">
+        <div class="live-player-wrap" id="live-player">
+          <div class="skeleton-card player-skeleton"></div>
+        </div>
+        <div class="live-meta rip" id="live-meta"></div>
+      </div>
+      <div class="live-chat-col" id="live-chat-col" data-twitch-only>
+        <div class="chat-skeleton skeleton-card"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="site-footer"></div>
+
+<script type="module" src="/js/flags.js"></script>
+<script type="module">
+  import { mountLayout } from "/js/layout.js";
+  mountLayout();
+</script>
+<script type="module" src="/js/live.js"></script>
+</body>
+</html>

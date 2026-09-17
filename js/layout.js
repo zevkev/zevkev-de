@@ -141,6 +141,7 @@ export async function mountLayout() {
     path.startsWith("/youtube") ||
     path.startsWith("/vods") ||
     path.startsWith("/watchlist") ||
+    path.startsWith("/watch") || // covers both /watch/?id=... and the clean /video|vod/<id>/ forms
     path.startsWith("/video/") ||
     path.startsWith("/vod/") ||
     path.startsWith("/live");

@@ -501,25 +501,6 @@
 #twitch-spotlight-wrap { width: 100%; }
 .vod-row--accent .vod-card { position: relative; }
 
-/* ---------- Twitch VOD modal ----------
-   Mirrors youtube.css's .yt-modal-* treatment (own classes — see the
-   comment on .twitch-card-meta above) for the same on-brand floating
-   player, reusing .cart-backdrop/.qv-panel/.qv-close from style.css/
-   shop.css, both already loaded on this page. */
-.twitch-modal-panel { max-width: 960px; padding: 16px; }
-/* Same dark-backdrop fix as youtube.css's .yt-modal-panel .qv-close — a
-   translucent white circle disappears against bright VOD thumbnails. */
-.twitch-modal-panel .qv-close { background: rgba(10, 10, 14, 0.6); color: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); }
-.twitch-modal-panel .qv-close:hover { background: rgba(10, 10, 14, 0.8); }
-.twitch-modal-frame { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; }
-.twitch-modal-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-.twitch-modal-title { margin: 14px 4px 0; font-size: 1.1rem; line-height: 1.4; color: var(--text-dark); }
-.twitch-modal-meta { margin: 6px 4px 0; font-size: 0.85rem; color: var(--text-muted); }
-
-@media (max-width: 480px) {
-  .twitch-modal-panel { padding: 8px; }
-}
-
 @media (max-width: 980px) {
   .vod-hero-row { flex-direction: column; height: auto; gap: 0; }
   /* min-height alongside aspect-ratio: a pure 16/9 box gets too short on
