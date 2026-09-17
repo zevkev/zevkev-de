@@ -34,7 +34,7 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
 | `js/watchlist.js` | Dedicated Watchlist page — reads the shared `zevkev-watchlist` key, resolves ids against both `videos.json` and `main-videos.json` |
 | `js/track.js` | Analytics client. Exports `track(type, path, value)` and `observeImpressions(selector, pathFn, root)` (IntersectionObserver, fires once per element) — both report via `window.gtag(...)`, silently no-op if `gtag` isn't defined (i.e. no consent yet). Wired into `layout.js` (page_view), `product.js` (product_view), `cart.js` (add_to_cart), various `data-track-click` attributes (click), video-card grids in `vods.js`/`youtube.js` (impression), and watch-time heartbeats from the player-embedding code itself |
 | `js/consent.js` + `js/ga-config.js` | Cookie consent banner (GDPR: GA4 never loads before explicit accept) + the GA4 Measurement ID (not a secret, plain file, currently a placeholder — see "Known issues"). `js/consent.js` also exports `openConsentSettings()`, wired to a "Cookie-Einstellungen" footer link so a visitor can change their mind later |
-| `scripts/fetch-main-feed.mjs` | Fetches full YouTube upload history via Data API v3 (needs `YOUTUBE_API_KEY` secret — Kevin has a key and was walked through adding it to GitHub Settings → Secrets on 2026-09-17; check whether `assets/data/main-videos.json` actually has more than ~4 videos to confirm it landed, don't assume — as of the last check it still only had 15) |
+| `scripts/fetch-main-feed.mjs` | Fetches full YouTube upload history via Data API v3 (needs `YOUTUBE_API_KEY` secret — not yet confirmed as an actual GitHub repo secret, see "Known issues"). Shorts classification is a plain duration cutoff (`isShort = durationSeconds < 120`, see `SHORT_MAX_SECONDS`) computed from `videos.list`'s `contentDetails.duration` — no network probe. Used to probe `youtube.com/shorts/<id>` for YouTube's own retroactive tag instead, but that missed pre-Shorts-era short uploads that never got tagged; switched 2026-09-17 per Kevin's explicit ask ("all videos under 2 minutes should be put in shorts") |
 | `scripts/fetch-twitch-status.mjs`, `fetch-vod-feed.mjs` | Twitch live status + VOD archive fetch |
 | `scripts/fetch-exchange-rate.mjs` | Fetches USD->EUR from Frankfurter (free, keyless) into `assets/data/exchange-rate.json` for `js/currency.js` |
 | `.github/workflows/data-refresh.yml` | Cron (every 5 min): runs the fetch scripts, commits data back via `github-actions[bot]` |
@@ -244,13 +244,46 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
   animates smoothly via `transform` alone. If a "something bleeds through
   during page load/scroll" report ever comes up again for a *different*
   element, check for this same opacity-interpolation pattern first.
-- **Nav label "VODs" renamed to "Streams"** (`js/layout.js`'s `NAV` array,
-  footer link, `vods/index.html`'s `<title>`/`og:*`) — the page covers
-  live Twitch streams, the Twitch VOD archive, and the YouTube "ZevKev+"
-  VOD channel, so "VODs" undersold the live half. URL path (`/vods/`)
-  deliberately unchanged, so none of the SEO/canonical/sitemap work
-  breaks. Verified via direct `curl`/`fetch()` of the served file (the
-  browser tool's module cache wouldn't show it — see Testing caveat #1).
+- **Nav label "VODs" renamed twice: first to "Streams", then to "Mehr"**
+  (`js/layout.js`'s `NAV` array, footer link, `vods/index.html`'s
+  `<title>`/`og:*`) — Kevin asked for the rename again after "Streams"
+  shipped, explicitly requesting "Mehr" specifically. Current state: label
+  is **"Mehr"**. URL path (`/vods/`) deliberately unchanged both times, so
+  none of the SEO/canonical/sitemap work breaks. The nav-item-to-attribute
+  wiring in `headerHTML()` now keys off `n.href === "/vods/"` instead of
+  matching the label string, specifically so a future rename doesn't
+  silently break the `data-twitch-optional` attribute again. Verified via
+  direct `curl`/`fetch()` of the served file plus an in-browser check after
+  forcing a fresh module load (the browser tool's module/document cache
+  wouldn't show it otherwise — see Testing caveat #1).
+- **Watchlist nav item now hides itself when the watchlist is empty**
+  (`js/layout.js`: `hasWatchlistItems()` checks the shared
+  `zevkev-watchlist` localStorage key; the nav link and the footer link
+  — `#footer-watchlist-link` — are removed from the DOM in `mountLayout()`
+  when it's empty). Per-page-load check, not reactive — adding something to
+  the watchlist makes the nav item appear on the *next* page load, not
+  instantly on the page you added it from. Verified in-browser with an
+  empty watchlist (both links absent) since the actual saved-item case
+  was already covered by the original Watchlist-page verification above.
+- **Homepage texture-overlap bug: a third, distinct root cause from the
+  `.reveal` opacity one above, found 2026-09-17 after Kevin kept reporting
+  the dot/stripe texture sitting "in front of" the hero card/buttons/
+  Discord section specifically on the homepage.** `css/home.css` had a
+  single `body.home::before` texture layer *explicitly* set to
+  `z-index: 3`, one higher than `.zone`'s `z-index: 2` — a deliberate
+  earlier decision (see the old comment this replaced) to avoid the
+  texture being fully hidden behind each zone's opaque background color,
+  which instead put it above every real page element. Fixed by baking the
+  same texture directly into each `.zone`'s own `background-image` (as
+  additional layers alongside each zone's existing color/gradient) instead
+  of a separate stacked pseudo-element — a background always paints below
+  its own element's children regardless of any z-index anywhere else, so
+  this class of bug can't recur here. `background-attachment: fixed` on
+  just the texture layers (not each zone's own color/gradient, which stays
+  `scroll`) keeps the pattern continuous across zone boundaries without a
+  seam, preserving the reason the shared layer existed in the first place.
+  Verified with a forced fresh-CSS reload (not just curl) showing the dots
+  rendering outside/behind the hero card, never on top of it.
 - **Full YouTube upload history fetched**: `assets/data/main-videos.json`
   now has 206 videos (195 regular + 11 Shorts), up from the old RSS-feed
   cap of ~15 — a one-time manual run of `scripts/fetch-main-feed.mjs`
@@ -321,6 +354,16 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
       `scripts/fetch-main-feed.mjs`). The script is already written and
       waiting for it; this is purely a "ask Kevin to do this one console
       step" item, not something to implement further.
+- [ ] **`assets/data/main-videos.json` still has the OLD Shorts
+      classification (YouTube's own retroactive `/shorts/` tag), not the
+      new duration-based one (`isShort = durationSeconds < 120`, see the
+      architecture map row above).** The classification logic in
+      `scripts/fetch-main-feed.mjs` was fixed 2026-09-17, but re-running it
+      needs `YOUTUBE_API_KEY` again (not retained across sessions/turns by
+      design — ask Kevin to resend it if he wants this re-run now rather
+      than waiting for the real GitHub secret to exist). Until it's re-run,
+      some videos under 2 minutes may still show up in the regular Videos
+      tab instead of Shorts.
 
 ## Testing caveat (not a site bug)
 
@@ -377,7 +420,24 @@ environment quirks worth knowing about before assuming something is broken:
    {cache:'no-store'})` still showed the old computed style after a normal
    navigate). Before concluding a CSS change "isn't working," cache-bust
    the stylesheet links: `document.querySelectorAll('link[rel=stylesheet]')
-   .forEach(l => l.href = l.href.split('?')[0] + '?bust=' + Date.now())`.
+   .forEach(l => l.href = l.href.split('?')[0] + '?bust=' + Date.now())`
+   — or, more robustly (survives the link staying the *same element*),
+   remove each old `<link>` and append a brand new one pointing at a
+   `?bust=<timestamp>` URL, awaiting its `onload` before checking anything.
+5. **`preview_start`'s `name`-based launcher does NOT run a launch.json
+   entry's `runtimeArgs` verbatim for a Python static-server config** —
+   confirmed 2026-09-17 by checking the actual OS process list
+   (`Get-CimInstance Win32_Process`): regardless of what `runtimeArgs` said
+   (tried pointing it at a custom script), the real command line was always
+   `python -m http.server <port> --directory <project root>`. Don't try to
+   customize the local dev server's behavior (custom headers, a different
+   handler, etc.) through this tool's `launch.json` — it silently ignores
+   that and there's no server-side workaround available here. Also: the
+   `cwd` field `preview_list` reports for one of these server processes is
+   NOT its actual document root (it showed an unrelated empty sibling
+   folder containing only a `.claude/` dir) — it's session-tool metadata,
+   not meaningful for diagnosing what's actually being served. Trust the
+   real process's `--directory` arg (or just curl the port) instead.
 
 ## Do not
 

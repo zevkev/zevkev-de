@@ -35,7 +35,7 @@
 // either request a free quota increase in Cloud Console, or give this
 // specific step a longer interval than the shared 5-minute cron (new uploads
 // don't need 5-minute freshness the way Twitch live status does).
-import { writeFile, mkdir, readFile } from "node:fs/promises";
+import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -44,12 +44,6 @@ const API_KEY = process.env.YOUTUBE_API_KEY;
 const API_BASE = "https://www.googleapis.com/youtube/v3";
 const OUT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "assets", "data");
 const OUT_FILE = path.join(OUT_DIR, "main-videos.json");
-
-// How many of the (potentially hundreds of) videos to probe for Shorts
-// status at once — see checkIsShort() below for why that probe exists at
-// all. Kept modest so a cold run (empty cache) doesn't fire hundreds of
-// concurrent requests at youtube.com.
-const PROBE_CONCURRENCY = 8;
 
 async function youtubeApiGet(endpoint, params) {
   const url = new URL(`${API_BASE}/${endpoint}`);
@@ -122,8 +116,9 @@ function parseIsoDuration(iso) {
   return (Number(h) || 0) * 3600 + (Number(min) || 0) * 60 + (Number(s) || 0);
 }
 
-// videos.list is where view counts (and duration, used as a Shorts fallback
-// signal below) actually live — playlistItems.list doesn't carry statistics.
+// videos.list is where view counts (and duration, used for the Shorts
+// classification below) actually live — playlistItems.list doesn't carry
+// statistics.
 async function fetchVideoDetails(ids) {
   const details = new Map();
   for (let i = 0; i < ids.length; i += 50) {
@@ -139,65 +134,24 @@ async function fetchVideoDetails(ids) {
   return details;
 }
 
-// The Data API doesn't expose a direct "is this a Short" flag either.
-// YouTube itself exposes it indirectly: /shorts/<id> serves the short
-// normally (200) but 302-redirects to /watch?v=<id> for anything that isn't
-// one — the same probe the RSS-based version of this script used, kept as-is
-// since it reflects YouTube's own classification rather than a guess. Only
-// addition: a duration-based fallback (a Short is <=60s) for when the probe
-// itself fails to even connect, instead of silently assuming "not a Short".
-async function checkIsShort(videoId, durationSeconds) {
-  try {
-    const res = await fetch(`https://www.youtube.com/shorts/${videoId}`, {
-      method: "GET",
-      redirect: "manual",
-      headers: { "User-Agent": "Mozilla/5.0 (ZevKev feed bot)" },
-    });
-    return res.status >= 200 && res.status < 300;
-  } catch {
-    return durationSeconds != null && durationSeconds <= 60;
-  }
-}
-
-async function mapWithConcurrency(list, limit, fn) {
-  const results = new Array(list.length);
-  let next = 0;
-  async function worker() {
-    while (next < list.length) {
-      const i = next++;
-      results[i] = await fn(list[i], i);
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(limit, list.length) }, worker));
-  return results;
-}
-
-// Reuses last run's isShort verdicts instead of re-probing every video on
-// every run. With the full upload history in play (hundreds of videos) and
-// this workflow running every 5 minutes, re-probing everything every time
-// would mean hundreds of unauthenticated requests to youtube.com in a tight
-// loop, forever — a Short's status never changes after publish in practice,
-// so only videos this run has never seen before need the live probe.
-async function loadPreviousShorts() {
-  try {
-    const raw = await readFile(OUT_FILE, "utf8");
-    const data = JSON.parse(raw);
-    const map = new Map();
-    for (const v of data.videos || []) {
-      if (v?.id && typeof v.isShort === "boolean") map.set(v.id, v.isShort);
-    }
-    return map;
-  } catch {
-    return new Map(); // no previous file yet, or it didn't parse — probe everything
-  }
+// The Data API doesn't expose a direct "is this a Short" flag. This used to
+// probe /shorts/<id> for YouTube's own classification (200 = Short,
+// redirect = not), but that only reflects videos YouTube itself tagged as
+// Shorts at upload time — older short-duration uploads from before Shorts
+// existed as a format never got that tag retroactively, so they kept
+// showing up in the regular Videos tab despite being under a minute long. A
+// duration cutoff classifies every video the same way regardless of when it
+// was uploaded, and needs no extra network probe since duration already
+// comes back from fetchVideoDetails() above.
+const SHORT_MAX_SECONDS = 120;
+function isShortByDuration(durationSeconds) {
+  return durationSeconds != null && durationSeconds < SHORT_MAX_SECONDS;
 }
 
 async function main() {
   if (!API_KEY) {
     throw new Error("YOUTUBE_API_KEY is not set. See the setup comment at the top of this file for how to create one.");
   }
-
-  const previousShorts = await loadPreviousShorts();
 
   const uploadsPlaylistId = await getUploadsPlaylistId();
   const uploads = await fetchAllUploads(uploadsPlaylistId);
@@ -211,12 +165,6 @@ async function main() {
 
   const details = await fetchVideoDetails(uploads.map((v) => v.id));
 
-  const toProbe = uploads.filter((v) => !previousShorts.has(v.id));
-  const probedFlags = await mapWithConcurrency(toProbe, PROBE_CONCURRENCY, (v) =>
-    checkIsShort(v.id, details.get(v.id)?.durationSeconds ?? null)
-  );
-  const probedShorts = new Map(toProbe.map((v, i) => [v.id, probedFlags[i]]));
-
   const videos = uploads
     .map((v) => ({
       id: v.id,
@@ -226,14 +174,14 @@ async function main() {
       description: v.description,
       views: details.get(v.id)?.views ?? null,
       url: `https://www.youtube.com/watch?v=${v.id}`,
-      isShort: previousShorts.get(v.id) ?? probedShorts.get(v.id) ?? false,
+      isShort: isShortByDuration(details.get(v.id)?.durationSeconds ?? null),
     }))
     .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
 
   await mkdir(OUT_DIR, { recursive: true });
   await writeFile(OUT_FILE, JSON.stringify({ updatedAt: new Date().toISOString(), videos }, null, 2));
   const shortsCount = videos.filter((v) => v.isShort).length;
-  console.log(`Wrote ${videos.length} videos (${shortsCount} shorts, ${toProbe.length} newly checked) to ${OUT_FILE}`);
+  console.log(`Wrote ${videos.length} videos (${shortsCount} shorts, <${SHORT_MAX_SECONDS}s) to ${OUT_FILE}`);
 }
 
 main().catch((err) => {

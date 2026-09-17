@@ -6,10 +6,24 @@ import { mountConsentBanner } from "/js/consent.js";
 const NAV = [
   { href: "/", label: "Home", match: (p) => p === "/" || p === "/index.html" },
   { href: "/shop/", label: "Shop", match: (p) => p.startsWith("/shop") },
-  { href: "/vods/", label: "Streams", match: (p) => p.startsWith("/vods") },
+  { href: "/vods/", label: "Mehr", match: (p) => p.startsWith("/vods") },
   { href: "/youtube/", label: "YouTube", match: (p) => p.startsWith("/youtube") },
   { href: "/watchlist/", label: "Watchlist", match: (p) => p.startsWith("/watchlist") },
 ];
+
+// Same key js/youtube.js, js/vods.js and js/watchlist.js read/write. Checked
+// once per page load (not reactively) to decide whether the Watchlist nav
+// item is even worth showing -- an empty watchlist isn't a useful
+// destination, so the tab stays hidden until there's actually something
+// saved on it.
+const WATCHLIST_KEY = "zevkev-watchlist";
+function hasWatchlistItems() {
+  try {
+    return JSON.parse(localStorage.getItem(WATCHLIST_KEY) || "[]").length > 0;
+  } catch {
+    return false;
+  }
+}
 
 const SOCIALS = [
   { href: "https://www.youtube.com/@ZevKev", label: "YouTube", icon: "youtube" },
@@ -50,7 +64,7 @@ function headerHTML(isShop) {
         ZevKev
       </a>
       <nav class="site-nav" id="site-nav">
-        ${NAV.map((n) => `<a href="${n.href}" data-nav="${n.label}"${n.label === "Streams" ? " data-twitch-optional" : ""}>${n.label}</a>`).join("")}
+        ${NAV.map((n) => `<a href="${n.href}" data-nav="${n.label}"${n.href === "/vods/" ? " data-twitch-optional" : ""}>${n.label}</a>`).join("")}
       </nav>
       <div class="header-actions" id="header-actions">
         <button class="theme-toggle" id="theme-toggle" aria-label="Dunkles Design umschalten" type="button">${themeIconHTML()}</button>
@@ -100,9 +114,9 @@ function footerHTML() {
       <div class="footer-links">
         <a href="/">Home</a>
         <a href="/shop/">Shop</a>
-        <a href="/vods/">Streams</a>
+        <a href="/vods/">Mehr</a>
         <a href="/youtube/">YouTube</a>
-        <a href="/watchlist/">Watchlist</a>
+        <a href="/watchlist/" id="footer-watchlist-link">Watchlist</a>
         <a href="/impressum/">Impressum</a>
         <a href="/datenschutz/">Datenschutz</a>
         <a href="/kontakt/">Kontakt</a>
@@ -143,6 +157,11 @@ export async function mountLayout() {
   const nav = document.getElementById("site-nav");
   const active = NAV.find((n) => n.match(path));
   if (active) nav.querySelector(`[data-nav="${active.label}"]`)?.classList.add("is-active");
+
+  if (!hasWatchlistItems()) {
+    nav.querySelector('[data-nav="Watchlist"]')?.remove();
+    document.getElementById("footer-watchlist-link")?.remove();
+  }
 
   const toggle = document.getElementById("nav-toggle");
   toggle?.addEventListener("click", () => {
