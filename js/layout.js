@@ -6,7 +6,7 @@ import { mountConsentBanner } from "/js/consent.js";
 const NAV = [
   { href: "/", label: "Home", match: (p) => p === "/" || p === "/index.html" },
   { href: "/shop/", label: "Shop", match: (p) => p.startsWith("/shop") },
-  { href: "/vods/", label: "VODs", match: (p) => p.startsWith("/vods") },
+  { href: "/vods/", label: "Streams", match: (p) => p.startsWith("/vods") },
   { href: "/youtube/", label: "YouTube", match: (p) => p.startsWith("/youtube") },
   { href: "/watchlist/", label: "Watchlist", match: (p) => p.startsWith("/watchlist") },
 ];
@@ -50,7 +50,7 @@ function headerHTML(isShop) {
         ZevKev
       </a>
       <nav class="site-nav" id="site-nav">
-        ${NAV.map((n) => `<a href="${n.href}" data-nav="${n.label}"${n.label === "VODs" ? " data-twitch-optional" : ""}>${n.label}</a>`).join("")}
+        ${NAV.map((n) => `<a href="${n.href}" data-nav="${n.label}"${n.label === "Streams" ? " data-twitch-optional" : ""}>${n.label}</a>`).join("")}
       </nav>
       <div class="header-actions" id="header-actions">
         <button class="theme-toggle" id="theme-toggle" aria-label="Dunkles Design umschalten" type="button">${themeIconHTML()}</button>
@@ -100,7 +100,7 @@ function footerHTML() {
       <div class="footer-links">
         <a href="/">Home</a>
         <a href="/shop/">Shop</a>
-        <a href="/vods/">VODs</a>
+        <a href="/vods/">Streams</a>
         <a href="/youtube/">YouTube</a>
         <a href="/watchlist/">Watchlist</a>
         <a href="/impressum/">Impressum</a>
