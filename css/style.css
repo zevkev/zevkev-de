@@ -289,8 +289,18 @@ h1, h2, .display-font {
 .tilt-b { transform: rotate(1deg); }
 .tilt-c { transform: rotate(-0.5deg); }
 
-.reveal { opacity: 0; }
-.reveal.is-visible { animation: fadeUp 0.6s ease forwards; }
+/* Was an `animation` interpolating opacity 0->1 alongside the slide-up —
+   meaning every card spent ~0.6s at partial opacity while scrolling into
+   view, which let the body's own grid/dot mat texture show through blended
+   with the card's paper color the whole time. Looked exactly like "texture
+   bleeding through," reproducibly, on every page load and every scroll,
+   which a post-animation screenshot (taken after waiting) would never
+   catch. Fix: opacity isn't in `transition-property`, so it snaps instantly
+   the moment `.is-visible` is added (card is always either fully invisible
+   or fully opaque, never partial) while the slide-up still animates
+   smoothly via transform alone. */
+.reveal { opacity: 0; transform: translateY(18px); }
+.reveal.is-visible { opacity: 1; transform: translateY(0); transition: transform 0.5s ease; }
 
 @media (max-width: 768px) {
   .paper-sheet { flex-direction: column; text-align: center; align-items: center; }
