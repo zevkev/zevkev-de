@@ -7,9 +7,14 @@
 // natively, is the honest option rather than faking a broken embed).
 import { mountComments, unmountComments } from "./comments.js";
 import { track } from "./track.js";
+import { getWatchlistIds, toggleWatchlistId, getProgress, saveProgress } from "./user-data.js";
 
-const WATCHLIST_KEY = "zevkev-watchlist";
 const TWITCH_CHANNEL = "zevkev_";
+// A video counts as "watched" once past this fraction of its duration --
+// used for the Watchlist page's Weiterschauen/Angesehen grouping. Not 100%:
+// most people don't sit through outros/credits, and requiring the exact end
+// would mean a video someone clearly finished never gets marked watched.
+const WATCHED_THRESHOLD = 0.9;
 
 function starIcon(filled) {
   return `<svg viewBox="0 0 24 24" width="18" height="18" fill="${filled ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.8"><path d="M12 3.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z" stroke-linejoin="round"/></svg>`;
@@ -54,21 +59,6 @@ function formatTwitchDuration(raw) {
   const mm = String(mi).padStart(2, "0");
   const ss = String(s).padStart(2, "0");
   return h > 0 ? `${h}:${mm}:${ss}` : `${mi}:${ss}`;
-}
-
-function getWatchlist() {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(WATCHLIST_KEY) || "[]"));
-  } catch {
-    return new Set();
-  }
-}
-function toggleWatchlist(id) {
-  const list = getWatchlist();
-  if (list.has(id)) list.delete(id);
-  else list.add(id);
-  localStorage.setItem(WATCHLIST_KEY, JSON.stringify([...list]));
-  return list;
 }
 
 function resolveFromLocation() {
@@ -165,18 +155,17 @@ function renderNotFound() {
   document.getElementById("comments-root")?.remove();
 }
 
-function renderWatchlistButton(item, id) {
+async function renderWatchlistButton(id) {
   const btn = document.getElementById("watch-watchlist-btn");
   if (!btn) return;
-  const sync = () => {
-    const saved = getWatchlist().has(id);
+  const paint = (saved) => {
     btn.classList.toggle("is-saved", saved);
     btn.innerHTML = `${starIcon(saved)} ${saved ? "Auf der Watchlist" : "Zur Watchlist"}`;
   };
-  sync();
-  btn.addEventListener("click", () => {
-    toggleWatchlist(id);
-    sync();
+  paint((await getWatchlistIds()).has(id));
+  btn.addEventListener("click", async () => {
+    const updated = await toggleWatchlistId(id);
+    paint(updated.has(id));
   });
 }
 
@@ -202,12 +191,27 @@ function renderMeta(item, type, id) {
       <button type="button" class="p-btn rip watchlist-toggle-lg" id="watch-watchlist-btn"></button>
       ${type === "vod" ? `<a class="p-btn rip" href="${item.url}" target="_blank" rel="noopener">Chat-Replay auf Twitch ansehen</a>` : `<a class="p-btn rip" href="${item.url}" target="_blank" rel="noopener">Auf YouTube ansehen</a>`}
     </div>`;
-  renderWatchlistButton(item, id);
+  renderWatchlistButton(id);
+}
+
+// Saved on pause/ended/page-hide only (not on a timer) to keep Firestore
+// writes minimal -- see js/user-data.js's saveProgress. `getDuration()` is
+// asked fresh each time rather than cached once, since neither player API
+// reports it reliably before playback has actually started buffering.
+function makeProgressSaver(progressKey, getCurrentTime, getDuration) {
+  return (isEnded) => {
+    const position = getCurrentTime();
+    const duration = getDuration();
+    if (!Number.isFinite(position) || position < 3) return; // barely started, not worth recording
+    const watched = isEnded || (Number.isFinite(duration) && duration > 0 && position / duration >= WATCHED_THRESHOLD);
+    saveProgress(progressKey, position, watched);
+  };
 }
 
 function renderPlayer(item, type) {
   const wrap = document.getElementById("watch-player");
   if (!wrap) return;
+  const progressKey = `${type}:${item.id}`;
 
   if (type === "video") {
     wrap.innerHTML = `
@@ -215,16 +219,31 @@ function renderPlayer(item, type) {
         <iframe id="watch-yt-frame" src="https://www.youtube.com/embed/${item.id}?enablejsapi=1&origin=${encodeURIComponent(location.origin)}" title="${escapeHTML(item.title)}" allowfullscreen></iframe>
       </div>`;
     const tracker = createWatchTimeTracker(item.id);
-    ensureYouTubeAPI().then((YT) => {
+    ensureYouTubeAPI().then(async (YT) => {
       const el = document.getElementById("watch-yt-frame");
       if (!el) return;
-      new YT.Player("watch-yt-frame", {
+      const resume = await getProgress(progressKey);
+      let seeked = false;
+      const player = new YT.Player("watch-yt-frame", {
         events: {
+          onReady: () => {
+            if (resume && !resume.watched && resume.positionSeconds > 5 && !seeked) {
+              seeked = true;
+              player.seekTo(resume.positionSeconds, true);
+            }
+          },
           onStateChange: (event) => {
             if (event.data === YT.PlayerState.PLAYING) tracker.start();
             else if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED || event.data === YT.PlayerState.BUFFERING) tracker.stop();
+            if (event.data === YT.PlayerState.PAUSED) saveNow(false);
+            if (event.data === YT.PlayerState.ENDED) saveNow(true);
           },
         },
+      });
+      const saveNow = makeProgressSaver(progressKey, () => player.getCurrentTime?.() ?? 0, () => player.getDuration?.() ?? 0);
+      window.addEventListener("beforeunload", () => saveNow(false));
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) saveNow(false);
       });
     });
     return;
@@ -235,18 +254,37 @@ function renderPlayer(item, type) {
       <div id="watch-twitch-target" style="width:100%;height:100%;"></div>
     </div>`;
   const tracker = createWatchTimeTracker(item.id);
-  ensureTwitchSDK().then((Twitch) => {
+  ensureTwitchSDK().then(async (Twitch) => {
     const el = document.getElementById("watch-twitch-target");
     if (!el) return;
+    const resume = await getProgress(progressKey);
     const player = new Twitch.Player("watch-twitch-target", {
       video: item.id,
       parent: parentHosts(),
       width: "100%",
       height: "100%",
     });
+    const saveNow = makeProgressSaver(progressKey, () => player.getCurrentTime?.() ?? 0, () => player.getDuration?.() ?? 0);
+    let seeked = false;
+    player.addEventListener(Twitch.Player.READY, () => {
+      if (resume && !resume.watched && resume.positionSeconds > 5 && !seeked) {
+        seeked = true;
+        player.seek(resume.positionSeconds);
+      }
+    });
     player.addEventListener(Twitch.Player.PLAY, () => tracker.start());
-    player.addEventListener(Twitch.Player.PAUSE, () => tracker.stop());
-    player.addEventListener(Twitch.Player.ENDED, () => tracker.stop());
+    player.addEventListener(Twitch.Player.PAUSE, () => {
+      tracker.stop();
+      saveNow(false);
+    });
+    player.addEventListener(Twitch.Player.ENDED, () => {
+      tracker.stop();
+      saveNow(true);
+    });
+    window.addEventListener("beforeunload", () => saveNow(false));
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) saveNow(false);
+    });
   });
 }
 

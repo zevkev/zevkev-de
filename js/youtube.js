@@ -1,6 +1,12 @@
 import { observeImpressions } from "./track.js";
+import { getWatchlistIds, toggleWatchlistId } from "./user-data.js";
 
-const WATCHLIST_KEY = "zevkev-watchlist";
+// Loaded once in init() (await getWatchlistIds()) and kept in sync locally
+// after that by toggleWatchlist() below -- render functions read this
+// directly (synchronously) rather than each awaiting the (now account-aware)
+// store themselves. See js/user-data.js for why this is a single load per
+// page view rather than a live subscription.
+let watchlistCache = new Set();
 
 // How many cards the shelf shows before a "load more" click reveals the next
 // batch. Needed now that main-videos.json can hold a long-running channel's
@@ -95,18 +101,11 @@ function formatViews(n) {
 }
 
 function getWatchlist() {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(WATCHLIST_KEY) || "[]"));
-  } catch {
-    return new Set();
-  }
+  return watchlistCache;
 }
-function toggleWatchlist(id) {
-  const list = getWatchlist();
-  if (list.has(id)) list.delete(id);
-  else list.add(id);
-  localStorage.setItem(WATCHLIST_KEY, JSON.stringify([...list]));
-  return list;
+async function toggleWatchlist(id) {
+  watchlistCache = await toggleWatchlistId(id);
+  return watchlistCache;
 }
 
 function formatDate(iso) {
@@ -177,8 +176,8 @@ function renderFeatured(video) {
     </div>`;
 
   const watchBtn = heroContentEl.querySelector(".yt-hero-watch");
-  watchBtn?.addEventListener("click", () => {
-    const updated = toggleWatchlist(video.id);
+  watchBtn?.addEventListener("click", async () => {
+    const updated = await toggleWatchlist(video.id);
     const isSaved = updated.has(video.id);
     watchBtn.classList.toggle("is-saved", isSaved);
     watchBtn.innerHTML = starIcon(isSaved);
@@ -231,10 +230,10 @@ function cardHTML(video, watchlist, isShort) {
 // interception needed there anymore.
 function attachCardHandlers(container) {
   container.querySelectorAll("[data-watch-id]").forEach((btn) => {
-    btn.addEventListener("click", (ev) => {
+    btn.addEventListener("click", async (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
-      const updated = toggleWatchlist(btn.dataset.watchId);
+      const updated = await toggleWatchlist(btn.dataset.watchId);
       const isSaved = updated.has(btn.dataset.watchId);
       btn.classList.toggle("is-saved", isSaved);
       btn.innerHTML = starIcon(isSaved);
@@ -439,7 +438,7 @@ async function init() {
   // here; renderGrid just reveals it PAGE_SIZE cards at a time (see
   // renderLoadMore above) instead of dumping the whole history into the DOM
   // on first paint.
-  const feed = await loadJSON("/assets/data/main-videos.json", { videos: [] });
+  const [feed] = await Promise.all([loadJSON("/assets/data/main-videos.json", { videos: [] }), getWatchlistIds().then((set) => (watchlistCache = set))]);
   const videos = feed.videos || [];
   renderFeatured(videos[0]);
   computeSpotlight(videos);

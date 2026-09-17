@@ -1,9 +1,12 @@
 import { TWITCH_ENABLED } from "./config.js";
 import { consumeRedirect, getToken, startLogin, logout, getCurrentUser, resolveBroadcasterId, sendChatMessage, onAuthChange } from "./twitch-auth.js";
 import { observeImpressions, track } from "./track.js";
+import { getWatchlistIds, toggleWatchlistId } from "./user-data.js";
 
 const TWITCH_CHANNEL = "zevkev_";
-const WATCHLIST_KEY = "zevkev-watchlist";
+// Loaded once in init() and kept in sync locally after that -- see the same
+// pattern (and the reasoning for it) in js/youtube.js.
+let watchlistCache = new Set();
 
 const heroPlayer = document.getElementById("vod-hero-player");
 const chatCol = document.getElementById("chat-col");
@@ -166,21 +169,11 @@ function attachTwitchTracking(player, Twitch, tracker) {
 }
 
 function getWatchlist() {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(WATCHLIST_KEY) || "[]"));
-  } catch {
-    return new Set();
-  }
+  return watchlistCache;
 }
-function saveWatchlist(set) {
-  localStorage.setItem(WATCHLIST_KEY, JSON.stringify([...set]));
-}
-function toggleWatchlist(id) {
-  const list = getWatchlist();
-  if (list.has(id)) list.delete(id);
-  else list.add(id);
-  saveWatchlist(list);
-  return list;
+async function toggleWatchlist(id) {
+  watchlistCache = await toggleWatchlistId(id);
+  return watchlistCache;
 }
 
 function formatDate(iso) {
@@ -574,10 +567,10 @@ function renderVods(videos, mode) {
   }
   vodGrid.innerHTML = list.map((v) => vodCardHTML(v, watchlist)).join("");
   vodGrid.querySelectorAll("[data-watch-id]").forEach((btn) => {
-    btn.addEventListener("click", (ev) => {
+    btn.addEventListener("click", async (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
-      const updated = toggleWatchlist(btn.dataset.watchId);
+      const updated = await toggleWatchlist(btn.dataset.watchId);
       if (mode === "watchlist" && !updated.has(btn.dataset.watchId)) {
         renderVods(videos, mode);
       } else {
@@ -726,6 +719,7 @@ async function init() {
     TWITCH_ENABLED ? loadJSON("/assets/data/live-status.json", { live: false }) : Promise.resolve({ live: false }),
     TWITCH_ENABLED ? loadJSON("/assets/data/twitch-vods.json", { videos: [] }) : Promise.resolve({ videos: [] }),
     loadJSON("/assets/data/videos.json", { videos: [] }),
+    getWatchlistIds().then((set) => (watchlistCache = set)),
   ]);
 
   const videos = feed.videos || [];

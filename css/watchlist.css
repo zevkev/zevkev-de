@@ -111,6 +111,33 @@
 }
 .wl-card-views svg { flex-shrink: 0; opacity: 0.8; }
 
+/* ---------- Watched/unwatched grouping (signed-in visitors only) ----------
+   .yt-section-title itself already reads white-on-mat correctly here (same
+   context .wl-count uses it in) -- no override needed the way watch.css
+   needs one for its cream-card context. */
+.wl-group-title { margin: 36px 0 18px; text-align: center; }
+.wl-group-title:first-child { margin-top: 0; }
+.wl-watched-badge {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px 4px 7px;
+  border-radius: 999px;
+  background: rgba(60, 122, 75, 0.9);
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.wl-watched-badge svg { flex-shrink: 0; }
+
 /* ---------- Empty state ----------
    .empty-state itself is a bare, unscoped rule from style.css (white text on
    the mat); only the link styling and icon are new here. Scoped to #wl-grid

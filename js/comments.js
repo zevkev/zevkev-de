@@ -1,19 +1,22 @@
-// Comment section, mounted per video/VOD page (see js/watch.js). One flat
-// Firestore collection ("comments") for every video on the site, filtered
-// by videoId per mount -- matches the security rules deployed for this
-// project (char limit, no links, delete restricted to the comment's own
-// author or the OWNER_EMAIL account from js/firebase-config.js).
-import { auth, db, isOwner, onAuthChange } from "./auth.js";
+// Comment section, mounted per video/VOD page (see js/watch.js). Loads once
+// per page view (a single getDocs() call, not a live onSnapshot listener --
+// deliberately, to keep Firestore reads minimal on the free plan) and then
+// updates its own local copy optimistically after every post/edit/delete/
+// report instead of re-querying, so a full comment thread costs exactly one
+// read no matter how much someone does on the page.
+import { auth, db, isOwner, canPost, onAuthChange, resendVerificationEmail } from "./auth.js";
 import {
   collection,
   query,
   where,
   orderBy,
-  onSnapshot,
+  getDocs,
   addDoc,
+  updateDoc,
   deleteDoc,
   doc,
   serverTimestamp,
+  Timestamp,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const MAX_LENGTH = 500;
@@ -44,7 +47,8 @@ function escapeHTML(str) {
 function formatTimestamp(ts) {
   if (!ts) return "gerade eben";
   try {
-    return new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(ts.toDate());
+    const date = ts instanceof Timestamp ? ts.toDate() : new Date(ts);
+    return new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(date);
   } catch {
     return "";
   }
@@ -53,15 +57,18 @@ function formatTimestamp(ts) {
 function trashIcon() {
   return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>`;
 }
+function flagIcon() {
+  return `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V4a1 1 0 0 1 1-1h13l-3 6 3 6H6a1 1 0 0 0-1 1v5"/></svg>`;
+}
 
-let unsubscribe = null;
-let allComments = [];
+let allComments = []; // flat list; each item may carry a client-only _editing/_reported flag
 let currentVideoId = null;
+let reportedIds = new Set(); // this-session only, prevents double-reporting without another read
 
-function replyFormHTML(parentId) {
+function replyFormHTML(parentId, replyingToName) {
   return `
   <form class="comment-form comment-form--reply" data-parent-id="${parentId}">
-    <textarea placeholder="Antworten..." maxlength="${MAX_LENGTH}" required></textarea>
+    <textarea placeholder="${replyingToName ? `Antwort an ${escapeHTML(replyingToName)}...` : "Antworten..."}" maxlength="${MAX_LENGTH}" required></textarea>
     <div class="comment-form-row">
       <button type="submit" class="p-btn rip btn-accent">Antworten</button>
       <button type="button" class="comment-cancel-reply">Abbrechen</button>
@@ -70,41 +77,42 @@ function replyFormHTML(parentId) {
   </form>`;
 }
 
-function commentHTML(c, replies) {
-  const user = auth.currentUser;
-  const canDelete = !!user && (user.uid === c.authorId || isOwner(user));
+function editFormHTML(id, currentText) {
   return `
-  <div class="comment" data-comment-id="${c.id}">
-    <div class="comment-head">
-      <span class="comment-author">${escapeHTML(c.authorName || "Anonym")}</span>
-      <span class="comment-time">${formatTimestamp(c.createdAt)}</span>
+  <form class="comment-form comment-form--edit" data-edit-id="${id}">
+    <textarea maxlength="${MAX_LENGTH}" required>${escapeHTML(currentText)}</textarea>
+    <div class="comment-form-row">
+      <button type="submit" class="p-btn rip btn-accent">Speichern</button>
+      <button type="button" class="comment-cancel-edit">Abbrechen</button>
     </div>
-    <p class="comment-text">${escapeHTML(c.text)}</p>
-    <div class="comment-actions">
-      <button type="button" class="comment-reply-btn" data-reply-to="${c.id}">Antworten</button>
-      ${canDelete ? `<button type="button" class="comment-delete-btn" data-delete-id="${c.id}">${trashIcon()}Löschen</button>` : ""}
-    </div>
-    <div class="comment-reply-slot" id="reply-slot-${c.id}"></div>
-    ${
-      replies.length
-        ? `<div class="comment-replies">${replies.map((r) => replyHTML(r)).join("")}</div>`
-        : ""
-    }
-  </div>`;
+    <p class="comment-form-error"></p>
+  </form>`;
 }
 
-function replyHTML(c) {
+function actionsHTML(c, isReply) {
   const user = auth.currentUser;
-  const canDelete = !!user && (user.uid === c.authorId || isOwner(user));
+  const isMine = !!user && user.uid === c.authorId;
+  const canDelete = isMine || isOwner(user);
+  const canReport = !!user && !isMine && !reportedIds.has(c.id);
+  const parts = [];
+  parts.push(`<button type="button" class="comment-reply-btn" data-reply-to="${c.id}">Antworten</button>`);
+  if (isMine) parts.push(`<button type="button" class="comment-edit-btn" data-edit-id="${c.id}">Bearbeiten</button>`);
+  if (canDelete) parts.push(`<button type="button" class="comment-delete-btn" data-delete-id="${c.id}">${trashIcon()}Löschen</button>`);
+  if (canReport) parts.push(`<button type="button" class="comment-report-btn" data-report-id="${c.id}">${flagIcon()}Melden</button>`);
+  if (reportedIds.has(c.id)) parts.push(`<span class="comment-reported-note">Gemeldet</span>`);
+  return parts.join("");
+}
+
+function commentBodyHTML(c) {
   return `
-  <div class="comment comment--reply" data-comment-id="${c.id}">
     <div class="comment-head">
       <span class="comment-author">${escapeHTML(c.authorName || "Anonym")}</span>
       <span class="comment-time">${formatTimestamp(c.createdAt)}</span>
+      ${c.editedAt ? `<span class="comment-edited-note">(bearbeitet)</span>` : ""}
     </div>
     <p class="comment-text">${escapeHTML(c.text)}</p>
-    ${canDelete ? `<div class="comment-actions"><button type="button" class="comment-delete-btn" data-delete-id="${c.id}">${trashIcon()}Löschen</button></div>` : ""}
-  </div>`;
+    <div class="comment-actions">${actionsHTML(c, !!c.parentId)}</div>
+    <div class="comment-inline-slot" id="inline-slot-${c.id}"></div>`;
 }
 
 function render() {
@@ -126,8 +134,28 @@ function render() {
     list.innerHTML = `<p class="comments-empty">Noch keine Kommentare. Schreib den ersten!</p>`;
     return;
   }
-  list.innerHTML = top.map((c) => commentHTML(c, byParent.get(c.id) || [])).join("");
+  list.innerHTML = top
+    .map((c) => {
+      const replies = byParent.get(c.id) || [];
+      return `
+      <div class="comment" data-comment-id="${c.id}">${commentBodyHTML(c)}</div>
+      ${replies.length ? `<div class="comment-replies">${replies.map((r) => `<div class="comment comment--reply" data-comment-id="${r.id}">${commentBodyHTML(r)}</div>`).join("")}</div>` : ""}`;
+    })
+    .join("");
   wireCommentActions(list);
+}
+
+function findComment(id) {
+  return allComments.find((c) => c.id === id);
+}
+// Flattens reply-to-reply into one level: replying to something that's
+// already a reply attaches the new comment to THAT reply's own parent (the
+// original top-level comment), same as YouTube's own flattened threads,
+// rather than building ever-deeper nesting that both the data model and the
+// UI would need real recursion for.
+function topLevelParentId(id) {
+  const c = findComment(id);
+  return c?.parentId || id;
 }
 
 function wireCommentActions(root) {
@@ -137,6 +165,8 @@ function wireCommentActions(root) {
       btn.disabled = true;
       try {
         await deleteDoc(doc(db, "comments", btn.dataset.deleteId));
+        allComments = allComments.filter((c) => c.id !== btn.dataset.deleteId && c.parentId !== btn.dataset.deleteId);
+        render();
       } catch (err) {
         console.error("Delete comment failed:", err);
         btn.disabled = false;
@@ -144,16 +174,57 @@ function wireCommentActions(root) {
     });
   });
 
-  root.querySelectorAll("[data-reply-to]").forEach((btn) => {
+  root.querySelectorAll("[data-report-id]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.reportId;
+      btn.disabled = true;
+      try {
+        await addDoc(collection(db, "reports"), {
+          commentId: id,
+          videoId: currentVideoId,
+          reporterId: auth.currentUser.uid,
+          createdAt: serverTimestamp(),
+        });
+        reportedIds.add(id);
+        render();
+      } catch (err) {
+        console.error("Report comment failed:", err);
+        btn.disabled = false;
+      }
+    });
+  });
+
+  root.querySelectorAll("[data-edit-id]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const slot = document.getElementById(`reply-slot-${btn.dataset.replyTo}`);
-      if (!slot) return;
+      const c = findComment(btn.dataset.editId);
+      const slot = document.getElementById(`inline-slot-${btn.dataset.editId}`);
+      if (!slot || !c) return;
       if (slot.innerHTML) {
         slot.innerHTML = "";
         return;
       }
-      slot.innerHTML = replyFormHTML(btn.dataset.replyTo);
-      wireForm(slot.querySelector("form"));
+      slot.innerHTML = editFormHTML(c.id, c.text);
+      const form = slot.querySelector("form");
+      wireEditForm(form);
+      slot.querySelector("textarea")?.focus();
+      slot.querySelector(".comment-cancel-edit")?.addEventListener("click", () => {
+        slot.innerHTML = "";
+      });
+    });
+  });
+
+  root.querySelectorAll("[data-reply-to]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = findComment(btn.dataset.replyTo);
+      const slot = document.getElementById(`inline-slot-${btn.dataset.replyTo}`);
+      if (!slot || !target) return;
+      if (slot.innerHTML) {
+        slot.innerHTML = "";
+        return;
+      }
+      const parentId = topLevelParentId(target.id);
+      slot.innerHTML = replyFormHTML(parentId, target.parentId ? target.authorName : null);
+      wireReplyForm(slot.querySelector("form"), target);
       slot.querySelector("textarea")?.focus();
       slot.querySelector(".comment-cancel-reply")?.addEventListener("click", () => {
         slot.innerHTML = "";
@@ -162,12 +233,7 @@ function wireCommentActions(root) {
   });
 }
 
-function loginPromptHTML() {
-  return `<p class="comments-login-prompt">Melde dich an, um zu kommentieren. <button type="button" class="p-btn rip" id="comments-login-btn">Anmelden</button></p>`;
-}
-
-function wireForm(form) {
-  if (!form) return;
+function wireEditForm(form) {
   form.addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const textarea = form.querySelector("textarea");
@@ -175,41 +241,95 @@ function wireForm(form) {
     const submitBtn = form.querySelector('button[type="submit"]');
     const text = textarea.value.trim();
     errorEl.textContent = "";
-
-    if (!text) return;
-    if (text.length > MAX_LENGTH) {
-      errorEl.textContent = `Maximal ${MAX_LENGTH} Zeichen.`;
+    const validationError = validateText(text);
+    if (validationError) {
+      errorEl.textContent = validationError;
       return;
     }
-    if (LINK_PATTERN.test(text)) {
-      errorEl.textContent = "Links sind in Kommentaren nicht erlaubt.";
-      return;
-    }
-    const user = auth.currentUser;
-    if (!user) {
-      errorEl.textContent = "Bitte zuerst anmelden.";
-      return;
-    }
-
     submitBtn.disabled = true;
     try {
-      await addDoc(collection(db, "comments"), {
-        videoId: currentVideoId,
-        parentId: form.dataset.parentId || null,
-        authorId: user.uid,
-        authorName: user.displayName || user.email?.split("@")[0] || "Anonym",
-        text: censor(text),
-        createdAt: serverTimestamp(),
-      });
-      textarea.value = "";
-      if (form.dataset.parentId) form.closest(".comment-reply-slot").innerHTML = "";
+      const finalText = censor(text);
+      await updateDoc(doc(db, "comments", form.dataset.editId), { text: finalText, editedAt: serverTimestamp() });
+      const c = findComment(form.dataset.editId);
+      if (c) {
+        c.text = finalText;
+        c.editedAt = Date.now();
+      }
+      render();
     } catch (err) {
-      console.error("Post comment failed:", err);
-      errorEl.textContent = "Kommentar konnte nicht gespeichert werden.";
-    } finally {
+      console.error("Edit comment failed:", err);
+      errorEl.textContent = "Konnte nicht gespeichert werden.";
       submitBtn.disabled = false;
     }
   });
+}
+
+function wireReplyForm(form, target) {
+  form.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const textarea = form.querySelector("textarea");
+    const errorEl = form.querySelector(".comment-form-error");
+    const submitBtn = form.querySelector('button[type="submit"]');
+    let text = textarea.value.trim();
+    errorEl.textContent = "";
+    const validationError = validateText(text);
+    if (validationError) {
+      errorEl.textContent = validationError;
+      return;
+    }
+    if (target.parentId) text = `@${target.authorName} ${text}`;
+    submitBtn.disabled = true;
+    const posted = await postComment(text, form.dataset.parentId);
+    if (posted) form.closest(".comment-inline-slot").innerHTML = "";
+    else {
+      errorEl.textContent = "Konnte nicht gespeichert werden.";
+      submitBtn.disabled = false;
+    }
+  });
+}
+
+function validateText(text) {
+  if (!text) return "Bitte etwas schreiben.";
+  if (text.length > MAX_LENGTH) return `Maximal ${MAX_LENGTH} Zeichen.`;
+  if (LINK_PATTERN.test(text)) return "Links sind in Kommentaren nicht erlaubt.";
+  return null;
+}
+
+async function postComment(text, parentId) {
+  const user = auth.currentUser;
+  if (!user) return false;
+  try {
+    const finalText = censor(text);
+    const ref = await addDoc(collection(db, "comments"), {
+      videoId: currentVideoId,
+      parentId: parentId || null,
+      authorId: user.uid,
+      authorName: user.displayName || user.email?.split("@")[0] || "Anonym",
+      text: finalText,
+      createdAt: serverTimestamp(),
+    });
+    allComments.push({
+      id: ref.id,
+      videoId: currentVideoId,
+      parentId: parentId || null,
+      authorId: user.uid,
+      authorName: user.displayName || user.email?.split("@")[0] || "Anonym",
+      text: finalText,
+      createdAt: Date.now(),
+    });
+    render();
+    return true;
+  } catch (err) {
+    console.error("Post comment failed:", err);
+    return false;
+  }
+}
+
+function unverifiedPromptHTML() {
+  return `<p class="comments-login-prompt">Bitte bestätige deine E-Mail-Adresse, um zu kommentieren. <button type="button" class="p-btn rip" id="comments-resend-btn">E-Mail erneut senden</button></p>`;
+}
+function loginPromptHTML() {
+  return `<p class="comments-login-prompt">Melde dich an, um zu kommentieren. <button type="button" class="p-btn rip" id="comments-login-btn">Anmelden</button></p>`;
 }
 
 function renderFormArea(user) {
@@ -223,6 +343,19 @@ function renderFormArea(user) {
     });
     return;
   }
+  if (!canPost(user)) {
+    area.innerHTML = unverifiedPromptHTML();
+    area.querySelector("#comments-resend-btn")?.addEventListener("click", async (ev) => {
+      ev.target.disabled = true;
+      ev.target.textContent = "Gesendet.";
+      try {
+        await resendVerificationEmail();
+      } catch (err) {
+        console.error("Resend verification failed:", err);
+      }
+    });
+    return;
+  }
   area.innerHTML = `
   <form class="comment-form" id="comment-new-form">
     <textarea placeholder="Was denkst du?" maxlength="${MAX_LENGTH}" required></textarea>
@@ -231,16 +364,34 @@ function renderFormArea(user) {
     </div>
     <p class="comment-form-error"></p>
   </form>`;
-  wireForm(area.querySelector("#comment-new-form"));
+  area.querySelector("#comment-new-form").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const textarea = area.querySelector("textarea");
+    const errorEl = area.querySelector(".comment-form-error");
+    const submitBtn = area.querySelector('button[type="submit"]');
+    const text = textarea.value.trim();
+    errorEl.textContent = "";
+    const validationError = validateText(text);
+    if (validationError) {
+      errorEl.textContent = validationError;
+      return;
+    }
+    submitBtn.disabled = true;
+    const posted = await postComment(text, null);
+    if (posted) textarea.value = "";
+    else errorEl.textContent = "Konnte nicht gespeichert werden.";
+    submitBtn.disabled = false;
+  });
 }
 
-// Mounted once per watch page (see js/watch.js). #comments-root's markup
-// (count/list/form-area ids) is created here rather than expected as static
-// HTML, so watch/index.html only needs one empty container div.
-export function mountComments(videoId) {
+// Mounted once per watch page (see js/watch.js). A single getDocs() read on
+// mount -- see the file header for why this isn't a live onSnapshot
+// listener.
+export async function mountComments(videoId) {
   const root = document.getElementById("comments-root");
   if (!root) return;
   currentVideoId = videoId;
+  reportedIds = new Set();
   root.innerHTML = `
     <h2 class="yt-section-title">Kommentare <span id="comments-count"></span></h2>
     <div id="comments-form-area"></div>
@@ -248,28 +399,23 @@ export function mountComments(videoId) {
 
   onAuthChange((user) => {
     renderFormArea(user);
-    render(); // re-render so delete buttons reflect the current user
+    render(); // re-render so delete/edit/report controls reflect the current user
   });
 
-  unsubscribe?.();
-  const q = query(collection(db, "comments"), where("videoId", "==", videoId), orderBy("createdAt", "asc"));
-  unsubscribe = onSnapshot(
-    q,
-    (snap) => {
-      allComments = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      render();
-    },
-    (err) => {
-      console.error("Comments listener failed:", err);
-      const list = document.getElementById("comments-list");
-      if (list) list.innerHTML = `<p class="comments-empty">Kommentare konnten nicht geladen werden.</p>`;
-    }
-  );
+  try {
+    const q = query(collection(db, "comments"), where("videoId", "==", videoId), orderBy("createdAt", "asc"));
+    const snap = await getDocs(q);
+    allComments = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    render();
+  } catch (err) {
+    console.error("Loading comments failed:", err);
+    const list = document.getElementById("comments-list");
+    if (list) list.innerHTML = `<p class="comments-empty">Kommentare konnten nicht geladen werden.</p>`;
+  }
 }
 
 export function unmountComments() {
-  unsubscribe?.();
-  unsubscribe = null;
   allComments = [];
   currentVideoId = null;
+  reportedIds = new Set();
 }

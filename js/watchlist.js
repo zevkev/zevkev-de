@@ -1,10 +1,10 @@
-// Watchlist page: reads the same "zevkev-watchlist" localStorage set that
-// js/vods.js and js/youtube.js already write to (identical getWatchlist/
-// saveWatchlist logic, confirmed by reading both files), then resolves each
-// saved id against BOTH video feeds those pages fetch from, so a starred
-// video shows up here no matter which page it was starred on.
-
-const WATCHLIST_KEY = "zevkev-watchlist";
+// Watchlist page: reads the same watchlist store js/vods.js and js/youtube.js
+// write to (js/user-data.js -- localStorage when logged out, synced through
+// the visitor's account when logged in), then resolves each saved id
+// against BOTH video feeds those pages fetch from, so a starred video shows
+// up here no matter which page it was starred on.
+import { auth, onAuthChange } from "./auth.js";
+import { getWatchlistIds, toggleWatchlistId, getProgress } from "./user-data.js";
 
 const gridEl = document.getElementById("wl-grid");
 const countEl = document.getElementById("wl-count");
@@ -42,16 +42,12 @@ function formatViews(n) {
   }
 }
 
-function getWatchlist() {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(WATCHLIST_KEY) || "[]"));
-  } catch {
-    return new Set();
-  }
-}
-function saveWatchlist(set) {
-  localStorage.setItem(WATCHLIST_KEY, JSON.stringify([...set]));
-}
+let watchlistCache = new Set();
+// video id -> progress record ({positionSeconds, watched}), only ever
+// populated for signed-in visitors (see js/user-data.js's getProgress) --
+// stays empty for anonymous visitors, who just get the plain list with no
+// "angesehen" grouping instead of a broken/always-empty one.
+let progressCache = new Map();
 
 async function loadJSON(url, fallback) {
   try {
@@ -77,13 +73,28 @@ function sourceBadgeHTML(source) {
   return `<span class="wl-source-badge wl-source-badge--vod">VOD Kanal</span>`;
 }
 
+// Only "youtube"/"short" items (main-videos.json, the same feed js/youtube.js
+// and js/watch.js use) have a real /video/<id>/ page to route through yet --
+// the "vod" source is the separate ZevKev+ channel feed (videos.json) shown
+// at the bottom of the Mehr page, which still links straight to YouTube.
+// Watch progress can only ever be recorded for videos actually opened
+// through js/watch.js, so "vod"-source cards never show a watched badge.
+function progressKeyFor(video) {
+  return video.source === "vod" ? null : `video:${video.id}`;
+}
+
 function cardHTML(video) {
   const views = video.views != null ? formatViews(video.views) : "";
+  const key = progressKeyFor(video);
+  const progress = key ? progressCache.get(key) : null;
+  const href = key ? `/video/${video.id}/` : video.url;
+  const linkAttrs = key ? "" : ` target="_blank" rel="noopener"`;
   return `
-  <a href="${video.url}" target="_blank" rel="noopener" class="vod-card rip reveal" data-video-id="${video.id}">
+  <a href="${href}"${linkAttrs} class="vod-card rip reveal" data-video-id="${video.id}">
     <div class="vod-thumb">
       <img src="${video.thumbnail}" alt="" loading="lazy">
       ${sourceBadgeHTML(video.source)}
+      ${progress?.watched ? `<span class="wl-watched-badge">${eyeIcon()}Angesehen</span>` : ""}
       <button class="watchlist-toggle is-saved" data-watch-id="${video.id}" aria-label="Von der Watchlist entfernen" onclick="event.preventDefault()">${starIcon(true)}</button>
     </div>
     <h3>${video.title}</h3>
@@ -105,23 +116,24 @@ function emptyStateHTML() {
 
 function attachHandlers() {
   gridEl.querySelectorAll("[data-watch-id]").forEach((btn) => {
-    btn.addEventListener("click", (ev) => {
+    btn.addEventListener("click", async (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
-      const list = getWatchlist();
-      list.delete(btn.dataset.watchId);
-      saveWatchlist(list);
+      watchlistCache = await toggleWatchlistId(btn.dataset.watchId);
       renderGrid();
     });
   });
 }
 
-// Order: most recently starred first. getWatchlist() returns a Set built
-// from the stored array in insertion order, so reversing it surfaces the
-// latest star at the top rather than the oldest.
+// Order: most recently starred first (the stored array is in insertion
+// order, reversing surfaces the latest star at the top). Signed-in
+// visitors additionally get their list split into "Weiterschauen"/"Noch
+// nicht angesehen" -- anonymous visitors have no progress data at all (see
+// js/user-data.js), so they just get the plain list instead of a section
+// header for a group that could never have anything in it.
 function renderGrid() {
   if (!gridEl) return;
-  const ids = [...getWatchlist()].reverse();
+  const ids = [...watchlistCache].reverse();
   const list = ids.map((id) => byId.get(id)).filter(Boolean);
 
   if (countEl) {
@@ -129,10 +141,33 @@ function renderGrid() {
   }
 
   if (!list.length) {
+    gridEl.classList.add("vod-grid");
     gridEl.innerHTML = emptyStateHTML();
     return;
   }
-  gridEl.innerHTML = list.map((v) => cardHTML(v)).join("");
+
+  if (!auth.currentUser) {
+    gridEl.classList.add("vod-grid");
+    gridEl.innerHTML = list.map((v) => cardHTML(v)).join("");
+    attachHandlers();
+    return;
+  }
+
+  const watched = [];
+  const unwatched = [];
+  for (const v of list) {
+    const key = progressKeyFor(v);
+    (key && progressCache.get(key)?.watched ? watched : unwatched).push(v);
+  }
+
+  // #wl-grid itself is a plain wrapper in this branch -- the .vod-grid
+  // (actual CSS grid) class moves to each .wl-subgrid sub-container instead,
+  // since grouped mode needs the headings between them to sit in normal
+  // block flow, not as grid items themselves.
+  gridEl.classList.remove("vod-grid");
+  gridEl.innerHTML = `
+    ${unwatched.length ? `<h2 class="yt-section-title wl-group-title">Weiterschauen</h2><div class="vod-grid wl-subgrid">${unwatched.map((v) => cardHTML(v)).join("")}</div>` : ""}
+    ${watched.length ? `<h2 class="yt-section-title wl-group-title">Angesehen</h2><div class="vod-grid wl-subgrid">${watched.map((v) => cardHTML(v)).join("")}</div>` : ""}`;
   attachHandlers();
 }
 
@@ -140,13 +175,23 @@ async function init() {
   const [vodFeed, mainFeed] = await Promise.all([
     loadJSON("/assets/data/videos.json", { videos: [] }),
     loadJSON("/assets/data/main-videos.json", { videos: [] }),
+    getWatchlistIds().then((set) => (watchlistCache = set)),
   ]);
 
   byId = new Map();
   (vodFeed.videos || []).forEach((v) => byId.set(v.id, { ...v, source: "vod" }));
   (mainFeed.videos || []).forEach((v) => byId.set(v.id, { ...v, source: v.isShort ? "short" : "youtube" }));
 
+  if (auth.currentUser) {
+    for (const id of watchlistCache) {
+      const key = `video:${id}`;
+      const p = await getProgress(key);
+      if (p) progressCache.set(key, p);
+    }
+  }
+
   renderGrid();
+  onAuthChange(() => renderGrid());
 }
 
 init();

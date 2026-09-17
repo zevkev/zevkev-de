@@ -11,20 +11,6 @@ const NAV = [
   { href: "/watchlist/", label: "Watchlist", match: (p) => p.startsWith("/watchlist") },
 ];
 
-// Same key js/youtube.js, js/vods.js and js/watchlist.js read/write. Checked
-// once per page load (not reactively) to decide whether the Watchlist nav
-// item is even worth showing -- an empty watchlist isn't a useful
-// destination, so the tab stays hidden until there's actually something
-// saved on it.
-const WATCHLIST_KEY = "zevkev-watchlist";
-function hasWatchlistItems() {
-  try {
-    return JSON.parse(localStorage.getItem(WATCHLIST_KEY) || "[]").length > 0;
-  } catch {
-    return false;
-  }
-}
-
 const SOCIALS = [
   { href: "https://www.youtube.com/@ZevKev", label: "YouTube", icon: "youtube" },
   { href: "https://www.instagram.com/zevkev/", label: "Instagram", icon: "instagram" },
@@ -174,7 +160,13 @@ export async function mountLayout() {
   const active = NAV.find((n) => n.match(path));
   if (active) nav.querySelector(`[data-nav="${active.label}"]`)?.classList.add("is-active");
 
-  if (!hasWatchlistItems()) {
+  // Same pages the login button itself is scoped to (see showAccount above)
+  // -- previously this stayed hidden until the watchlist actually had
+  // something in it, but that's a chicken-and-egg problem: hiding the only
+  // nav entry point to the page makes it harder to discover in the first
+  // place. Shown on every video/stream page now regardless of whether it's
+  // empty yet, hidden everywhere else (home/shop/legal) same as before.
+  if (!showAccount) {
     nav.querySelector('[data-nav="Watchlist"]')?.remove();
     document.getElementById("footer-watchlist-link")?.remove();
   }
