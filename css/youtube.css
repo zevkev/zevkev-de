@@ -223,6 +223,17 @@ body.yt-page .page-body { padding-top: 34px; }
 
 .yt-library .scissor-line { margin: 0 auto 34px; }
 
+/* Base rule for text sitting directly on the mat (not inside a paper
+   section) -- fixed white, not a theme token, because the mat stays dark
+   navy in both themes by design (see CLAUDE.md). Was accidentally dropped
+   in the gronkh.tv restructure despite the comment below still describing
+   it as present; VODs' "Die neusten Streams"/"Aus dem Archiv"/"Vom YouTube
+   VOD Kanal" headings depend on this exact class for their color. */
+.yt-section-title {
+  text-align: center; color: #fff; margin: 54px 0 24px; font-family: "Bebas Neue", sans-serif;
+  font-size: 1.7rem; letter-spacing: 1px; text-transform: uppercase;
+}
+
 .yt-library-head {
   display: flex;
   align-items: center;
