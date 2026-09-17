@@ -6,6 +6,7 @@ const NAV = [
   { href: "/shop/", label: "Shop", match: (p) => p.startsWith("/shop") },
   { href: "/vods/", label: "VODs", match: (p) => p.startsWith("/vods") },
   { href: "/youtube/", label: "YouTube", match: (p) => p.startsWith("/youtube") },
+  { href: "/watchlist/", label: "Watchlist", match: (p) => p.startsWith("/watchlist") },
 ];
 
 const SOCIALS = [

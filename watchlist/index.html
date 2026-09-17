@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Watchlist | ZevKev</title>
+<meta name="description" content="Deine gespeicherten ZevKev Videos, egal ob vom VOD Kanal oder von YouTube, an einem Ort.">
+
+<link rel="icon" type="image/png" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
+<link rel="apple-touch-icon" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Watchlist | ZevKev">
+<meta property="og:description" content="Deine gespeicherten ZevKev Videos an einem Ort.">
+<meta property="og:image" content="https://zevkev.github.io/Medienspeicher/Bilder/ZevKev.png">
+<meta property="og:url" content="https://zevkev.de/watchlist/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://zevkev.github.io/Medienspeicher/Bilder/ZevKev.png">
+
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/shop.css">
+<link rel="stylesheet" href="/css/vods.css">
+<link rel="stylesheet" href="/css/youtube.css">
+<link rel="stylesheet" href="/css/watchlist.css">
+</head>
+<body>
+
+<script type="module" src="/js/theme.js"></script>
+
+<div id="site-header"></div>
+
+<div class="page-body">
+  <div class="container" style="display:flex; flex-direction:column; align-items:center;">
+
+    <div class="wl-hero rip rip--accent">
+      <div class="tape wl-hero-tape" aria-hidden="true"></div>
+      <div class="wl-hero-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="wl-hero-text">
+        <h1>Meine Watchlist</h1>
+        <p>Jedes Video, das du mit dem Stern markiert hast, egal ob vom VOD Kanal oder von YouTube, landet hier an einem Ort.</p>
+      </div>
+    </div>
+
+    <h2 class="yt-section-title">Gespeicherte Videos</h2>
+    <p class="wl-count" id="wl-count"></p>
+    <div class="vod-grid" id="wl-grid">
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+    </div>
+
+  </div>
+</div>
+
+<div id="site-footer"></div>
+
+<script type="module" src="/js/flags.js"></script>
+<script type="module">
+  import { mountLayout } from "/js/layout.js";
+  mountLayout();
+</script>
+<script type="module" src="/js/watchlist.js"></script>
+</body>
+</html>
