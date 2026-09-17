@@ -32,12 +32,12 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
 | `js/vods.js` + `js/twitch-auth.js` | VODs page: live > Twitch VOD > YouTube fallback player (now via `YT.Player`/`Twitch.Player` SDKs for watch-time, not bare iframes), Twitch OAuth popup login + chat |
 | `js/youtube.js` | YouTube page: Videos/Shorts grid, custom modal player (`YT.Player` SDK) |
 | `js/watchlist.js` | Dedicated Watchlist page — reads the shared `zevkev-watchlist` key, resolves ids against both `videos.json` and `main-videos.json` |
-| `js/track.js` | Analytics tracking snippet. Exports `track(type, path, value)` (sendBeacon → fetch fallback, silently fails) and `observeImpressions(selector, pathFn, root)` (IntersectionObserver, fires once per element). POSTs to `https://privat.zevkev.de/api/track` — see `dashboard/` below. Wired into `layout.js` (page_view), `product.js` (product_view), `cart.js` (add_to_cart), various `data-track-click` attributes (click), and video-card grids in `vods.js`/`youtube.js` (impression). Watch-time heartbeats fire from the player-embedding code itself (see below) |
-| `scripts/fetch-main-feed.mjs` | Fetches full YouTube upload history via Data API v3 (needs `YOUTUBE_API_KEY` secret — Kevin has a key and was walked through adding it to GitHub Settings → Secrets on 2026-09-17; check whether `assets/data/main-videos.json` actually has more than ~4 videos to confirm it landed, don't assume) |
+| `js/track.js` | Analytics client. Exports `track(type, path, value)` and `observeImpressions(selector, pathFn, root)` (IntersectionObserver, fires once per element) — both report via `window.gtag(...)`, silently no-op if `gtag` isn't defined (i.e. no consent yet). Wired into `layout.js` (page_view), `product.js` (product_view), `cart.js` (add_to_cart), various `data-track-click` attributes (click), video-card grids in `vods.js`/`youtube.js` (impression), and watch-time heartbeats from the player-embedding code itself |
+| `js/consent.js` + `js/ga-config.js` | Cookie consent banner (GDPR: GA4 never loads before explicit accept) + the GA4 Measurement ID (not a secret, plain file, currently a placeholder — see "Known issues"). `js/consent.js` also exports `openConsentSettings()`, wired to a "Cookie-Einstellungen" footer link so a visitor can change their mind later |
+| `scripts/fetch-main-feed.mjs` | Fetches full YouTube upload history via Data API v3 (needs `YOUTUBE_API_KEY` secret — Kevin has a key and was walked through adding it to GitHub Settings → Secrets on 2026-09-17; check whether `assets/data/main-videos.json` actually has more than ~4 videos to confirm it landed, don't assume — as of the last check it still only had 15) |
 | `scripts/fetch-twitch-status.mjs`, `fetch-vod-feed.mjs` | Twitch live status + VOD archive fetch |
 | `scripts/fetch-exchange-rate.mjs` | Fetches USD->EUR from Frankfurter (free, keyless) into `assets/data/exchange-rate.json` for `js/currency.js` |
 | `.github/workflows/data-refresh.yml` | Cron (every 5 min): runs the fetch scripts, commits data back via `github-actions[bot]` |
-| `dashboard/` | **Code complete, not deployed.** Password-gated analytics dashboard for `privat.zevkev.de` on Cloudflare Pages. `functions/api/{track,login,logout,stats}.js` (D1-backed, HMAC-signed session cookies via Web Crypto), `public/{index.html,app.js,style.css}` (torn-paper-styled SPA), `schema.sql` (events table: type/path/value/created_at), `README.md` has the full zero-to-deployed checklist. Blocked purely on Kevin creating a free Cloudflare account, running the `wrangler` setup commands in the README, and adding the `privat.zevkev.de` CNAME at Namecheap — none of that can be done from here |
 
 ## Conventions
 
@@ -187,20 +187,48 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
     dropdown's own solid `--paper-accent` panel below 700px). Scoped that
     rule to `@media (min-width: 701px)` to match `style.css`'s own mobile
     breakpoint for the dropdown.
-- **Analytics dashboard — code complete as of 2026-09-17, not deployed.**
-  D1 schema, Cloudflare Pages Functions (`/api/track` public+CORS'd,
-  `/api/login`+`/api/logout` HMAC-signed cookies, `/api/stats` auth-gated
-  aggregation), password-gated paper-styled frontend, full setup README —
-  all under `dashboard/`. Client-side `js/track.js` wired sitewide for
-  page views/clicks/product views/impressions. Watch-time specifically
-  required switching the YouTube/Twitch embeds from bare `<iframe>`s to
-  each platform's JS Player SDK (`YT.Player`/`Twitch.Player`) so play/
-  pause events are observable — verified in-browser afterward that
-  playback, the modal, and the close button all still work correctly.
-  Nothing here can go live until Kevin creates a free Cloudflare account
-  and works through `dashboard/README.md`'s setup steps (D1 database,
-  two secrets, deploy, Namecheap CNAME) — don't assume it's live, check
-  whether `privat.zevkev.de` actually resolves before relying on it.
+- **Analytics: Google Analytics 4, not the Cloudflare dashboard (reversed
+  2026-09-17).** A full Cloudflare-based dashboard (D1, Pages Functions,
+  password-gated frontend) was built earlier the same day, then explicitly
+  discarded when Kevin decided he'd rather use GA4 + the GA mobile app
+  than maintain a second Cloudflare-hosted site — `dashboard/` is gone,
+  don't recreate it without being asked again. In its place: `js/consent.js`
+  (cookie banner, GA4 never loads before accept — verified in-browser that
+  Decline persists and blocks `gtag` entirely, Accept persists, and the
+  footer's "Cookie-Einstellungen" link reopens the banner) and `js/ga-config.js`
+  (the Measurement ID — still a placeholder, see "Known issues"). `js/track.js`
+  keeps its exact same `track()`/`observeImpressions()` call sites from the
+  Cloudflare version (nothing in the calling code changed) but now reports
+  via `gtag()` — the "no-op if unavailable" design doubles as the consent
+  gate for free. Watch-time still required switching the YouTube/Twitch
+  embeds from bare `<iframe>`s to each platform's JS Player SDK
+  (`YT.Player`/`Twitch.Player`) so play/pause events are observable —
+  verified in-browser that playback, the modal, and the close button all
+  still work, and separately verified the Twitch chat login button still
+  correctly opens the real `id.twitch.tv` OAuth popup after that change.
+  Datenschutzerklärung's Google Analytics section was rewritten to match
+  (was previously a "we don't use Google Analytics" line — now accurate).
+- **Texture-bleed fix re-verified after a follow-up report.** Kevin
+  reported the same grid-moire pattern again after the `.rip::before`
+  fix had already shipped; re-checked the live site (not the local
+  dev-preview) with a forced CSS cache-bust and it rendered clean,
+  matching his own screenshot pixel-for-pixel. Almost certainly his
+  browser/CDN showing a stale cached stylesheet from before the fix
+  deployed, not a regression — if it comes up again, get a fresh
+  screenshot AFTER confirming the fix commit is actually live (`git
+  merge-base --is-ancestor <fix-commit> origin/main`) before
+  re-investigating from scratch.
+- **Basic on-page SEO pass.** Person + WebSite JSON-LD on the homepage
+  (with `sameAs` to the real YouTube/Instagram/TikTok/Twitch profiles —
+  this is the main lever for a branded "zevkev" search reliably
+  surfacing this domain), `<link rel="canonical">` on every main page
+  and dynamically on the shop product page (pointing at the clean
+  `/shop/<slug>` form regardless of which URL form served it), and
+  `/watchlist/` added to `sitemap.xml` (was missing since it shipped).
+  This is a ceiling-raiser, not a guarantee — actual ranking also
+  depends on backlinks, competition, and how long the site's been
+  indexed, none of which a code change controls. Don't imply to Kevin
+  that a #1 ranking is now assured.
 
 ## Known issues / next fixes (as of 2026-09-17)
 
@@ -243,17 +271,15 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
       popup round-trip (real Twitch login → chat send) hasn't been
       exercised end-to-end this session (needs a real Twitch account to
       click through, not just code review).
-- [ ] **Analytics dashboard** (`dashboard/`) — barely started. Needs: D1
-      schema finished, Pages Functions (`/api/track`, `/api/login`,
-      `/api/stats`), password-gated frontend (Kevin's own visual style, not
-      a generic admin-panel look — this reverses an earlier "YouTube
-      Studio style" decision), the `js/track.js` client snippet wired into
-      layout.js/catalog.js/cart.js. Needs a free Cloudflare account from
-      Kevin first (not created yet) — ask before assuming it exists.
-- [ ] **DNS**: `privat.zevkev.de` doesn't exist yet — one CNAME at
-      Namecheap once the Cloudflare Pages project is created (confirmed:
-      no nameserver migration needed, Cloudflare Pages custom domains work
-      with a plain CNAME at an external registrar).
+- [ ] **`js/ga-config.js`'s `GA_MEASUREMENT_ID` is still the placeholder
+      `"G-XXXXXXXXXX"`.** Kevin needs to create a GA4 property
+      (analytics.google.com → Admin → Create Property → Web data stream
+      for zevkev.de) and paste the real Measurement ID in — this is not a
+      secret, a plain GitHub web-UI edit is fine, no repo secret needed.
+      Until then `js/consent.js` deliberately never loads the real gtag.js
+      script even if a visitor accepts the cookie banner (checked via
+      `isConfigured`), so analytics silently stays off in production —
+      don't be alarmed that GA shows zero data, check this file first.
 - [ ] GitHub Pages "Enforce HTTPS" — was pending automatic cert issuance,
       never confirmed enabled since.
 - [ ] **Full YouTube video history** needs a `YOUTUBE_API_KEY` GitHub repo
@@ -318,7 +344,14 @@ environment quirks worth knowing about before assuming something is broken:
 - Don't re-litigate the cork texture recipe without reading the comment
   above `.rip--photo::before` / `.product-photo-frame` in style.css/shop.css
   first — it already went through three failed directions this session.
-- Don't assume Google Analytics — the user explicitly chose a custom
-  dashboard instead, specifically to avoid sending data to Google.
+- Don't build a second custom analytics backend — Google Analytics 4 is
+  the current, explicit decision (reversed from an earlier custom-
+  dashboard choice; see "Already done"). Don't flip this again without
+  being asked.
+- Don't ever enter a password, API key, or other credential into a login
+  form or GitHub Secret on Kevin's behalf, even if he pastes the value
+  directly and asks — this is a hard rule regardless of consent. Point
+  him to the exact steps instead (already done twice this session for
+  YOUTUBE_API_KEY; he still needs to actually add it).
 - Don't fabricate or guess at a Widerrufsbelehrung (right-of-withdrawal
   legal notice) — still missing, needs a Steuerberater/Anwalt, not an AI.
