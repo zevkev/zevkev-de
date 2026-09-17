@@ -1,5 +1,6 @@
 import { TWITCH_ENABLED } from "./config.js";
 import { consumeRedirect, getToken, startLogin, logout, getCurrentUser, resolveBroadcasterId, sendChatMessage, onAuthChange } from "./twitch-auth.js";
+import { observeImpressions } from "./track.js";
 
 const TWITCH_CHANNEL = "zevkev_";
 const WATCHLIST_KEY = "zevkev-watchlist";
@@ -400,6 +401,10 @@ function renderVods(videos, mode) {
       }
     });
   });
+  // vodCardHTML's <a> carries no id of its own, unlike the Twitch cards
+  // below -- its real YouTube video URL (the href it already links to) is
+  // the path value here.
+  observeImpressions(".vod-card", (el) => el.getAttribute("href"), vodGrid);
 }
 
 function mountTabs(videos) {
@@ -483,6 +488,7 @@ function paintTwitchRow(list, allVods) {
   }
   twitchVodRow.innerHTML = list.map((v) => twitchVodCardHTML(v)).join("");
   attachTwitchCardHandlers(twitchVodRow, allVods);
+  observeImpressions("[data-twitch-vod-id]", (el) => el.dataset.twitchVodId, twitchVodRow);
 }
 
 function renderTwitchArchive(vods, featuredId) {
@@ -502,6 +508,7 @@ function renderTwitchArchive(vods, featuredId) {
       const picks = shuffledSample(pool, Math.min(6, pool.length));
       twitchSpotlightRow.innerHTML = picks.map((v) => twitchVodCardHTML(v, "rip--accent")).join("");
       attachTwitchCardHandlers(twitchSpotlightRow, vods);
+      observeImpressions("[data-twitch-vod-id]", (el) => el.dataset.twitchVodId, twitchSpotlightRow);
       twitchSpotlightWrap.style.display = "";
     } else {
       twitchSpotlightRow.innerHTML = "";
