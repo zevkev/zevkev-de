@@ -387,6 +387,23 @@ body.yt-page .page-body { padding-top: 34px; }
 }
 .yt-shelf > .empty-state { flex: 1 1 100%; width: 100%; }
 
+/* #yt-grid: a normal wrapping grid + "load more" button underneath, not a
+   horizontal shelf -- reported as the actual wanted behavior once the
+   channel's full ~200-video catalog was loaded (sideways-scrolling through
+   that many cards to browse the whole channel was the complaint). The
+   "Aus dem Archiv" spotlight above it stays a .yt-shelf on purpose: a
+   handful of curated picks is fine to browse sideways, it's discovery, not
+   the primary way to page through the catalog. */
+.yt-main-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 24px;
+  width: 100%;
+  padding: 18px 6px 10px;
+}
+.yt-main-grid.yt-grid--shorts { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+.yt-main-grid > .empty-state { grid-column: 1 / -1; }
+
 .yt-shelf-nav {
   position: absolute;
   top: 50%;
@@ -411,10 +428,10 @@ body.yt-page .page-body { padding-top: 34px; }
   .yt-shelf-nav { display: none; }
 }
 
-/* #yt-spotlight (the "Aus dem Archiv" row) reuses the exact same card
-   markup/classes and .yt-shelf-wrap/.yt-shelf treatment as #yt-grid, so the
-   thumbnail-hover, play-button and shelf-nav rules below are shared by both
-   containers rather than duplicated. */
+/* #yt-spotlight (the "Aus dem Archiv" row, still a .yt-shelf) and #yt-grid
+   (now a plain .yt-main-grid) share the exact same card markup/classes, so
+   the thumbnail-hover and play-button rules below apply to both containers
+   by id rather than being duplicated per layout. */
 #yt-grid .vod-thumb, #yt-spotlight .vod-thumb { overflow: hidden; }
 #yt-grid .vod-thumb img, #yt-spotlight .vod-thumb img { transition: transform 0.5s ease; }
 #yt-grid .vod-card:hover .vod-thumb img, #yt-spotlight .vod-card:hover .vod-thumb img { transform: scale(1.06); }
@@ -501,21 +518,21 @@ body.yt-page .page-body { padding-top: 34px; }
 .yt-load-more-btn svg { flex-shrink: 0; transition: transform 0.2s ease; }
 .yt-load-more-btn:hover svg { transform: translateY(2px); }
 
-/* ---------- Shorts shelf: narrower, taller (9:16) cards instead of the 16:9 video ones ---------- */
-.yt-shelf.yt-grid--shorts > .vod-card,
-.yt-shelf.yt-grid--shorts > .skeleton-card { flex-basis: 168px; }
-.yt-shelf.yt-grid--shorts .vod-thumb img { aspect-ratio: 9 / 16; object-fit: cover; }
-.yt-shelf.yt-grid--shorts .vod-card h3 { font-size: 0.92rem; }
-.yt-shelf.yt-grid--shorts .vod-card:hover { transform: rotate(0deg) scale(1.045) translateY(-6px) !important; }
-.yt-shelf.yt-grid--shorts .watchlist-toggle { width: 30px; height: 30px; }
-.yt-shelf.yt-grid--shorts .watchlist-toggle svg { width: 15px; height: 15px; }
+/* ---------- Shorts mode: narrower, taller (9:16) cards instead of the
+   16:9 video ones. Bare .yt-grid--shorts (not scoped to .yt-main-grid) on
+   purpose -- the spotlight shelf never gets this class (it's Videos-tab
+   only, see computeSpotlight), so there's nothing else it could match. ---------- */
+.yt-grid--shorts .vod-thumb img { aspect-ratio: 9 / 16; object-fit: cover; }
+.yt-grid--shorts .vod-card h3 { font-size: 0.92rem; }
+.yt-grid--shorts .vod-card:hover { transform: rotate(0deg) scale(1.045) translateY(-6px) !important; }
+.yt-grid--shorts .watchlist-toggle { width: 30px; height: 30px; }
+.yt-grid--shorts .watchlist-toggle svg { width: 15px; height: 15px; }
 /* Shorts cards stay clean and minimal at their narrow width; view counts
    only show on the wider regular-video cards. */
-.yt-shelf.yt-grid--shorts .yt-card-views { display: none; }
+.yt-grid--shorts .yt-card-views { display: none; }
 
 @media (max-width: 560px) {
-  .yt-shelf.yt-grid--shorts > .vod-card,
-  .yt-shelf.yt-grid--shorts > .skeleton-card { flex-basis: 132px; }
+  .yt-main-grid.yt-grid--shorts { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
   .yt-shelf > .vod-card, .yt-shelf > .skeleton-card { flex-basis: 240px; }
   #yt-grid .yt-short-badge { font-size: 0.62rem; padding: 3px 7px 3px 5px; }
 }

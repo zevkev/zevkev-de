@@ -413,13 +413,13 @@ function attachCardHandlers(container, clickableVideos) {
 // Wires the prev/next chevrons on a horizontally scrolling row (.yt-shelf
 // inside .yt-shelf-wrap) -- one "page" (~85% of the visible width) per
 // click, plus hiding whichever end has nothing left to scroll to instead of
-// leaving a dead-looking control sitting there. Called once for the static
-// main shelf in init(), and again every time renderSpotlight rebuilds its
-// own shelf (its wrap element is freshly created each time, so it needs its
-// own wiring pass). Returns a refresh() callers can re-invoke after they
-// change how many cards are in the row (see renderGrid's use of
-// mainShelfRefresh below) -- re-wiring the click handlers isn't needed since
-// the track/buttons themselves don't get replaced, only their contents.
+// leaving a dead-looking control sitting there. Only used for the "Aus dem
+// Archiv" spotlight row now (a handful of curated picks, fine to browse
+// sideways) -- the main #yt-grid switched to a normal wrapping grid +
+// "load more" button, since sideways-scrolling through a 195-video catalog
+// was the actual complaint this was built to avoid. Called fresh every time
+// renderSpotlight rebuilds its own shelf (its wrap element is freshly
+// created each time, so it needs its own wiring pass each time too).
 function initShelf(wrapEl) {
   const track = wrapEl?.querySelector(".yt-shelf");
   const prev = wrapEl?.querySelector(".yt-shelf-nav--prev");
@@ -443,13 +443,6 @@ function initShelf(wrapEl) {
   setTimeout(updateNav, 300);
   return updateNav;
 }
-
-// Set once in init() (the main shelf's wrap/buttons are static HTML, so
-// initShelf only ever needs to run once for it) and re-invoked from
-// renderGrid below whenever the card count in #yt-grid changes -- load-more
-// clicks and tab/sort switches can flip whether there's anything left to
-// scroll to.
-let mainShelfRefresh = null;
 
 // True once at least two videos in the list have a different view count --
 // guards the sort toggle below from offering to "sort by views" when every
@@ -552,7 +545,6 @@ function renderGrid(videos, mode) {
   if (!list.length) {
     gridEl.innerHTML = `<div class="empty-state">${emptyIcon()}<h2>${mode === "shorts" ? "Noch keine Shorts" : "Noch keine Videos"}</h2><p>Schau bald wieder vorbei.</p><a class="yt-empty-cta" href="https://www.youtube.com/@ZevKev" target="_blank" rel="noopener">Zum YouTube-Kanal</a></div>`;
     renderLoadMore(videos, mode, 0, 0);
-    mainShelfRefresh?.();
     return;
   }
   const ordered = orderList(list, sortMode);
@@ -563,9 +555,6 @@ function renderGrid(videos, mode) {
   observeImpressions(".vod-card[data-video-id]", (el) => el.dataset.videoId, gridEl);
 
   renderLoadMore(videos, mode, shown.length, ordered.length);
-  // Card count (and with it, whether the shelf even needs to scroll) just
-  // changed -- re-check the nav chevrons once the new cards have laid out.
-  requestAnimationFrame(() => mainShelfRefresh?.());
 }
 
 // Reveals the next PAGE_SIZE cards on click instead of rendering the whole
@@ -606,11 +595,10 @@ function mountFilters(videos) {
 }
 
 async function init() {
-  // The hero's transparent-over-image nav treatment and the main shelf's
-  // prev/next chevrons don't depend on the feed, so they're wired up
-  // immediately rather than waiting on the fetch below.
+  // The hero's transparent-over-image nav treatment doesn't depend on the
+  // feed, so it's wired up immediately rather than waiting on the fetch
+  // below.
   initHeroScrollObserver();
-  mainShelfRefresh = initShelf(document.getElementById("yt-grid-wrap"));
 
   // main-videos.json now comes from scripts/fetch-main-feed.mjs's YouTube
   // Data API v3 pass (paginated playlistItems.list against the uploads

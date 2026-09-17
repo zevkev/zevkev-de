@@ -9,8 +9,8 @@
   /* cutting mat + paper */
   --blue-mat: #234d70;
   --blue-mat-dark: #17344e;
-  --grid: rgba(255, 255, 255, 0.15);
-  --grid-strong: rgba(255, 255, 255, 0.32);
+  --grid: rgba(255, 255, 255, 0.08);
+  --grid-strong: rgba(255, 255, 255, 0.18);
   --paper: #fcfbf5;
   --paper-accent: #fdf2b3;
   --paper-pink: #f7d9d0;
@@ -51,8 +51,8 @@
 :root[data-theme="dark"] {
   --blue-mat: #060c14;
   --blue-mat-dark: #03070d;
-  --grid: rgba(255, 255, 255, 0.05);
-  --grid-strong: rgba(255, 255, 255, 0.13);
+  --grid: rgba(255, 255, 255, 0.035);
+  --grid-strong: rgba(255, 255, 255, 0.08);
   --paper: #1e2128;
   --paper-accent: #2d3a54;
   --paper-pink: #352c3d;
