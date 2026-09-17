@@ -46,24 +46,42 @@
   .yt-hero-tape { display: none; }
 }
 
-/* ---------- Featured video ---------- */
+/* ---------- Featured video ----------
+   Brought up to the same "considered" level as vods.css's .player-meta/
+   .status-badge/.player-stats trio for the main VODs player: a pill-style
+   badge instead of a bare text eyebrow, and an icon+text stat row instead
+   of a single middot-joined meta line. Both sit directly on the blue
+   cutting mat (not a paper card), same as vods.css's player-meta -- so,
+   like that block, this stays fixed white/red in both themes on purpose
+   (see the comment on .player-stats in vods.css). */
 .yt-featured { width: 100%; max-width: 900px; margin: 44px 0 10px; }
 
-.yt-featured-eyebrow {
-  font-family: "Bebas Neue", sans-serif;
-  font-size: 0.95rem;
-  letter-spacing: 1.5px;
+.yt-featured-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
-  color: var(--accent-red);
-  margin: 0 0 8px 2px;
+  background: var(--accent-red);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
+.yt-featured-badge svg { flex-shrink: 0; }
 
 .yt-featured-frame { position: relative; width: 100%; aspect-ratio: 16/9; padding: 8px; background: #000; box-sizing: border-box; }
 .yt-featured-frame iframe { width: 100%; height: 100%; border: 0; }
 
 .yt-featured-body { padding: 14px 8px 0; }
 .yt-featured-title { color: #fff; font-size: 1.2rem; line-height: 1.35; }
-.yt-featured-meta { margin-top: 6px; color: rgba(255, 255, 255, 0.72); font-size: 0.85rem; }
+
+.yt-featured-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; margin-top: 10px; }
+.yt-featured-stats .stat { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; color: rgba(255, 255, 255, 0.8); }
+.yt-featured-stats .stat svg { flex-shrink: 0; opacity: 0.9; }
 
 /* Loading skeleton pre-seeded in the HTML for #yt-featured; youtube.js
    fully replaces this innerHTML once the feed loads. */
@@ -87,14 +105,19 @@
   animation: shimmer 1.4s infinite linear;
 }
 
-/* ---------- Grid & cards: extends .vod-grid / .vod-card from vods.css ---------- */
-#yt-grid .vod-thumb { overflow: hidden; }
-#yt-grid .vod-thumb img { transition: transform 0.5s ease; }
-#yt-grid .vod-card:hover .vod-thumb img { transform: scale(1.06); }
+/* ---------- Grid & cards: extends .vod-grid / .vod-card from vods.css ----------
+   #yt-spotlight (the "Aus dem Archiv" pick, see below) reuses the exact same
+   card markup/classes as #yt-grid, so the thumbnail-hover and play-button
+   rules below are shared by both containers rather than duplicated. */
+#yt-grid .vod-thumb, #yt-spotlight .vod-thumb { overflow: hidden; }
+#yt-grid .vod-thumb img, #yt-spotlight .vod-thumb img { transition: transform 0.5s ease; }
+#yt-grid .vod-card:hover .vod-thumb img, #yt-spotlight .vod-card:hover .vod-thumb img { transform: scale(1.06); }
 
 /* Custom play-button affordance: cards open the on-brand video modal
-   below instead of navigating away, so this signals "plays here". */
-#yt-grid .yt-play-overlay {
+   below instead of navigating away, so this signals "plays here". Own
+   yt-prefixed classes (not scoped to #yt-grid) -- safe anywhere per this
+   file's header comment, since vods.js never generates them. */
+.yt-play-overlay {
   position: absolute;
   inset: 0;
   display: flex;
@@ -102,15 +125,15 @@
   justify-content: center;
   pointer-events: none;
 }
-#yt-grid .yt-play-circle {
+.yt-play-circle {
   width: 52px; height: 52px; border-radius: 50%;
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
   display: flex; align-items: center; justify-content: center;
   transition: transform 0.25s cubic-bezier(.175,.885,.32,1.275), background 0.2s ease;
 }
-#yt-grid .yt-play-circle svg { margin-left: 2px; }
-#yt-grid .vod-card:hover .yt-play-circle { transform: scale(1.15); background: var(--accent-red); }
+.yt-play-circle svg { margin-left: 2px; }
+.vod-card:hover .yt-play-circle { transform: scale(1.15); background: var(--accent-red); }
 
 #yt-grid .yt-card-meta {
   display: flex;
@@ -189,10 +212,73 @@
 /* Shorts cards stay clean and minimal at their narrow width; view counts
    only show on the wider regular-video cards. */
 #yt-grid.yt-grid--shorts .yt-card-views { display: none; }
+/* vods.css's hand-placed :nth-child(3n+2)/(3n+3) stagger is tuned for the
+   ~3-column 16:9 grid -- at the Shorts grid's narrower 170px columns a row
+   typically holds 5+ cards, so that same every-3rd-item offset cuts across
+   rows instead of reading as a deliberate scatter. Reset to a flat grid here. */
+#yt-grid.yt-grid--shorts .vod-card:nth-child(3n + 2), #yt-grid.yt-grid--shorts .vod-card:nth-child(3n + 3) { margin-top: 0; }
 
 @media (max-width: 560px) {
   #yt-grid.yt-grid--shorts { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 14px; }
   #yt-grid .yt-short-badge { font-size: 0.62rem; padding: 3px 7px 3px 5px; }
+}
+
+/* ---------- "Aus dem Archiv" spotlight ----------
+   A random pick from the Videos tab's archive, surfaced above the sort bar
+   and grid -- the same "discovery angle on top of the plain chronological
+   list" idea as vods.css's .twitch-spotlight-*, mirrored here under its own
+   yt-prefixed classes (this file stays yt-only; see the header comment).
+   Data-gated in js/youtube.js (renderSpotlight): unlike the Twitch VOD
+   archive, which vods.js gates at just 3 items because that list is
+   permanently capped at 12 by its own fetch script, main-videos.json holds
+   the channel's *entire* upload history with no such cap -- once the
+   YouTube Data API key is configured it can grow to hundreds of videos, so
+   a low gate here would just always pass and never actually confirm there's
+   a real pool to discover from. Today's real count (see main-videos.json)
+   is only 4 non-Short videos, comfortably below that gate, so this
+   deliberately renders nothing yet rather than spotlighting one of the only
+   4 cards already fully visible one scroll down. */
+.yt-spotlight-label {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 0.9rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--accent-red);
+  margin: 0 0 10px 4px;
+}
+/* Needs an explicit width: its parent .container is a centered flex column
+   (see youtube/index.html), so without this the container would shrink-wrap
+   to the card's own content instead of 100% resolving against the real (up
+   to 1200px) row width -- same reason #yt-grid/.filter-bar set width:100%
+   themselves. */
+#yt-spotlight { width: 100%; }
+.yt-spotlight-card {
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  align-items: center;
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto 8px;
+}
+.yt-spotlight-card .vod-thumb { flex: 0 0 240px; margin-bottom: 0; }
+.yt-spotlight-info p { margin: 4px 0 0; font-size: 0.82rem; color: var(--text-muted); }
+
+/* ---------- Sort bar ----------
+   "Neueste" / "Meistgesehen" toggle for whichever tab (Videos or Shorts) is
+   active -- reuses .vod-section-head/.filter-pill as-is (already loaded via
+   vods.css/shop.css), same component the Videos/Shorts pills above and
+   vods.css's own Twitch-archive sort toggle use, so no new pill styling is
+   needed here. Data-gated in js/youtube.js (renderSortBar) at >=4 items
+   with real view-count variance -- the same threshold vods.js uses for its
+   Twitch archive sort, since reordering a handful of already-visible cards
+   by a real, already-fetched number isn't the same "does this look like
+   padding" risk the spotlight above has to guard against. */
+#yt-spotlight:empty, #yt-sort-bar:empty { display: none; margin: 0; }
+
+@media (max-width: 640px) {
+  .yt-spotlight-card { flex-direction: column; align-items: stretch; }
+  .yt-spotlight-card .vod-thumb { flex-basis: auto; margin-bottom: 12px; }
 }
 
 /* ---------- Video modal ----------

@@ -10,9 +10,28 @@ const WATCHLIST_KEY = "zevkev-watchlist";
 const PAGE_SIZE = 24;
 let visibleCount = PAGE_SIZE;
 
+// "Neueste" / "Meistgesehen" toggle for whichever tab (Videos or Shorts) is
+// active. Reset to "new" on every tab switch, same as visibleCount, so a
+// fresh tab always opens on its natural chronological order.
+let sortMode = "new";
+
+// Minimum items + real view-count spread before the sort toggle is worth
+// showing at all -- same threshold js/vods.js uses for its Twitch-archive
+// sort pills (see renderSortBar below).
+const SORT_MIN = 4;
+
+// The Videos tab's "Aus dem Archiv" random pick (see renderSpotlight) is
+// computed once per page load, not on every re-render -- otherwise it would
+// re-roll on every "load more" click or sort change, which reads as buggy
+// rather than as a stable discovery pick. null until computeSpotlight() runs
+// in init(), and stays null forever if the gate in computeSpotlight isn't met.
+let spotlightVideo = null;
+
 const featuredEl = document.getElementById("yt-featured");
 const gridEl = document.getElementById("yt-grid");
 const filterBarEl = document.getElementById("yt-filter-bar");
+const spotlightEl = document.getElementById("yt-spotlight");
+const sortBarEl = document.getElementById("yt-sort-bar");
 const loadMoreEl = document.getElementById("yt-load-more");
 
 function starIcon(filled) {
@@ -32,6 +51,9 @@ function emptyIcon() {
 }
 function chevronDownIcon(size = 14) {
   return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`;
+}
+function calendarIcon() {
+  return `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>`;
 }
 
 function escapeHTML(str) {
@@ -142,9 +164,12 @@ function renderFeatured(video) {
     featuredEl.innerHTML = `<div class="empty-state">${emptyIcon()}<h2>Noch keine Videos geladen</h2><p>Schau bald wieder vorbei.</p></div>`;
     return;
   }
-  const meta = [formatDate(video.publishedAt), video.views != null ? `${formatViews(video.views)} Aufrufe` : ""].filter(Boolean).join(" &middot; ");
+  const stats = [
+    video.publishedAt ? `<span class="stat">${calendarIcon()}${formatDate(video.publishedAt)}</span>` : "",
+    video.views != null ? `<span class="stat">${eyeIcon()}${formatViews(video.views)} Aufrufe</span>` : "",
+  ].filter(Boolean).join("");
   featuredEl.innerHTML = `
-    <div class="yt-featured-eyebrow">${video.isShort ? "Neuestes Short" : "Neuestes Video"}</div>
+    <div class="yt-featured-badge">${video.isShort ? boltIcon(13) : playIcon(13)}${video.isShort ? "Neuestes Short" : "Neuestes Video"}</div>
     <div class="yt-featured-frame rip">
       <iframe
         src="https://www.youtube.com/embed/${video.id}"
@@ -154,7 +179,7 @@ function renderFeatured(video) {
     </div>
     <div class="yt-featured-body">
       <div class="yt-featured-title">${video.title}</div>
-      ${meta ? `<div class="yt-featured-meta">${meta}</div>` : ""}
+      ${stats ? `<div class="yt-featured-stats">${stats}</div>` : ""}
     </div>`;
 }
 
@@ -177,21 +202,31 @@ function cardHTML(video, watchlist, isShort) {
   </a>`;
 }
 
-function renderGrid(videos, mode) {
-  if (!gridEl) return;
-  const list = mode === "shorts" ? videos.filter((v) => v.isShort) : videos.filter((v) => !v.isShort);
-  gridEl.classList.toggle("yt-grid--shorts", mode === "shorts");
+// Wide "Aus dem Archiv" pick -- same .vod-card base (thumb/play-overlay/
+// watchlist star) as cardHTML above, just laid out sideways via
+// .yt-spotlight-card, mirroring vods.css/js's .twitch-spotlight-card.
+function spotlightCardHTML(video, watchlist) {
+  const saved = watchlist.has(video.id);
+  const meta = [formatDate(video.publishedAt), video.views != null ? `${formatViews(video.views)} Aufrufe` : ""].filter(Boolean).join(" &middot; ");
+  return `
+  <a href="${video.url}" target="_blank" rel="noopener" class="vod-card yt-spotlight-card rip rip--accent reveal" data-video-id="${video.id}">
+    <div class="vod-thumb">
+      <img src="${video.thumbnail}" alt="" loading="lazy">
+      <span class="yt-play-overlay" aria-hidden="true"><span class="yt-play-circle">${playIcon(20)}</span></span>
+      <button class="watchlist-toggle${saved ? " is-saved" : ""}" data-watch-id="${video.id}" aria-label="Zur Watchlist" onclick="event.preventDefault()">${starIcon(saved)}</button>
+    </div>
+    <div class="yt-spotlight-info">
+      <h3>${video.title}</h3>
+      ${meta ? `<p>${meta}</p>` : ""}
+    </div>
+  </a>`;
+}
 
-  if (!list.length) {
-    gridEl.innerHTML = `<div class="empty-state">${emptyIcon()}<h2>${mode === "shorts" ? "Noch keine Shorts" : "Noch keine Videos"}</h2><p>Schau bald wieder vorbei.</p></div>`;
-    renderLoadMore(videos, mode, 0, 0);
-    return;
-  }
-  const shown = list.slice(0, visibleCount);
-  const watchlist = getWatchlist();
-  gridEl.innerHTML = shown.map((v) => cardHTML(v, watchlist, mode === "shorts")).join("");
-
-  gridEl.querySelectorAll("[data-watch-id]").forEach((btn) => {
+// Shared by renderGrid and renderSpotlight so the watchlist-star and
+// open-modal wiring (and the "let ctrl/cmd/shift/alt/middle click still open
+// a real new tab" carve-out) lives in one place instead of two copies.
+function attachCardHandlers(container, clickableVideos) {
+  container.querySelectorAll("[data-watch-id]").forEach((btn) => {
     btn.addEventListener("click", (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
@@ -202,19 +237,110 @@ function renderGrid(videos, mode) {
     });
   });
 
-  // Cards open the custom video modal on a plain click. Ctrl/Cmd/Shift/Alt
-  // click (and middle-click, which never fires "click") are left alone so
-  // "open in new tab" still works via the real href underneath.
-  gridEl.querySelectorAll(".vod-card").forEach((card) => {
+  container.querySelectorAll(".vod-card").forEach((card) => {
     card.addEventListener("click", (ev) => {
       if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
       ev.preventDefault();
-      const video = shown.find((v) => v.id === card.dataset.videoId);
+      const video = clickableVideos.find((v) => v.id === card.dataset.videoId);
       if (video) openVideoModal(video);
     });
   });
+}
 
-  renderLoadMore(videos, mode, shown.length, list.length);
+// True once at least two videos in the list have a different view count --
+// guards the sort toggle below from offering to "sort by views" when every
+// card would end up in the exact same order anyway.
+function hasViewVariance(list) {
+  const vals = new Set(list.map((v) => v.views ?? 0));
+  return vals.size > 1;
+}
+
+function orderList(list, sort) {
+  if (sort !== "views") return list;
+  return [...list].sort((a, b) => (b.views ?? 0) - (a.views ?? 0));
+}
+
+// Computed once from the full feed right after it loads (see init()), not on
+// every render -- picking a fresh random video on every "load more" click or
+// sort change would make the spotlight look like it's glitching rather than
+// showing a stable pick. See the gating rationale in css/youtube.css above
+// .yt-spotlight-label: unlike vods.js's Twitch-archive spotlight (gated at
+// just 3 items, because that archive is permanently capped at 12), this
+// pool can eventually hold the channel's entire history, so it needs a
+// meaningfully higher bar before "random pick" reads as real discovery
+// rather than re-surfacing one of a small handful of already-visible cards.
+const SPOTLIGHT_MIN_TOTAL = 8;
+const SPOTLIGHT_MIN_POOL = 5;
+
+function computeSpotlight(videos) {
+  const featuredId = videos[0]?.id;
+  const nonShorts = videos.filter((v) => !v.isShort);
+  const pool = nonShorts.filter((v) => v.id !== featuredId);
+  if (nonShorts.length < SPOTLIGHT_MIN_TOTAL || pool.length < SPOTLIGHT_MIN_POOL) {
+    spotlightVideo = null;
+    return;
+  }
+  spotlightVideo = pool[Math.floor(Math.random() * pool.length)];
+}
+
+// Only ever shown on the Videos tab (see the comment on computeSpotlight) --
+// Shorts already get their own dense grid with nothing to "discover" beyond
+// scrolling it.
+function renderSpotlight(mode) {
+  if (!spotlightEl) return;
+  if (mode !== "videos" || !spotlightVideo) {
+    spotlightEl.innerHTML = "";
+    return;
+  }
+  const watchlist = getWatchlist();
+  spotlightEl.innerHTML = `<div class="yt-spotlight-label">Aus dem Archiv</div>${spotlightCardHTML(spotlightVideo, watchlist)}`;
+  attachCardHandlers(spotlightEl, [spotlightVideo]);
+}
+
+// "Neueste" / "Meistgesehen" toggle for the currently active tab's own list.
+// Gated at SORT_MIN items with real view-count spread (see its declaration
+// above) -- both thresholds real main-videos.json data already clears today
+// for the Videos tab (4 items, all with different view counts) and easily
+// clears for Shorts (11 items).
+function renderSortBar(videos, list, mode) {
+  if (!sortBarEl) return;
+  if (list.length < SORT_MIN || !hasViewVariance(list)) {
+    sortBarEl.innerHTML = "";
+    return;
+  }
+  sortBarEl.innerHTML = `
+    <button class="filter-pill rip rip--accent${sortMode === "new" ? " is-active" : ""}" data-sort="new">Neueste</button>
+    <button class="filter-pill rip${sortMode === "views" ? " is-active" : ""}" data-sort="views">Meistgesehen</button>`;
+  sortBarEl.querySelectorAll(".filter-pill").forEach((pill) => {
+    pill.addEventListener("click", () => {
+      if (pill.dataset.sort === sortMode) return;
+      sortMode = pill.dataset.sort;
+      visibleCount = PAGE_SIZE; // fresh first page under the new order
+      renderGrid(videos, mode);
+    });
+  });
+}
+
+function renderGrid(videos, mode) {
+  if (!gridEl) return;
+  const list = mode === "shorts" ? videos.filter((v) => v.isShort) : videos.filter((v) => !v.isShort);
+  gridEl.classList.toggle("yt-grid--shorts", mode === "shorts");
+
+  renderSpotlight(mode);
+  renderSortBar(videos, list, mode);
+
+  if (!list.length) {
+    gridEl.innerHTML = `<div class="empty-state">${emptyIcon()}<h2>${mode === "shorts" ? "Noch keine Shorts" : "Noch keine Videos"}</h2><p>Schau bald wieder vorbei.</p></div>`;
+    renderLoadMore(videos, mode, 0, 0);
+    return;
+  }
+  const ordered = orderList(list, sortMode);
+  const shown = ordered.slice(0, visibleCount);
+  const watchlist = getWatchlist();
+  gridEl.innerHTML = shown.map((v) => cardHTML(v, watchlist, mode === "shorts")).join("");
+  attachCardHandlers(gridEl, shown);
+
+  renderLoadMore(videos, mode, shown.length, ordered.length);
 }
 
 // Reveals the next PAGE_SIZE cards on click instead of rendering the whole
@@ -248,6 +374,7 @@ function mountFilters(videos) {
       filterBarEl.querySelectorAll(".filter-pill").forEach((p) => p.classList.remove("is-active"));
       pill.classList.add("is-active");
       visibleCount = PAGE_SIZE; // fresh first page for the newly selected tab
+      sortMode = "new"; // and its own natural chronological order
       renderGrid(videos, pill.dataset.mode);
     });
   });
@@ -264,6 +391,7 @@ async function init() {
   const feed = await loadJSON("/assets/data/main-videos.json", { videos: [] });
   const videos = feed.videos || [];
   renderFeatured(videos[0]);
+  computeSpotlight(videos);
   mountFilters(videos);
   renderGrid(videos, "videos");
 }
