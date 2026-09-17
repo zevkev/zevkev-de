@@ -1,3 +1,5 @@
+import { observeImpressions } from "./track.js";
+
 const WATCHLIST_KEY = "zevkev-watchlist";
 
 // How many cards the shelf shows before a "load more" click reveals the next
@@ -227,8 +229,8 @@ function renderFeatured(video) {
     <div class="yt-hero-title">${video.title}</div>
     ${stats ? `<div class="yt-hero-stats">${stats}</div>` : ""}
     <div class="yt-hero-actions">
-      <button type="button" class="yt-hero-play-btn" id="yt-hero-play">${playIcon(16)}Video ansehen</button>
-      <a class="btn-youtube" href="https://www.youtube.com/@ZevKev?sub_confirmation=1" target="_blank" rel="noopener">${youtubeGlyph()}Abonnieren</a>
+      <button type="button" class="yt-hero-play-btn" id="yt-hero-play" data-track-click="youtube-hero-play">${playIcon(16)}Video ansehen</button>
+      <a class="btn-youtube" href="https://www.youtube.com/@ZevKev?sub_confirmation=1" target="_blank" rel="noopener" data-track-click="youtube-subscribe">${youtubeGlyph()}Abonnieren</a>
       <button type="button" class="watchlist-toggle yt-hero-watch${saved ? " is-saved" : ""}" data-watch-id="${video.id}" aria-label="Zur Watchlist">${starIcon(saved)}</button>
     </div>`;
 
@@ -405,6 +407,7 @@ function renderSpotlight(mode) {
     </div>`;
   attachCardHandlers(spotlightEl, spotlightVideos);
   initShelf(spotlightEl.querySelector(".yt-shelf-wrap"));
+  observeImpressions(".vod-card[data-video-id]", (el) => el.dataset.videoId, spotlightEl);
 }
 
 // "Neueste" / "Meistgesehen" toggle for the currently active tab's own list.
@@ -456,6 +459,7 @@ function renderGrid(videos, mode) {
   const watchlist = getWatchlist();
   gridEl.innerHTML = shown.map((v) => cardHTML(v, watchlist, mode === "shorts")).join("");
   attachCardHandlers(gridEl, shown);
+  observeImpressions(".vod-card[data-video-id]", (el) => el.dataset.videoId, gridEl);
 
   renderLoadMore(videos, mode, shown.length, ordered.length);
   // Card count (and with it, whether the shelf even needs to scroll) just

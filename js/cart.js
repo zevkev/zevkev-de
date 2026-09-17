@@ -1,5 +1,6 @@
 import { FourthwallAPI } from "./fourthwall-api.js";
 import { money, ready as currencyReady } from "./currency.js";
+import { track } from "./track.js";
 
 const STORAGE_KEY = "zevkev-cart-id";
 // Fourthwall's hosted checkout lives on whichever domain is connected as
@@ -73,7 +74,7 @@ function render() {
         <svg class="cart-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h2l2.4 12.4a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="9" cy="21" r="1"/><circle cx="18" cy="21" r="1"/></svg>
         <p class="cart-empty-title">Dein Warenkorb ist leer.</p>
         <p class="cart-empty-text">Schau dich im Shop um!</p>
-        <a href="/shop/" class="p-btn rip btn-accent cart-empty-cta">Zum Shop</a>
+        <a href="/shop/" class="p-btn rip btn-accent cart-empty-cta" data-track-click="cart-empty-go-shop">Zum Shop</a>
       </div>`;
     if (footer) footer.style.display = "none";
     return;
@@ -159,6 +160,7 @@ async function addItem(variantId, quantity = 1) {
     render();
     showToast("In den Warenkorb gelegt.");
     openDrawer();
+    track("add_to_cart", variantId, quantity);
   } catch (err) {
     console.error("Add to cart failed:", err);
     showToast("Konnte nicht zum Warenkorb hinzugefügt werden.");

@@ -1,5 +1,6 @@
 // Shared header + footer, mounted into #site-header / #site-footer on every
 // page. The cart icon/drawer only ever appears on /shop/ pages.
+import { track } from "/js/track.js";
 
 const NAV = [
   { href: "/", label: "Home", match: (p) => p === "/" || p === "/index.html" },
@@ -35,7 +36,7 @@ function themeIconHTML() {
 
 function socialLinksHTML() {
   return SOCIALS.map(
-    (s) => `<a href="${s.href}" target="_blank" rel="noopener" aria-label="${s.label}"${s.twitchOnly ? " data-twitch-only" : ""}><svg viewBox="0 0 24 24" fill="currentColor">${ICONS[s.icon]}</svg></a>`
+    (s) => `<a href="${s.href}" target="_blank" rel="noopener" aria-label="${s.label}" data-track-click="social-${s.icon}"${s.twitchOnly ? " data-twitch-only" : ""}><svg viewBox="0 0 24 24" fill="currentColor">${ICONS[s.icon]}</svg></a>`
   ).join("");
 }
 
@@ -82,7 +83,7 @@ function cartDrawerHTML() {
         <span class="cart-subtotal-label">Zwischensumme</span>
         <span class="cart-subtotal-value" id="cart-subtotal">0,00 €</span>
       </div>
-      <a class="p-btn rip btn-accent" id="cart-checkout" style="width:100%; justify-content:center;">
+      <a class="p-btn rip btn-accent" id="cart-checkout" data-track-click="cart-checkout" style="width:100%; justify-content:center;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         Zur Kasse
       </a>
@@ -113,6 +114,8 @@ function footerHTML() {
 export async function mountLayout() {
   const path = window.location.pathname;
   const isShop = path.startsWith("/shop");
+
+  track("page_view", path);
 
   const headerSlot = document.getElementById("site-header");
   const footerSlot = document.getElementById("site-footer");

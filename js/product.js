@@ -8,6 +8,7 @@
 import { FourthwallAPI } from "./fourthwall-api.js";
 import { Cart } from "./cart.js";
 import { money, ready as currencyReady } from "./currency.js";
+import { track } from "./track.js";
 
 const root = document.getElementById("product-root");
 
@@ -146,6 +147,7 @@ function renderProduct(product) {
   let images = imagesForSelection(product, selection);
 
   updateMeta(product, images[0]?.url);
+  track("product_view", product.slug);
 
   root.innerHTML = `
     <div class="product-page reveal">
@@ -171,7 +173,7 @@ function renderProduct(product) {
             <input type="number" id="pd-qty" value="1" min="1">
             <button type="button" id="pd-qty-plus" aria-label="Mehr">+</button>
           </div>
-          <button class="p-btn rip btn-accent" id="pd-add">In den Warenkorb</button>
+          <button class="p-btn rip btn-accent" id="pd-add" data-track-click="shop-add-to-cart">In den Warenkorb</button>
         </div>
         <p class="stock-note" id="pd-stock"></p>
       </div>
