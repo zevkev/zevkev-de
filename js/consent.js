@@ -43,16 +43,39 @@ function loadGtag() {
 // mountConsentBanner() even runs, so this page's own page_view isn't missed.
 if (isConfigured && getChoice() === "accepted") loadGtag();
 
+function cookieIcon() {
+  return `
+  <svg class="consent-icon" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M12 2a9.96 9.96 0 0 0-7.07 2.93A9.96 9.96 0 0 0 2 12c0 5.52 4.48 10 10 10s10-4.48 10-10c0-.34-.02-.68-.05-1a3 3 0 0 1-3.95-3.95A10.02 10.02 0 0 0 12 2Z"/>
+    <circle cx="8.5" cy="10.5" r="1" fill="currentColor" stroke="none"/>
+    <circle cx="13" cy="14" r="1" fill="currentColor" stroke="none"/>
+    <circle cx="9.5" cy="15.5" r="1" fill="currentColor" stroke="none"/>
+    <circle cx="15" cy="9.5" r="1" fill="currentColor" stroke="none"/>
+  </svg>`;
+}
+
+// Both buttons deliberately use the exact same plain .p-btn rip style (no
+// .btn-accent highlight on Accept) -- an accepted-looking gold "Akzeptieren"
+// next to a plain grey "Ablehnen" nudges the choice rather than presenting
+// it neutrally, which is the kind of thing DPAs flag as a dark pattern.
+// Kevin was explicit that the banner must let people decline just as
+// easily as accept, so equal visual weight here isn't just styling.
 function bannerHTML() {
   return `
   <div class="consent-banner rip rip--b" id="consent-banner" role="dialog" aria-label="Cookie-Einstellungen">
+    <div class="tape"></div>
+    <div class="consent-head">
+      ${cookieIcon()}
+      <h2>Cookies &amp; Datenschutz</h2>
+    </div>
     <p>
       Wir nutzen Google Analytics, um zu sehen, wie die Seite genutzt wird (Seitenaufrufe, Klicks, Sehdauer bei Videos).
-      Das läuft nur, wenn du zustimmst. Mehr dazu in der <a href="/datenschutz/">Datenschutzerklärung</a>.
+      Das läuft nur, wenn du zustimmst — deine Wahl lässt sich jederzeit über "Cookie-Einstellungen" im Footer ändern.
+      Mehr dazu in der <a href="/datenschutz/">Datenschutzerklärung</a>.
     </p>
     <div class="consent-actions">
-      <button type="button" class="p-btn rip" id="consent-decline">Ablehnen</button>
-      <button type="button" class="p-btn rip btn-accent" id="consent-accept">Akzeptieren</button>
+      <button type="button" class="p-btn rip rip--pink" id="consent-decline">Ablehnen</button>
+      <button type="button" class="p-btn rip rip--pink" id="consent-accept">Akzeptieren</button>
     </div>
   </div>`;
 }
