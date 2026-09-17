@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seite nicht gefunden | ZevKev</title>
+<meta name="description" content="Diese Seite gibt es nicht (mehr).">
+
+<link rel="icon" type="image/png" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
+<link rel="apple-touch-icon" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Seite nicht gefunden | ZevKev">
+<meta property="og:description" content="Diese Seite gibt es nicht (mehr).">
+<meta property="og:image" content="https://zevkev.github.io/Medienspeicher/Bilder/ZevKev.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://zevkev.github.io/Medienspeicher/Bilder/ZevKev.png">
+
+<!--
+  GitHub Pages has no server-side rewrites/routing config — this is the
+  standard static-host workaround for pretty URLs: GitHub Pages serves this
+  exact file, from the repo ROOT (the only place it's honored — it will NOT
+  be picked up from e.g. shop/404.html), for ANY unmatched path site-wide,
+  with an HTTP 404 status code (the page itself still renders and works
+  normally for visitors; search engines/some tools just won't index these
+  URLs as "real" pages — an accepted, unavoidable tradeoff of this technique
+  on GitHub Pages specifically, not a bug here).
+
+  This page is structurally identical to shop/product/index.html on
+  purpose: when the unmatched path looks like a clean product URL
+  (/shop/<slug> — see the inline script below), it loads the exact same
+  js/product.js used there, which already knows how to pull the slug out of
+  location.pathname when there's no ?slug= query string. Nothing about the
+  product page's rendering is duplicated here.
+
+  All /js/, /css/ etc. references below are root-absolute, so they resolve
+  correctly no matter what URL this was actually served for (this file
+  itself lives at the repo root either way).
+-->
+
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/shop.css">
+</head>
+<body>
+
+<script type="module" src="/js/theme.js"></script>
+
+<div id="site-header"></div>
+
+<div class="page-body">
+  <div class="container">
+    <a href="/shop/" class="shop-back-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Zurück zum Shop
+    </a>
+
+    <div id="product-root"></div>
+
+  </div>
+</div>
+
+<div id="site-footer"></div>
+
+<script type="module" src="/js/flags.js"></script>
+<script type="module">
+  import { mountLayout } from "/js/layout.js";
+  mountLayout();
+</script>
+<script>
+  // Only mount the product page's script when the unmatched path actually
+  // looks like a clean product URL: a single segment directly under
+  // /shop/, not /shop/product/ itself (a real path — it just never reaches
+  // this file, since shop/product/index.html exists) and not /shop/ alone
+  // (also real, shop/index.html). Anything else that lands on this 404
+  // page (a typo'd path anywhere else on the site, a link to a removed
+  // page, etc.) gets a plain, generic "not found" message instead of
+  // js/product.js's shop-specific "Produkt nicht gefunden" wording.
+  const parts = location.pathname.split("/").filter(Boolean);
+  const looksLikeProductSlug = parts.length === 2 && parts[0] === "shop" && parts[1] !== "product";
+
+  if (looksLikeProductSlug) {
+    const script = document.createElement("script");
+    script.type = "module";
+    script.src = "/js/product.js";
+    document.body.appendChild(script);
+  } else {
+    const root = document.getElementById("product-root");
+    if (root) {
+      root.innerHTML = `
+        <div class="empty-state">
+          <h2>Seite nicht gefunden</h2>
+          <p>Diese Seite gibt es nicht (mehr). Vielleicht ist der Link falsch oder veraltet.</p>
+          <a href="/" class="p-btn rip btn-accent">Zur Startseite</a>
+        </div>`;
+    }
+  }
+</script>
+</body>
+</html>
