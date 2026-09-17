@@ -6,8 +6,8 @@ import { mountConsentBanner } from "/js/consent.js";
 const NAV = [
   { href: "/", label: "Home", match: (p) => p === "/" || p === "/index.html" },
   { href: "/shop/", label: "Shop", match: (p) => p.startsWith("/shop") },
-  { href: "/vods/", label: "Mehr", match: (p) => p.startsWith("/vods") },
   { href: "/youtube/", label: "YouTube", match: (p) => p.startsWith("/youtube") },
+  { href: "/vods/", label: "Mehr", match: (p) => p.startsWith("/vods") },
   { href: "/watchlist/", label: "Watchlist", match: (p) => p.startsWith("/watchlist") },
 ];
 
@@ -114,8 +114,8 @@ function footerHTML() {
       <div class="footer-links">
         <a href="/">Home</a>
         <a href="/shop/">Shop</a>
-        <a href="/vods/">Mehr</a>
         <a href="/youtube/">YouTube</a>
+        <a href="/vods/">Mehr</a>
         <a href="/watchlist/" id="footer-watchlist-link">Watchlist</a>
         <a href="/impressum/">Impressum</a>
         <a href="/datenschutz/">Datenschutz</a>

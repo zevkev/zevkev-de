@@ -522,7 +522,15 @@
 
 @media (max-width: 980px) {
   .vod-hero-row { flex-direction: column; height: auto; gap: 0; }
-  .vod-hero-player { flex: none; width: 100%; aspect-ratio: 16 / 9; }
+  /* min-height alongside aspect-ratio: a pure 16/9 box gets too short on
+     narrow phones to fit the status overlay's badge/title/button content
+     (see .vod-hero-status below) without it overflowing past the top of
+     its own bottom-anchored box -- which, since it sits at z-index 2, well
+     under the fixed header's z-index 100, rendered as text disappearing
+     behind the header instead of just clipping. The extra height beyond
+     16/9 just shows more of the player's own black letterbox background,
+     not a stretched/cropped video. */
+  .vod-hero-player { flex: none; width: 100%; aspect-ratio: 16 / 9; min-height: 230px; }
   .vod-hero-chat { flex: none; width: 100%; margin: 16px; }
   .vod-hero-chat .chat-panel, .vod-hero-chat .chat-skeleton { height: 420px; }
   .vod-hero-status { padding: 30px 18px 16px; }
@@ -535,5 +543,14 @@
 
 @media (max-width: 480px) {
   .vod-hero-btn { padding: 9px 16px; font-size: 0.82rem; }
-  .vod-hero-status { padding: 24px 14px 14px; }
+  .vod-hero-status { padding: 20px 14px 12px; }
+  /* Trimmed further for the same reason as the min-height above: even with
+     it, a 2-line title + explainer paragraph + stats row + button on a
+     ~230-260px-tall hero left very little breathing room. The explainer is
+     supplementary ("noch nichts archiviert, hier das neueste Video")
+     already restated in the empty-state heading further down the page, so
+     it's the first thing to drop rather than shrinking the title further. */
+  .vod-hero-explain { display: none; }
+  .vod-hero-title { margin: 6px 0 4px; -webkit-line-clamp: 1; line-clamp: 1; }
+  .vod-hero-actions { margin-top: 10px; gap: 8px; }
 }
