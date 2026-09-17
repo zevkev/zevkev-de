@@ -25,50 +25,73 @@
 <link rel="stylesheet" href="/css/vods.css">
 <link rel="stylesheet" href="/css/youtube.css">
 </head>
-<body>
+<body class="yt-page">
 
 <script type="module" src="/js/theme.js"></script>
 
 <div id="site-header"></div>
 
+<!-- Full-bleed hero: sits outside .page-body on purpose so it isn't pushed
+     down by that class's header-clearing padding-top -- it starts at the
+     very top of the page (y=0) and the fixed site nav floats transparently
+     on top of it instead of above it (see body.yt-page rules in
+     css/youtube.css). js/youtube.js fills #yt-hero-media/#yt-hero-content
+     once the feed loads; #yt-hero-sentinel marks where the hero ends so the
+     nav can switch back to its normal solid look once it's scrolled past. -->
+<div class="yt-hero-full" id="yt-hero-full">
+  <div class="yt-hero-media" id="yt-hero-media">
+    <div class="skeleton-card yt-hero-skeleton"></div>
+  </div>
+  <div class="yt-hero-scrim" aria-hidden="true"></div>
+  <div class="yt-hero-content" id="yt-hero-content">
+    <div class="skeleton-line yt-hero-skel yt-hero-skel--badge"></div>
+    <div class="skeleton-line yt-hero-skel yt-hero-skel--title"></div>
+    <div class="skeleton-line yt-hero-skel yt-hero-skel--meta"></div>
+  </div>
+</div>
+<div id="yt-hero-sentinel" aria-hidden="true"></div>
+
 <div class="page-body">
   <div class="container" style="display:flex; flex-direction:column; align-items:center;">
 
-    <div class="yt-hero rip rip--b">
-      <div class="tape yt-hero-tape" aria-hidden="true"></div>
-      <img class="yt-hero-avatar" src="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png" alt="ZevKev">
-      <div class="yt-hero-text">
-        <h1>ZevKev auf YouTube</h1>
-        <p>Videos und Entertainment aus dem Alltag. Freizeitparks, Vlogs und mehr, immer aktuell.</p>
-        <a class="btn-youtube" href="https://www.youtube.com/@ZevKev?sub_confirmation=1" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-          Abonnieren
-        </a>
-      </div>
-    </div>
+    <!-- The hero above carries the visible page heading (the latest video's
+         own title); this keeps a stable, non-video-dependent <h1> for
+         accessibility/SEO without a second big heading competing with it
+         visually. -->
+    <h1 class="visually-hidden">ZevKev auf YouTube – Videos und Shorts</h1>
 
-    <div class="yt-featured" id="yt-featured">
-      <div class="yt-featured-frame rip"><div class="skeleton-card yt-featured-skeleton"></div></div>
-      <div class="yt-featured-body">
-        <div class="skeleton-line yt-skeleton-line--title"></div>
-        <div class="skeleton-line yt-skeleton-line--meta"></div>
-      </div>
-    </div>
+    <div class="yt-library">
+      <div class="scissor-line" aria-hidden="true"></div>
 
-    <h2 class="yt-section-title">Mehr von ZevKev</h2>
-    <div class="filter-bar" id="yt-filter-bar">
-      <span class="yt-pill-skeleton"></span>
-      <span class="yt-pill-skeleton"></span>
+      <div class="yt-library-head">
+        <h2 class="yt-section-title">Mehr von ZevKev</h2>
+        <div class="filter-bar" id="yt-filter-bar">
+          <span class="yt-pill-skeleton"></span>
+          <span class="yt-pill-skeleton"></span>
+        </div>
+      </div>
+
+      <div id="yt-spotlight"></div>
+
+      <div class="vod-section-head" id="yt-sort-bar"></div>
+
+      <div class="yt-shelf-wrap" id="yt-grid-wrap">
+        <button type="button" class="yt-shelf-nav yt-shelf-nav--prev is-hidden" aria-label="Zurück scrollen">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
+        <div class="yt-shelf" id="yt-grid">
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+        </div>
+        <button type="button" class="yt-shelf-nav yt-shelf-nav--next" aria-label="Weiter scrollen">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+
+      <div class="yt-load-more-row" id="yt-load-more"></div>
     </div>
-    <div id="yt-spotlight"></div>
-    <div class="vod-section-head" id="yt-sort-bar"></div>
-    <div class="vod-grid" id="yt-grid">
-      <div class="skeleton-card"></div>
-      <div class="skeleton-card"></div>
-      <div class="skeleton-card"></div>
-      <div class="skeleton-card"></div>
-    </div>
-    <div class="yt-load-more-row" id="yt-load-more"></div>
 
   </div>
 </div>
