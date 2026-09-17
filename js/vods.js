@@ -273,16 +273,18 @@ function renderPlayer(status, latestTwitchVod, latestYoutubeVideo) {
     </div>`;
 }
 
+// Offline: the chat column stays fully empty and collapsed (not even a
+// placeholder note) rather than taking up space beside the player -- the
+// player itself is flex:1, so with the chat column gone it reclaims the
+// full hero width. Only a real live stream gets the column back.
 function renderChat(status) {
   if (!chatCol || !TWITCH_ENABLED) return;
   if (!status.live) {
-    chatCol.innerHTML = `
-      <div class="chat-panel rip rip--b">
-        <h2>Live Chat</h2>
-        <div class="chat-offline-note">Der Chat ist nur während Live Streams aktiv.<br>Bis dahin: schau in den <a href="/#discord">Discord</a>.</div>
-      </div>`;
+    chatCol.innerHTML = "";
+    chatCol.style.display = "none";
     return;
   }
+  chatCol.style.display = "";
   chatCol.innerHTML = `
     <div class="chat-panel rip rip--b">
       <h2>Live Chat</h2>

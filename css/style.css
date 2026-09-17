@@ -263,6 +263,13 @@ h1, h2, .display-font {
 }
 .p-btn:hover { transform: scale(1.05) rotate(0deg) !important; color: var(--blue-mat) !important; }
 .p-btn:hover::before { filter: drop-shadow(var(--shadow-hover)); }
+/* Buttons drop the shared .rip::before paper-grain image (solid color +
+   torn-edge clip-path only) -- at this small a surface the fine speckle
+   texture, multiply-blended against the mid-tone accent colors buttons
+   often use, produced a visible grid-like moire pattern on some
+   displays/zoom levels instead of a subtle grain. Photo/video/product
+   cards keep the grain; it reads fine at their larger size. */
+.p-btn::before { background-image: none; }
 .p-btn:active { transform: scale(0.98) !important; }
 .p-btn:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 .p-btn svg { width: 19px; height: 19px; flex-shrink: 0; }
