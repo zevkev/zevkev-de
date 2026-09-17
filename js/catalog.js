@@ -1,5 +1,4 @@
 import { FourthwallAPI } from "./fourthwall-api.js";
-import { Cart } from "./cart.js";
 
 const grid = document.getElementById("product-grid");
 const filterBar = document.getElementById("filter-bar");
@@ -54,8 +53,8 @@ function renderGrid(products) {
   grid.querySelectorAll("[data-product-slug]").forEach((card) => {
     card.addEventListener("click", (ev) => {
       ev.preventDefault();
-      const product = products.find((p) => p.slug === card.getAttribute("data-product-slug"));
-      if (product) openQuickView(product);
+      const slug = card.getAttribute("data-product-slug");
+      if (slug) location.href = `/shop/product/?slug=${encodeURIComponent(slug)}`;
     });
   });
   import("/js/home.js").catch(() => {});
@@ -116,184 +115,6 @@ async function selectFilter(pill, collections) {
   } catch (err) {
     console.error("Filter load failed:", err);
   }
-}
-
-// A variant's attributes look like { description: "White, S", color: { name,
-// swatch }, size: { name } } — a fixed-ish object keyed by attribute type,
-// not a generic list. "description" is just the human-readable summary of
-// the others, so it's excluded from the option groups.
-function attributeGroups(product) {
-  const groups = new Map();
-  (product.variants || []).forEach((v) => {
-    Object.entries(v.attributes || {}).forEach(([key, val]) => {
-      if (key === "description" || !val || typeof val !== "object" || val.name == null) return;
-      if (!groups.has(key)) groups.set(key, new Map());
-      groups.get(key).set(val.name, val.swatch || null);
-    });
-  });
-  return groups;
-}
-
-function findVariant(product, selection) {
-  return (product.variants || []).find((v) =>
-    Object.entries(selection).every(([key, value]) => v.attributes?.[key]?.name === value)
-  );
-}
-
-// Each variant carries its own images array; for apparel it's identical
-// across sizes of one color but differs across colors, so the gallery
-// should follow the selected color instead of showing every color's
-// photos at once (a shirt with 6 colors x 7 angles is 42 thumbnails).
-function imagesForSelection(product, selection) {
-  if (selection.color) {
-    const variant = (product.variants || []).find((v) => v.attributes?.color?.name === selection.color);
-    if (variant?.images?.length) return variant.images;
-  }
-  return product.images?.length ? product.images : product.image ? [product.image] : [];
-}
-
-function openQuickView(product) {
-  const existing = document.getElementById("quick-view");
-  existing?.remove();
-
-  const groups = attributeGroups(product);
-  const selection = {};
-  groups.forEach((values, option) => {
-    selection[option] = [...values.keys()][0];
-  });
-  let images = imagesForSelection(product, selection);
-
-  const modal = document.createElement("div");
-  modal.id = "quick-view";
-  modal.className = "cart-backdrop is-open";
-  modal.innerHTML = `
-    <div class="qv-panel rip">
-      <button class="cart-close qv-close" id="qv-close" aria-label="Schließen">&times;</button>
-      <div class="product-page">
-        <div>
-          <div class="product-gallery-main rip rip--photo" id="qv-main-frame">
-            <img id="qv-main-image" src="${images[0]?.url || ""}" alt="${product.name}">
-            <span class="qv-zoom-hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/></svg></span>
-          </div>
-        </div>
-        <div class="product-info">
-          <h1>${product.name}</h1>
-          <div class="product-price-block"><span class="price-tag" id="qv-price"></span></div>
-          <div class="qv-divider"></div>
-          ${product.description ? `<div class="product-description">${product.description}</div><div class="qv-divider"></div>` : ""}
-          <div id="qv-options"></div>
-          <div class="qv-divider"></div>
-          <div class="add-to-cart-row">
-            <div class="qty-stepper">
-              <button type="button" id="qv-qty-minus">&minus;</button>
-              <input type="number" id="qv-qty" value="1" min="1">
-              <button type="button" id="qv-qty-plus">+</button>
-            </div>
-            <button class="p-btn rip btn-accent" id="qv-add">In den Warenkorb</button>
-          </div>
-          <p class="stock-note" id="qv-stock"></p>
-        </div>
-      </div>
-    </div>
-    <div class="qv-lightbox" id="qv-lightbox"><img id="qv-lightbox-img" src="" alt=""><button class="cart-close qv-close" id="qv-lightbox-close" aria-label="Schließen">&times;</button></div>`;
-  document.body.appendChild(modal);
-
-  modal.querySelector("#qv-main-frame").addEventListener("click", () => {
-    modal.querySelector("#qv-lightbox-img").src = modal.querySelector("#qv-main-image").src;
-    modal.querySelector("#qv-lightbox").classList.add("is-open");
-  });
-  const closeLightbox = () => modal.querySelector("#qv-lightbox").classList.remove("is-open");
-  modal.querySelector("#qv-lightbox-close").addEventListener("click", closeLightbox);
-  modal.querySelector("#qv-lightbox").addEventListener("click", (ev) => {
-    if (ev.target.id === "qv-lightbox") closeLightbox();
-  });
-
-  const optionsEl = modal.querySelector("#qv-options");
-  optionsEl.innerHTML = [...groups.entries()]
-    .map(([option, values]) => {
-      const swatches = [...values.entries()]
-        .map(([name, swatch]) =>
-          swatch
-            ? `<button type="button" class="swatch-color" data-option="${option}" data-value="${name}" title="${name}"><span class="chip" style="background:${swatch};"></span><span class="label">${name}</span></button>`
-            : `<button type="button" class="swatch-size" data-option="${option}" data-value="${name}">${name}</button>`
-        )
-        .join("");
-      return `
-      <div class="option-group">
-        <label>${option}</label>
-        <div class="option-swatches" data-option="${option}">${swatches}</div>
-      </div>`;
-    })
-    .join("");
-
-  function syncSelection() {
-    const variant = findVariant(product, selection) || product.variants?.[0];
-    modal.querySelectorAll(".swatch-size, .swatch-color").forEach((btn) => {
-      btn.classList.toggle("is-selected", selection[btn.dataset.option] === btn.dataset.value);
-    });
-    modal.querySelector("#qv-price").textContent = variant ? money(variant.unitPrice?.value ?? 0, variant.unitPrice?.currency) : "";
-    const outOfStock = variant?.stock?.type === "LIMITED" && (variant?.stock?.quantity ?? 0) <= 0;
-    modal.querySelector("#qv-stock").textContent = outOfStock ? "Gerade nicht auf Lager." : "";
-    modal.querySelector("#qv-add").disabled = !!outOfStock || !variant;
-    modal.querySelector("#qv-add").dataset.variantId = variant?.id || "";
-  }
-
-  optionsEl.querySelectorAll(".swatch-size, .swatch-color").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      selection[btn.dataset.option] = btn.dataset.value;
-      if (btn.dataset.option === "color") {
-        images = imagesForSelection(product, selection);
-        renderGallery();
-      }
-      syncSelection();
-    });
-  });
-
-  function renderGallery() {
-    modal.querySelector("#qv-main-image").src = images[0]?.url || "";
-    modal.querySelector(".product-thumbs")?.remove();
-    if (images.length > 1) {
-      const thumbsHTML = images
-        .map((img, i) => `<button class="product-thumb${i === 0 ? " is-active" : ""}" data-src="${img.url}"><img src="${img.url}" alt=""></button>`)
-        .join("");
-      modal.querySelector(".product-gallery-main").insertAdjacentHTML("afterend", `<div class="product-thumbs">${thumbsHTML}</div>`);
-      modal.querySelectorAll(".product-thumb").forEach((t) => {
-        t.addEventListener("click", () => {
-          modal.querySelector("#qv-main-image").src = t.dataset.src;
-          modal.querySelectorAll(".product-thumb").forEach((x) => x.classList.remove("is-active"));
-          t.classList.add("is-active");
-        });
-      });
-    }
-  }
-  renderGallery();
-
-  modal.querySelector("#qv-qty-minus").addEventListener("click", () => {
-    const input = modal.querySelector("#qv-qty");
-    input.value = Math.max(1, Number(input.value) - 1);
-  });
-  modal.querySelector("#qv-qty-plus").addEventListener("click", () => {
-    const input = modal.querySelector("#qv-qty");
-    input.value = Number(input.value) + 1;
-  });
-
-  modal.querySelector("#qv-add").addEventListener("click", (ev) => {
-    const variantId = ev.currentTarget.dataset.variantId;
-    const qty = Number(modal.querySelector("#qv-qty").value) || 1;
-    if (!variantId) return;
-    Cart.addItem(variantId, qty);
-    closeModal();
-  });
-
-  function closeModal() {
-    modal.remove();
-  }
-  modal.querySelector("#qv-close").addEventListener("click", closeModal);
-  modal.addEventListener("click", (ev) => {
-    if (ev.target === modal) closeModal();
-  });
-
-  syncSelection();
 }
 
 loadCatalog();

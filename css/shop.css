@@ -189,6 +189,21 @@
 .qv-lightbox .qv-close:hover { background: rgba(10, 10, 14, 0.8); }
 
 /* ---------- Product detail page ---------- */
+.shop-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 0.95rem;
+  margin: 18px 0 8px;
+  opacity: 0.9;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.shop-back-link svg { width: 18px; height: 18px; flex-shrink: 0; }
+.shop-back-link:hover { opacity: 1; transform: translateX(-3px); }
+
 .product-page {
   display: grid;
   grid-template-columns: 1fr 1fr;
