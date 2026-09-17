@@ -69,9 +69,8 @@ function bannerHTML() {
       <h2>Cookies &amp; Datenschutz</h2>
     </div>
     <p>
-      Wir nutzen Google Analytics, um zu sehen, wie die Seite genutzt wird (Seitenaufrufe, Klicks, Sehdauer bei Videos).
-      Das läuft nur, wenn du zustimmst — deine Wahl lässt sich jederzeit über "Cookie-Einstellungen" im Footer ändern.
-      Mehr dazu in der <a href="/datenschutz/">Datenschutzerklärung</a>.
+      Wir nutzen Cookies für Google Analytics. Läuft nur mit deiner Zustimmung.
+      Mehr Infos in den <a href="/datenschutz/#cookies">Cookie-Einstellungen</a>.
     </p>
     <div class="consent-actions">
       <button type="button" class="p-btn rip rip--pink" id="consent-decline">Ablehnen</button>
