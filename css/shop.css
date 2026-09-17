@@ -183,7 +183,10 @@
 }
 .qv-lightbox.is-open { opacity: 1; pointer-events: auto; }
 .qv-lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; }
-.qv-lightbox .qv-close { background: rgba(255, 255, 255, 0.15); color: #fff; top: 20px; right: 20px; }
+/* Dark backdrop, not the faint white-wash the base rule would give it here —
+   this sits over the full-bleed product photo, which can be light or dark. */
+.qv-lightbox .qv-close { background: rgba(10, 10, 14, 0.6); color: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); top: 20px; right: 20px; }
+.qv-lightbox .qv-close:hover { background: rgba(10, 10, 14, 0.8); }
 
 /* ---------- Product detail page ---------- */
 .product-page {
