@@ -1,5 +1,6 @@
 import { TWITCH_ENABLED } from "./config.js";
 import { consumeRedirect, getToken, startLogin, logout, getCurrentUser, resolveBroadcasterId, sendChatMessage, onAuthChange } from "./twitch-auth.js";
+import { track } from "/js/track.js";
 
 const TWITCH_CHANNEL = "zevkev_";
 const WATCHLIST_KEY = "zevkev-watchlist";
@@ -53,6 +54,115 @@ function escapeHTML(str) {
 function parentParams() {
   const hosts = new Set([location.hostname, "zevkev.de", "www.zevkev.de", "localhost", "127.0.0.1"]);
   return [...hosts].map((h) => `parent=${encodeURIComponent(h)}`).join("&");
+}
+
+// Same host allow-list as parentParams() above, just shaped as a plain array
+// -- Twitch's embed JS SDK takes `parent` as an array of hostnames on its
+// constructor options object, not a URL query string. Kept as its own
+// function (not derived from parentParams()) so touching the iframe-URL path
+// used by the still-untouched chat embed can never accidentally affect the
+// SDK path, or vice versa.
+function parentHosts() {
+  return [...new Set([location.hostname, "zevkev.de", "www.zevkev.de", "localhost", "127.0.0.1"])];
+}
+
+// ---------- Watch-time analytics ----------
+// Both platforms' official JS player APIs (loaded lazily below, once per
+// page, the first time a player actually needs them) expose real
+// play/pause/ended events -- this turns those into periodic heartbeats while
+// a video is actively playing, not just one call at the end, so a visitor
+// closing the tab without a clean pause/unload event doesn't lose the
+// segment. Each tracker resets its own elapsed-time counter right after
+// sending a heartbeat so totals summed on the dashboard don't double count.
+const HEARTBEAT_MS = 30000;
+
+function createWatchTimeTracker(path) {
+  let intervalId = null;
+  let segmentStart = null;
+
+  function flush() {
+    if (segmentStart == null) return;
+    const elapsed = (Date.now() - segmentStart) / 1000;
+    segmentStart = Date.now();
+    if (elapsed > 0.5) track("watch_time", path, elapsed);
+  }
+
+  function start() {
+    if (intervalId != null) return; // already accumulating
+    segmentStart = Date.now();
+    intervalId = setInterval(flush, HEARTBEAT_MS);
+  }
+
+  function stop() {
+    if (intervalId != null) {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+    flush(); // final heartbeat for whatever accumulated since the last tick
+    segmentStart = null;
+  }
+
+  function onVisibilityChange() {
+    if (document.hidden) flush();
+  }
+  document.addEventListener("visibilitychange", onVisibilityChange);
+
+  function destroy() {
+    stop();
+    document.removeEventListener("visibilitychange", onVisibilityChange);
+  }
+
+  return { start, stop, destroy };
+}
+
+// YouTube IFrame Player API: loaded lazily (no static <script> tag, so a page
+// load that never shows a YouTube-sourced player doesn't pay for it). The
+// API's own script calls a *global* window.onYouTubeIframeAPIReady callback
+// once ready (this is the API's documented contract) -- wrapped in a promise
+// here so callers can just await it. Chains onto any pre-existing callback
+// rather than clobbering it.
+let youtubeAPIPromise = null;
+function ensureYouTubeAPI() {
+  if (window.YT && window.YT.Player) return Promise.resolve(window.YT);
+  if (youtubeAPIPromise) return youtubeAPIPromise;
+  youtubeAPIPromise = new Promise((resolve) => {
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      prev?.();
+      resolve(window.YT);
+    };
+    const tag = document.createElement("script");
+    tag.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(tag);
+  });
+  return youtubeAPIPromise;
+}
+
+// Twitch's official embed JS SDK, loaded lazily the same way.
+let twitchSDKPromise = null;
+function ensureTwitchSDK() {
+  if (window.Twitch && window.Twitch.Player) return Promise.resolve(window.Twitch);
+  if (twitchSDKPromise) return twitchSDKPromise;
+  twitchSDKPromise = new Promise((resolve) => {
+    const tag = document.createElement("script");
+    tag.src = "https://player.twitch.tv/js/embed/v1.js";
+    tag.onload = () => resolve(window.Twitch);
+    document.head.appendChild(tag);
+  });
+  return twitchSDKPromise;
+}
+
+function onYTStateChange(YT, tracker) {
+  return (event) => {
+    if (event.data === YT.PlayerState.PLAYING) tracker.start();
+    else if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED || event.data === YT.PlayerState.BUFFERING) tracker.stop();
+  };
+}
+
+function attachTwitchTracking(player, Twitch, tracker) {
+  player.addEventListener(Twitch.Player.PLAY, () => tracker.start());
+  player.addEventListener(Twitch.Player.PAUSE, () => tracker.stop());
+  player.addEventListener(Twitch.Player.ENDED, () => tracker.stop());
 }
 
 function getWatchlist() {
@@ -180,6 +290,27 @@ function renderSkeletons() {
 }
 
 let liveTickerId = null;
+// Hero player tracking state -- one active tracker/player instance at a
+// time (only one of the three renderPlayer() branches ever runs), reset via
+// resetHeroPlayer() at the top of every renderPlayer() call.
+let heroWatchTracker = null;
+let heroTwitchPlayer = null;
+let heroYTPlayer = null;
+
+function resetHeroPlayer() {
+  if (liveTickerId) {
+    clearInterval(liveTickerId);
+    liveTickerId = null;
+  }
+  heroWatchTracker?.destroy();
+  heroWatchTracker = null;
+  // No documented Twitch.Player.destroy() -- the innerHTML swap that follows
+  // this call already tears down its iframe; just drop the reference.
+  heroTwitchPlayer = null;
+  heroYTPlayer?.destroy?.();
+  heroYTPlayer = null;
+}
+
 function startLiveElapsedTicker(startedAtIso) {
   if (liveTickerId) clearInterval(liveTickerId);
   liveTickerId = setInterval(() => {
@@ -200,11 +331,12 @@ function startLiveElapsedTicker(startedAtIso) {
 // hero's #vod-hero-player instead of a boxed card below the page title.
 function renderPlayer(status, latestTwitchVod, latestYoutubeVideo) {
   if (!heroPlayer) return;
+  resetHeroPlayer();
 
   if (status.live) {
     heroPlayer.innerHTML = `
       <div class="player-wrap player-wrap--live rip">
-        <iframe src="https://player.twitch.tv/?channel=${TWITCH_CHANNEL}&${parentParams()}&muted=false" title="${escapeHTML(status.title || "Live auf Twitch")}" allowfullscreen></iframe>
+        <div id="twitch-hero-target" style="width:100%;height:100%;"></div>
       </div>
       <div class="vod-hero-status">
         <span class="status-badge is-live"><span class="dot"></span> Live</span>
@@ -220,6 +352,32 @@ function renderPlayer(status, latestTwitchVod, latestYoutubeVideo) {
         </div>
       </div>`;
     if (status.startedAt) startLiveElapsedTicker(status.startedAt);
+
+    // Same visual result as the old plain iframe (the SDK injects its own
+    // iframe as a child of #twitch-hero-target, still matched by the
+    // existing `.player-wrap iframe { width:100%; height:100% }` rule since
+    // it's a descendant selector) -- just constructed via the SDK so play/
+    // pause/ended events are available for watch-time tracking. The target
+    // div gets an explicit inline 100%/100% itself: it sits between
+    // `.player-wrap` (which has a definite height from the full-bleed hero's
+    // absolute positioning) and the SDK's iframe (which is `height:100%` via
+    // CSS, not `position:absolute`) -- without an explicit height in between,
+    // that percentage chain would resolve against "auto" and collapse.
+    const tracker = createWatchTimeTracker(`live:${TWITCH_CHANNEL}`);
+    heroWatchTracker = tracker;
+    ensureTwitchSDK().then((Twitch) => {
+      const el = document.getElementById("twitch-hero-target");
+      if (!el || heroWatchTracker !== tracker) return; // hero re-rendered before the SDK finished loading
+      heroTwitchPlayer = new Twitch.Player("twitch-hero-target", {
+        channel: TWITCH_CHANNEL,
+        parent: parentHosts(),
+        muted: false,
+        autoplay: true,
+        width: "100%",
+        height: "100%",
+      });
+      attachTwitchTracking(heroTwitchPlayer, Twitch, tracker);
+    });
     return;
   }
 
@@ -228,7 +386,7 @@ function renderPlayer(status, latestTwitchVod, latestYoutubeVideo) {
     const views = latestTwitchVod.viewCount != null ? formatViews(latestTwitchVod.viewCount) : "";
     heroPlayer.innerHTML = `
       <div class="player-wrap player-wrap--twitch rip">
-        <iframe src="https://player.twitch.tv/?video=${latestTwitchVod.id}&${parentParams()}" title="${escapeHTML(latestTwitchVod.title)}" allowfullscreen></iframe>
+        <div id="twitch-hero-target" style="width:100%;height:100%;"></div>
       </div>
       <div class="vod-hero-status">
         <span class="status-badge is-offline">${twitchIcon()} Offline</span>
@@ -243,6 +401,20 @@ function renderPlayer(status, latestTwitchVod, latestYoutubeVideo) {
           <a class="vod-hero-btn vod-hero-btn--ghost" href="https://www.twitch.tv/${TWITCH_CHANNEL}" target="_blank" rel="noopener">Auf Twitch folgen</a>
         </div>
       </div>`;
+
+    const tracker = createWatchTimeTracker(latestTwitchVod.id);
+    heroWatchTracker = tracker;
+    ensureTwitchSDK().then((Twitch) => {
+      const el = document.getElementById("twitch-hero-target");
+      if (!el || heroWatchTracker !== tracker) return;
+      heroTwitchPlayer = new Twitch.Player("twitch-hero-target", {
+        video: latestTwitchVod.id,
+        parent: parentHosts(),
+        width: "100%",
+        height: "100%",
+      });
+      attachTwitchTracking(heroTwitchPlayer, Twitch, tracker);
+    });
     return;
   }
 
@@ -250,7 +422,7 @@ function renderPlayer(status, latestTwitchVod, latestYoutubeVideo) {
     const explain = TWITCH_ENABLED ? "Noch nichts auf Twitch archiviert. Hier das neueste Video vom VOD Kanal." : "";
     heroPlayer.innerHTML = `
       <div class="player-wrap player-wrap--youtube rip">
-        <iframe src="https://www.youtube.com/embed/${latestYoutubeVideo.id}" title="${escapeHTML(latestYoutubeVideo.title)}" allowfullscreen></iframe>
+        <iframe id="vod-hero-yt-frame" src="https://www.youtube.com/embed/${latestYoutubeVideo.id}?enablejsapi=1&origin=${encodeURIComponent(location.origin)}" title="${escapeHTML(latestYoutubeVideo.title)}" allowfullscreen></iframe>
       </div>
       <div class="vod-hero-status">
         ${TWITCH_ENABLED ? `<span class="status-badge is-offline">${youtubeIcon()} Offline</span>` : ""}
@@ -261,6 +433,21 @@ function renderPlayer(status, latestTwitchVod, latestYoutubeVideo) {
           <a class="btn-youtube" href="${latestYoutubeVideo.url}" target="_blank" rel="noopener">${youtubeIcon()} Auf YouTube ansehen</a>
         </div>
       </div>`;
+
+    // Same iframe, same src video -- just enablejsapi/origin added so the YT
+    // IFrame API can attach to this already-in-DOM element (per its own
+    // documented "existing iframe" mode) without rebuilding the URL. No
+    // autoplay param before or after this change, so playback behavior is
+    // identical to the original iframe.
+    const tracker = createWatchTimeTracker(latestYoutubeVideo.id);
+    heroWatchTracker = tracker;
+    ensureYouTubeAPI().then((YT) => {
+      const el = document.getElementById("vod-hero-yt-frame");
+      if (!el || heroWatchTracker !== tracker) return;
+      heroYTPlayer = new YT.Player("vod-hero-yt-frame", {
+        events: { onStateChange: onYTStateChange(YT, tracker) },
+      });
+    });
     return;
   }
 
@@ -541,6 +728,8 @@ function renderTwitchArchive(vods, featuredId) {
 // file documents those as scoped to youtube.js's own elements on purpose, so
 // this defines its own (near-identical) .twitch-modal-* rules in vods.css.
 let twitchModalLastFocused = null;
+let modalTwitchPlayer = null;
+let modalWatchTracker = null;
 
 function twitchModalHTML(vod) {
   const dur = formatTwitchDuration(vod.duration);
@@ -550,10 +739,7 @@ function twitchModalHTML(vod) {
   <div class="qv-panel rip twitch-modal-panel">
     <button class="cart-close qv-close" id="twitch-modal-close" aria-label="Schließen">&times;</button>
     <div class="twitch-modal-frame">
-      <iframe
-        src="https://player.twitch.tv/?video=${vod.id}&${parentParams()}&autoplay=true&muted=false"
-        title="${escapeHTML(vod.title)}"
-        allowfullscreen></iframe>
+      <div id="twitch-modal-target"></div>
     </div>
     <div class="twitch-modal-title">${vod.title}</div>
     ${meta ? `<div class="twitch-modal-meta">${meta}</div>` : ""}
@@ -569,6 +755,11 @@ function closeTwitchModal() {
   if (!modal) return;
   modal.remove();
   document.removeEventListener("keydown", onTwitchModalKeydown);
+  modalWatchTracker?.destroy();
+  modalWatchTracker = null;
+  // No documented Twitch.Player.destroy() -- modal.remove() above already
+  // tore down its iframe; just drop the reference.
+  modalTwitchPlayer = null;
   twitchModalLastFocused?.focus?.();
 }
 
@@ -588,6 +779,27 @@ function openTwitchModal(vod) {
   });
   document.addEventListener("keydown", onTwitchModalKeydown);
   modal.querySelector("#twitch-modal-close").focus();
+
+  // .twitch-modal-frame's iframe rule uses position:absolute + inset:0, so
+  // the SDK's injected iframe sizes itself against the nearest *positioned*
+  // ancestor (.twitch-modal-frame, position:relative) regardless of the
+  // plain static #twitch-modal-target div sitting in between -- no inline
+  // sizing needed here the way the hero targets above need it.
+  const tracker = createWatchTimeTracker(vod.id);
+  modalWatchTracker = tracker;
+  ensureTwitchSDK().then((Twitch) => {
+    const el = document.getElementById("twitch-modal-target");
+    if (!el || modalWatchTracker !== tracker) return; // modal closed/replaced before the SDK finished loading
+    modalTwitchPlayer = new Twitch.Player("twitch-modal-target", {
+      video: vod.id,
+      parent: parentHosts(),
+      autoplay: true,
+      muted: false,
+      width: "100%",
+      height: "100%",
+    });
+    attachTwitchTracking(modalTwitchPlayer, Twitch, tracker);
+  });
 }
 
 async function init() {
