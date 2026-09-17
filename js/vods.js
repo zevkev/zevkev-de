@@ -4,13 +4,14 @@ import { consumeRedirect, getToken, startLogin, logout, getCurrentUser, resolveB
 const TWITCH_CHANNEL = "zevkev_";
 const WATCHLIST_KEY = "zevkev-watchlist";
 
-const playerCol = document.getElementById("player-col");
+const heroPlayer = document.getElementById("vod-hero-player");
 const chatCol = document.getElementById("chat-col");
 const vodGrid = document.getElementById("vod-grid");
 const sectionHead = document.getElementById("vod-section-head");
-const twitchSpotlight = document.getElementById("twitch-spotlight");
+const twitchSpotlightWrap = document.getElementById("twitch-spotlight-wrap");
+const twitchSpotlightRow = document.getElementById("twitch-spotlight-row");
 const twitchArchiveHead = document.getElementById("twitch-archive-head");
-const twitchVodGrid = document.getElementById("twitch-vod-grid");
+const twitchVodRow = document.getElementById("twitch-vod-row");
 
 function starIcon(filled) {
   return `<svg viewBox="0 0 24 24" width="18" height="18" fill="${filled ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.8"><path d="M12 3.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z" stroke-linejoin="round"/></svg>`;
@@ -27,7 +28,7 @@ function youtubeIcon() {
   return `<svg class="status-badge-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`;
 }
 
-// Small stroke-style meta icons (views/duration/date/game) for the player's
+// Small stroke-style meta icons (views/duration/date/game) for the hero's
 // stat row and the Twitch archive cards — same visual language as youtube.js's
 // eye icon, redefined locally rather than imported, matching this codebase's
 // existing convention of each page script owning its own small icon set
@@ -82,8 +83,8 @@ function formatDate(iso) {
 }
 
 // Twitch's publishedAt (like the YouTube feeds') carries real clock time, not
-// just a date — Gronkh-style archive cards show both, so this pulls the same
-// richer stamp wherever the source data actually supports it.
+// just a date — gronkh.tv-style archive cards show both, so this pulls the
+// same richer stamp wherever the source data actually supports it.
 function formatDateTime(iso) {
   if (!iso) return "";
   try {
@@ -136,6 +137,17 @@ function formatElapsedSince(iso) {
   return h > 0 ? `${h}:${mm}:${ss}` : `${mi}:${ss}`;
 }
 
+// Fisher-Yates: used to pick a handful of "Aus dem Archiv" cards that don't
+// repeat in the same order every reload (see renderTwitchArchive below).
+function shuffledSample(list, n) {
+  const copy = [...list];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy.slice(0, n);
+}
+
 async function loadJSON(url, fallback) {
   try {
     const res = await fetch(url, { cache: "no-store" });
@@ -153,14 +165,14 @@ async function loadJSON(url, fallback) {
 // convention already used for the shop grid (see js/catalog.js) — swapped
 // out in full by the render* calls at the end of init() once data is in.
 function renderSkeletons() {
-  if (playerCol) {
-    playerCol.innerHTML = `<div class="skeleton-card player-skeleton"></div>`;
+  if (heroPlayer) {
+    heroPlayer.innerHTML = `<div class="skeleton-card player-skeleton"></div>`;
   }
   if (chatCol && TWITCH_ENABLED) {
     chatCol.innerHTML = `<div class="skeleton-card chat-skeleton"></div>`;
   }
-  if (twitchVodGrid && TWITCH_ENABLED) {
-    twitchVodGrid.innerHTML = Array.from({ length: 4 }, () => `<div class="skeleton-card"></div>`).join("");
+  if (twitchVodRow && TWITCH_ENABLED) {
+    twitchVodRow.innerHTML = Array.from({ length: 4 }, () => `<div class="skeleton-card"></div>`).join("");
   }
   if (vodGrid) {
     vodGrid.innerHTML = Array.from({ length: 6 }, () => `<div class="skeleton-card"></div>`).join("");
@@ -181,25 +193,30 @@ function startLiveElapsedTicker(startedAtIso) {
   }, 30000);
 }
 
-// Priority for the main player: live on Twitch > latest Twitch VOD (archived
+// Priority for the hero: live on Twitch > latest Twitch VOD (archived
 // broadcast) > latest YouTube video, only falling that far back if nothing
 // has ever aired on Twitch yet. Untouched from the original logic — only the
-// markup each branch renders got richer.
+// markup each branch renders got richer, and now lands in the full-bleed
+// hero's #vod-hero-player instead of a boxed card below the page title.
 function renderPlayer(status, latestTwitchVod, latestYoutubeVideo) {
-  if (!playerCol) return;
+  if (!heroPlayer) return;
 
   if (status.live) {
-    playerCol.innerHTML = `
+    heroPlayer.innerHTML = `
       <div class="player-wrap player-wrap--live rip">
         <iframe src="https://player.twitch.tv/?channel=${TWITCH_CHANNEL}&${parentParams()}&muted=false" title="${escapeHTML(status.title || "Live auf Twitch")}" allowfullscreen></iframe>
       </div>
-      <div class="player-meta">
+      <div class="vod-hero-status">
         <span class="status-badge is-live"><span class="dot"></span> Live</span>
-        <h2>${status.title || "Live auf Twitch"}</h2>
+        <h1 class="vod-hero-title">${status.title || "Live auf Twitch"}</h1>
         <div class="player-stats">
           ${status.game ? `<span class="stat">${gameIcon()}${status.game}</span>` : ""}
           ${status.viewerCount != null ? `<span class="stat">${eyeIcon()}${formatViews(status.viewerCount)} Zuschauer</span>` : ""}
           ${status.startedAt ? `<span class="stat">${clockIcon()}seit <span id="live-elapsed">${formatElapsedSince(status.startedAt)}</span></span>` : ""}
+        </div>
+        <div class="vod-hero-actions">
+          <a class="vod-hero-btn vod-hero-btn--primary" href="https://www.twitch.tv/${TWITCH_CHANNEL}" target="_blank" rel="noopener">Jetzt zuschauen</a>
+          <a class="vod-hero-btn vod-hero-btn--ghost" href="https://www.twitch.tv/${TWITCH_CHANNEL}/schedule" target="_blank" rel="noopener">Zeitplan</a>
         </div>
       </div>`;
     if (status.startedAt) startLiveElapsedTicker(status.startedAt);
@@ -209,17 +226,21 @@ function renderPlayer(status, latestTwitchVod, latestYoutubeVideo) {
   if (TWITCH_ENABLED && latestTwitchVod) {
     const dur = formatTwitchDuration(latestTwitchVod.duration);
     const views = latestTwitchVod.viewCount != null ? formatViews(latestTwitchVod.viewCount) : "";
-    playerCol.innerHTML = `
+    heroPlayer.innerHTML = `
       <div class="player-wrap player-wrap--twitch rip">
         <iframe src="https://player.twitch.tv/?video=${latestTwitchVod.id}&${parentParams()}" title="${escapeHTML(latestTwitchVod.title)}" allowfullscreen></iframe>
       </div>
-      <div class="player-meta">
-        <span class="status-badge is-offline">${twitchIcon()} Offline &middot; Twitch VOD</span>
-        <h2>${latestTwitchVod.title}</h2>
+      <div class="vod-hero-status">
+        <span class="status-badge is-offline">${twitchIcon()} Offline</span>
+        <h1 class="vod-hero-title">${latestTwitchVod.title}</h1>
         <div class="player-stats">
           ${dur ? `<span class="stat">${clockIcon()}${dur}</span>` : ""}
           ${views ? `<span class="stat">${eyeIcon()}${views} Aufrufe</span>` : ""}
           <span class="stat">${calendarIcon()}${formatDateTime(latestTwitchVod.publishedAt)}</span>
+        </div>
+        <div class="vod-hero-actions">
+          <a class="vod-hero-btn vod-hero-btn--primary" href="#twitch-vod-row">Weitere VODs</a>
+          <a class="vod-hero-btn vod-hero-btn--ghost" href="https://www.twitch.tv/${TWITCH_CHANNEL}" target="_blank" rel="noopener">Auf Twitch folgen</a>
         </div>
       </div>`;
     return;
@@ -227,20 +248,23 @@ function renderPlayer(status, latestTwitchVod, latestYoutubeVideo) {
 
   if (latestYoutubeVideo) {
     const explain = TWITCH_ENABLED ? "Noch nichts auf Twitch archiviert. Hier das neueste Video vom VOD Kanal." : "";
-    playerCol.innerHTML = `
+    heroPlayer.innerHTML = `
       <div class="player-wrap player-wrap--youtube rip">
         <iframe src="https://www.youtube.com/embed/${latestYoutubeVideo.id}" title="${escapeHTML(latestYoutubeVideo.title)}" allowfullscreen></iframe>
       </div>
-      <div class="player-meta">
-        ${TWITCH_ENABLED ? `<span class="status-badge is-offline">${youtubeIcon()} Offline &middot; YouTube</span>` : ""}
-        <h2>${latestYoutubeVideo.title}</h2>
-        ${explain ? `<p>${explain}</p>` : ""}
+      <div class="vod-hero-status">
+        ${TWITCH_ENABLED ? `<span class="status-badge is-offline">${youtubeIcon()} Offline</span>` : ""}
+        <h1 class="vod-hero-title">${latestYoutubeVideo.title}</h1>
+        ${explain ? `<p class="vod-hero-explain">${explain}</p>` : ""}
         <div class="player-stats"><span class="stat">${calendarIcon()}${formatDate(latestYoutubeVideo.publishedAt)}</span></div>
+        <div class="vod-hero-actions">
+          <a class="btn-youtube" href="${latestYoutubeVideo.url}" target="_blank" rel="noopener">${youtubeIcon()} Auf YouTube ansehen</a>
+        </div>
       </div>`;
     return;
   }
 
-  playerCol.innerHTML = `
+  heroPlayer.innerHTML = `
     <div class="player-wrap player-empty rip">
       <div class="empty-state">
         <h2>Noch keine Videos</h2>
@@ -392,10 +416,10 @@ function mountTabs(videos) {
 }
 
 // ---------- Twitch VOD archive ----------
-// The core of the Gronkh-style upgrade: past Twitch broadcasts get the same
-// card treatment as the YouTube grid below (thumbnail, duration, date,
-// title), plus the two real fields Twitch's API adds on top that YouTube's
-// RSS feed doesn't carry — duration and view count.
+// The core of the gronkh.tv-style upgrade: past Twitch broadcasts get their
+// own horizontal shelf ("Die neusten Streams") plus a second "Aus dem
+// Archiv" discovery shelf, each card carrying the two real fields Twitch's
+// API adds on top that YouTube's RSS feed doesn't — duration and view count.
 //
 // Deliberately NOT built here, and why:
 // - A stream/episode number: Twitch's Get Videos endpoint has no such field,
@@ -406,20 +430,22 @@ function mountTabs(videos) {
 //   view_count snapshot, not a time-windowed one, so there's no honest way
 //   to build that metric. A most-viewed sort is offered instead (see the
 //   sort pills below), labelled for what it actually is.
-// - A hero slide-selector between "featured options": there's only ever one
-//   latest item per priority tier here (live, or the newest VOD, or the
-//   newest YouTube video) — nothing to flip between yet.
+// - A hero slide-selector cycling between multiple "featured" options:
+//   there's only ever one latest item per priority tier shown in the hero at
+//   a time (live, or the newest VOD, or the newest YouTube video) — nothing
+//   to flip between yet.
 
 function hasViewVariance(vods) {
   const vals = new Set(vods.map((v) => v.viewCount ?? 0));
   return vals.size > 1;
 }
 
-function twitchVodCardHTML(vod) {
+function twitchVodCardHTML(vod, tone = "") {
   const dur = formatTwitchDuration(vod.duration);
   const views = vod.viewCount != null ? formatViews(vod.viewCount) : "";
+  const classes = ["vod-card", "rip", tone, "reveal"].filter(Boolean).join(" ");
   return `
-  <a href="${vod.url}" target="_blank" rel="noopener" class="vod-card rip reveal" data-twitch-vod-id="${vod.id}">
+  <a href="${vod.url}" target="_blank" rel="noopener" class="${classes}" data-twitch-vod-id="${vod.id}">
     <div class="vod-thumb">
       <img src="${vod.thumbnail}" alt="" loading="lazy">
       ${dur ? `<span class="vod-duration-badge">${dur}</span>` : ""}
@@ -428,23 +454,6 @@ function twitchVodCardHTML(vod) {
     <div class="twitch-card-meta">
       <span class="vod-date">${formatDateTime(vod.publishedAt)}</span>
       ${views ? `<span class="twitch-card-views">${eyeIcon()}${views}</span>` : ""}
-    </div>
-  </a>`;
-}
-
-function twitchSpotlightCardHTML(vod) {
-  const dur = formatTwitchDuration(vod.duration);
-  const views = vod.viewCount != null ? `${formatViews(vod.viewCount)} Aufrufe` : "";
-  const meta = [formatDateTime(vod.publishedAt), views].filter(Boolean).join(" &middot; ");
-  return `
-  <a href="${vod.url}" target="_blank" rel="noopener" class="vod-card twitch-spotlight-card rip rip--accent reveal" data-twitch-vod-id="${vod.id}">
-    <div class="vod-thumb">
-      <img src="${vod.thumbnail}" alt="" loading="lazy">
-      ${dur ? `<span class="vod-duration-badge">${dur}</span>` : ""}
-    </div>
-    <div class="twitch-spotlight-info">
-      <h3>${vod.title}</h3>
-      ${meta ? `<p>${meta}</p>` : ""}
     </div>
   </a>`;
 }
@@ -464,32 +473,37 @@ function attachTwitchCardHandlers(container, vods) {
   });
 }
 
-function paintTwitchGrid(list, allVods) {
-  if (!twitchVodGrid) return;
+function paintTwitchRow(list, allVods) {
+  if (!twitchVodRow) return;
   if (!list.length) {
-    twitchVodGrid.innerHTML = `<div class="empty-state"><h2>Noch keine Twitch VODs</h2><p>Hier sammeln sich vergangene Streams, sobald welche archiviert sind. Bis dahin gibt's unten die YouTube Videos.</p></div>`;
+    twitchVodRow.innerHTML = `<div class="empty-state"><h2>Noch keine Twitch VODs</h2><p>Hier sammeln sich vergangene Streams, sobald welche archiviert sind. Bis dahin gibt's unten die YouTube Videos.</p></div>`;
     return;
   }
-  twitchVodGrid.innerHTML = list.map((v) => twitchVodCardHTML(v)).join("");
-  attachTwitchCardHandlers(twitchVodGrid, allVods);
+  twitchVodRow.innerHTML = list.map((v) => twitchVodCardHTML(v)).join("");
+  attachTwitchCardHandlers(twitchVodRow, allVods);
 }
 
 function renderTwitchArchive(vods, featuredId) {
-  if (!twitchVodGrid) return;
+  if (!twitchVodRow) return;
 
-  // "Aus dem Archiv" spotlight: a random pick distinct from whatever the
-  // main player above is already showing. Only worth its own module once
-  // there's a real pool of at least 2 other VODs to draw from — otherwise
-  // it's either a duplicate of the featured VOD or a fake "random" pick of
-  // the single remaining option every time.
-  if (twitchSpotlight) {
+  // "Aus dem Archiv" shelf: a shuffled handful of past broadcasts distinct
+  // from whatever the hero above is already showing — a second discovery
+  // angle on top of the plain chronological shelf below. Only worth its own
+  // row once there's a real pool of at least 3 other VODs to draw from —
+  // otherwise it's either a duplicate of the featured VOD or a fake
+  // "random" reshuffle of the same handful of cards already visible one
+  // scroll down. The whole heading+row pair is toggled via display, not a
+  // CSS :empty rule, since the heading text isn't JS-generated.
+  if (twitchSpotlightWrap && twitchSpotlightRow) {
     const pool = vods.filter((v) => v.id !== featuredId);
-    if (vods.length >= 3 && pool.length >= 2) {
-      const pick = pool[Math.floor(Math.random() * pool.length)];
-      twitchSpotlight.innerHTML = `<div class="twitch-spotlight-label">Aus dem Archiv</div>${twitchSpotlightCardHTML(pick)}`;
-      attachTwitchCardHandlers(twitchSpotlight, vods);
+    if (vods.length >= 4 && pool.length >= 3) {
+      const picks = shuffledSample(pool, Math.min(6, pool.length));
+      twitchSpotlightRow.innerHTML = picks.map((v) => twitchVodCardHTML(v, "rip--accent")).join("");
+      attachTwitchCardHandlers(twitchSpotlightRow, vods);
+      twitchSpotlightWrap.style.display = "";
     } else {
-      twitchSpotlight.innerHTML = "";
+      twitchSpotlightRow.innerHTML = "";
+      twitchSpotlightWrap.style.display = "none";
     }
   }
 
@@ -506,7 +520,7 @@ function renderTwitchArchive(vods, featuredId) {
           twitchArchiveHead.querySelectorAll(".filter-pill").forEach((p) => p.classList.remove("is-active"));
           pill.classList.add("is-active");
           const ordered = pill.dataset.sort === "views" ? [...vods].sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0)) : vods;
-          paintTwitchGrid(ordered, vods);
+          paintTwitchRow(ordered, vods);
         });
       });
     } else {
@@ -514,7 +528,7 @@ function renderTwitchArchive(vods, featuredId) {
     }
   }
 
-  paintTwitchGrid(vods, vods);
+  paintTwitchRow(vods, vods);
 }
 
 // ---------- Twitch VOD modal ----------

@@ -25,30 +25,38 @@
 <link rel="stylesheet" href="/css/vods.css">
 <link rel="stylesheet" href="/css/youtube.css">
 </head>
-<body>
+<body class="vods-page">
 
 <script type="module" src="/js/theme.js"></script>
 
 <div id="site-header"></div>
 
+<!-- Full-bleed hero (gronkh.tv structural reference): the current/live
+     video fills the page width right under the fixed nav, which floats over
+     it as a translucent bar instead of sitting in normal flow above it (see
+     .vods-page .site-header in vods.css). This is the same player+chat
+     pairing the page always had — js/vods.js just renders it into this new
+     frame, with a scrimmed status bar (badge/title/stats/actions) near the
+     hero's bottom edge instead of a caption printed below the player. -->
+<section class="vod-hero" id="vod-hero" aria-label="Aktueller Stream">
+  <div class="vod-hero-row">
+    <div class="vod-hero-player" id="vod-hero-player"></div>
+    <div class="vod-hero-chat" id="chat-col" data-twitch-only></div>
+  </div>
+  <div class="vod-hero-tear" aria-hidden="true"></div>
+</section>
+
 <div class="page-body">
   <div class="container" style="display:flex; flex-direction:column; align-items:center;">
 
-    <div class="vod-hero">
-      <h1>VODs und Live</h1>
-      <p data-twitch-only>Live als <b>zevkev_</b> auf Twitch. Offline gibt's hier automatisch das neueste Video.</p>
-      <p data-twitch-hidden>Hier findest du immer das neueste Video von ZevKev.</p>
-    </div>
-
-    <div class="live-layout">
-      <div class="player-col" id="player-col"></div>
-      <div class="chat-col" id="chat-col" data-twitch-only></div>
-    </div>
-
-    <h2 class="yt-section-title" data-twitch-only>Vergangene Streams</h2>
-    <div id="twitch-spotlight" data-twitch-only></div>
+    <h2 class="yt-section-title" data-twitch-only>Die neusten Streams</h2>
     <div class="vod-section-head" id="twitch-archive-head" data-twitch-only></div>
-    <div class="vod-grid" id="twitch-vod-grid" data-twitch-only></div>
+    <div class="vod-row" id="twitch-vod-row" data-twitch-only></div>
+
+    <div id="twitch-spotlight-wrap" data-twitch-only>
+      <h2 class="yt-section-title">Aus dem Archiv</h2>
+      <div class="vod-row vod-row--accent" id="twitch-spotlight-row"></div>
+    </div>
 
     <h2 class="yt-section-title">Vom YouTube VOD Kanal (ZevKev+)</h2>
     <div class="vod-section-head" id="vod-section-head"></div>
