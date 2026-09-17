@@ -1,4 +1,4 @@
-import { observeImpressions } from "./track.js";
+import { observeImpressions, track } from "./track.js";
 
 const WATCHLIST_KEY = "zevkev-watchlist";
 
@@ -138,18 +138,100 @@ async function loadJSON(url, fallback) {
    style.css + shop.css) for the floating-panel shell, matching the shop's
    quick-view exactly. */
 let modalLastFocused = null;
+let modalYTPlayer = null;
+let modalWatchTracker = null;
+
+// ---------- Watch-time analytics ----------
+// The YouTube IFrame Player API (loaded lazily below, once per page, the
+// first time a video is actually opened) exposes real play/pause/ended
+// state changes -- this turns those into periodic heartbeats while a video
+// is actively playing, not just one call at the end, so a visitor closing
+// the tab without a clean pause/unload event doesn't lose the segment. Each
+// tracker resets its own elapsed-time counter right after sending a
+// heartbeat so totals summed on the dashboard don't double count.
+const HEARTBEAT_MS = 30000;
+
+function createWatchTimeTracker(path) {
+  let intervalId = null;
+  let segmentStart = null;
+
+  function flush() {
+    if (segmentStart == null) return;
+    const elapsed = (Date.now() - segmentStart) / 1000;
+    segmentStart = Date.now();
+    if (elapsed > 0.5) track("watch_time", path, elapsed);
+  }
+
+  function start() {
+    if (intervalId != null) return; // already accumulating
+    segmentStart = Date.now();
+    intervalId = setInterval(flush, HEARTBEAT_MS);
+  }
+
+  function stop() {
+    if (intervalId != null) {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+    flush(); // final heartbeat for whatever accumulated since the last tick
+    segmentStart = null;
+  }
+
+  function onVisibilityChange() {
+    if (document.hidden) flush();
+  }
+  document.addEventListener("visibilitychange", onVisibilityChange);
+
+  function destroy() {
+    stop();
+    document.removeEventListener("visibilitychange", onVisibilityChange);
+  }
+
+  return { start, stop, destroy };
+}
+
+// YouTube IFrame Player API: loaded lazily (no static <script> tag, so a page
+// load where nobody opens a video doesn't pay for it). The API's own script
+// calls a *global* window.onYouTubeIframeAPIReady callback once ready (this
+// is the API's documented contract) -- wrapped in a promise here so callers
+// can just await it. Chains onto any pre-existing callback rather than
+// clobbering it.
+let youtubeAPIPromise = null;
+function ensureYouTubeAPI() {
+  if (window.YT && window.YT.Player) return Promise.resolve(window.YT);
+  if (youtubeAPIPromise) return youtubeAPIPromise;
+  youtubeAPIPromise = new Promise((resolve) => {
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      prev?.();
+      resolve(window.YT);
+    };
+    const tag = document.createElement("script");
+    tag.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(tag);
+  });
+  return youtubeAPIPromise;
+}
 
 function videoModalHTML(video) {
   const meta = [
     video.publishedAt ? formatDate(video.publishedAt) : "",
     video.views != null ? `${formatViews(video.views)} Aufrufe` : "",
   ].filter(Boolean).join(" &middot; ");
+  // enablejsapi=1 + origin let the YT IFrame API attach to this iframe after
+  // it's already in the DOM (see openVideoModal below) without needing to
+  // know/rebuild the video id or any other embed params itself -- same
+  // src/autoplay behavior as before, just two extra query params. Works
+  // identically for a regular video or a Short: this modal (and its embed
+  // URL) doesn't branch on video.isShort at all.
+  const src = `https://www.youtube.com/embed/${video.id}?autoplay=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`;
   return `
   <div class="qv-panel rip yt-modal-panel">
     <button class="cart-close qv-close" id="yt-modal-close" aria-label="Schließen">&times;</button>
     <div class="yt-modal-frame">
       <iframe
-        src="https://www.youtube.com/embed/${video.id}?autoplay=1"
+        id="yt-modal-iframe"
+        src="${src}"
         title="${escapeHTML(video.title)}"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
         allowfullscreen></iframe>
@@ -168,6 +250,10 @@ function closeVideoModal() {
   if (!modal) return;
   modal.remove();
   document.removeEventListener("keydown", onModalKeydown);
+  modalWatchTracker?.destroy();
+  modalWatchTracker = null;
+  modalYTPlayer?.destroy?.();
+  modalYTPlayer = null;
   modalLastFocused?.focus?.();
 }
 
@@ -187,6 +273,21 @@ function openVideoModal(video) {
   });
   document.addEventListener("keydown", onModalKeydown);
   modal.querySelector("#yt-modal-close").focus();
+
+  const tracker = createWatchTimeTracker(video.id);
+  modalWatchTracker = tracker;
+  ensureYouTubeAPI().then((YT) => {
+    const el = document.getElementById("yt-modal-iframe");
+    if (!el || modalWatchTracker !== tracker) return; // modal closed/replaced before the API finished loading
+    modalYTPlayer = new YT.Player("yt-modal-iframe", {
+      events: {
+        onStateChange: (event) => {
+          if (event.data === YT.PlayerState.PLAYING) tracker.start();
+          else if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED || event.data === YT.PlayerState.BUFFERING) tracker.stop();
+        },
+      },
+    });
+  });
 }
 
 /* ---------- Full-bleed hero ----------
