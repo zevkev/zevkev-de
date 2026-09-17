@@ -1,59 +1,153 @@
 /* VODs-page-only additions on top of style.css. The card grid at the bottom
    (.vod-grid / .vod-card / .watchlist-toggle) is also reused as-is by
-   youtube.css/js/youtube.js, so changes here apply to both video pages. */
+   youtube.css/js/youtube.js, so changes here apply to both video pages.
 
-.vod-hero { text-align: center; max-width: 760px; margin: 10px auto 30px; }
-.vod-hero h1 { font-size: 2.2rem; margin: 0 0 10px; color: #fff; }
-.vod-hero p { font-size: 1.05rem; color: rgba(255, 255, 255, 0.9); }
+   Structural reference: gronkh.tv (screenshots supplied directly by the
+   site owner) — a full-bleed video hero with the nav floating over it and a
+   scrimmed status bar near its bottom edge, then horizontal card *rows*
+   (not a uniform wrapping grid) for "recent" and "discovery" browsing. Only
+   that layout grammar is borrowed; the look stays ZevKev's own cream-paper/
+   .rip torn-edge language throughout — no purple, no glass, no neon. */
 
-.live-layout {
-  display: flex;
-  gap: 26px;
-  width: 100%;
-  max-width: 1200px;
-  align-items: flex-start;
-  flex-wrap: wrap;
+/* ---------- Nav floats over the hero ----------
+   .site-header is already position:fixed (see style.css) so it already
+   overlays whatever sits at the very top of the page -- it just needs to
+   read as a translucent floating bar instead of the site's normal opaque
+   chrome while it's doing that job. Scoped to body.vods-page (set in
+   vods/index.html) so this never leaks onto any other page that happens to
+   load a fixed header of its own. Specificity note: :root[data-theme="dark"]
+   .site-header in style.css outweighs a plain .vods-page .site-header rule,
+   so the dark-mode variant below is written to match/beat it rather than
+   relying on cascade order. */
+.vods-page .site-header {
+  background-color: rgba(253, 251, 245, 0.62);
+  background-image: none;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px) saturate(1.3);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+}
+:root[data-theme="dark"] .vods-page .site-header {
+  background-color: rgba(30, 33, 40, 0.62);
 }
 
-.player-col { flex: 1 1 640px; min-width: 0; }
-.chat-col { flex: 0 1 340px; min-width: 300px; }
+/* The hero (below) already clears the fixed header itself -- it sits full
+   height starting at the very top of the page, with the translucent nav
+   floating on top of it. .page-body's own header-clearance padding (see
+   style.css) is meant for pages whose first section needs pushing below a
+   solid header, so on this page it would just stack a second, redundant gap
+   on top of the hero's own .vod-hero-tear seam. */
+.vods-page .page-body { padding-top: 0; }
 
-.player-wrap {
-  position: relative;
+/* ==========================================================================
+   Full-bleed hero
+   ========================================================================== */
+
+.vod-hero { position: relative; width: 100%; }
+
+.vod-hero-row { display: flex; gap: 20px; width: 100%; height: clamp(520px, 82vh, 860px); }
+
+.vod-hero-player { position: relative; flex: 1 1 auto; min-width: 0; background: #000; }
+/* Fills the player column edge-to-edge instead of the old fixed-aspect-ratio
+   card -- the 8px black letterbib padding and state-tinted ring (see
+   .player-wrap--live/--twitch/--youtube below) are unchanged, just resized. */
+.vod-hero-player .player-wrap { position: absolute; inset: 0; aspect-ratio: auto; width: 100%; height: 100%; }
+.vod-hero-player .player-empty { display: flex; align-items: center; justify-content: center; }
+
+/* The chat panel becomes a paper note pinned beside the screen: inset from
+   the hero's top/right/bottom edges (so the mat texture shows through
+   around it, same "pinned to the mat" feel as every other .rip card on the
+   site) while the player itself stays truly full-bleed against the left,
+   top and bottom of the viewport. */
+.vod-hero-chat { flex: 0 0 360px; min-width: 0; margin: 22px 22px 22px 0; }
+.vod-hero-chat .chat-panel, .vod-hero-chat .chat-skeleton { height: 100%; }
+
+/* Status overlay: LIVE badge / title / stats / actions, scrimmed near the
+   hero's bottom edge instead of printed below the player in normal flow.
+   Scoped to .vod-hero-player's own box (not the full hero width) so it
+   never runs under the chat card beside it.
+   Colors below are deliberately fixed, not theme variables -- same reason
+   .status-badge/.player-stats already are (see the comment on those further
+   down): this sits on a permanently-dark video scrim in both site themes,
+   so following --paper-accent/--text-dark here would mean the "primary"
+   button turns into a dark-on-dark slate chip in dark mode (the same
+   near-invisible problem --watchlist-toggle.is-saved's comment already
+   documents for that variable). */
+.vod-hero-status {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  z-index: 2;
+  padding: 72px 32px 26px;
+  background: linear-gradient(to top, rgba(10, 10, 14, 0.92) 0%, rgba(10, 10, 14, 0.68) 48%, rgba(10, 10, 14, 0) 100%);
+  pointer-events: none;
+}
+.vod-hero-status > * { pointer-events: auto; }
+
+.vod-hero-title {
+  margin: 10px 0 6px;
+  max-width: 900px;
+  color: #fff;
+  font-size: clamp(1.4rem, 3vw, 2.1rem);
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.vod-hero-explain { margin: 0 0 6px; max-width: 640px; color: rgba(255, 255, 255, 0.85); font-size: 0.95rem; }
+.vod-hero-stats { margin-top: 6px; }
+.vod-hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+
+.vod-hero-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 22px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.88rem;
+  letter-spacing: 0.2px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s ease;
+}
+.vod-hero-btn:hover, .vod-hero-btn:focus-visible { transform: translateY(-2px) scale(1.04); }
+.vod-hero-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.vod-hero-btn--primary { background: #fdf2b3; color: #1a1a1a !important; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4); }
+.vod-hero-btn--ghost { background: rgba(255, 255, 255, 0.12); color: #fff !important; border: 1.5px dashed rgba(255, 255, 255, 0.6); }
+.vod-hero-btn--ghost:hover { background: rgba(255, 255, 255, 0.22); }
+
+/* Torn perforation seam between the full-bleed hero and the cutting mat
+   below -- same zigzag recipe as style.css's .receipt-tear, just wider, so
+   the hero reads as a strip torn off the page rather than a hard rectangle
+   dropped onto the mat. */
+.vod-hero-tear {
+  height: 18px;
   width: 100%;
-  aspect-ratio: 16 / 9;
+  background: linear-gradient(-45deg, transparent 9px, rgba(0, 0, 0, 0.35) 9px) 0 0/18px 18px repeat-x,
+    linear-gradient(45deg, transparent 9px, rgba(0, 0, 0, 0.35) 9px) 0 0/18px 18px repeat-x;
+  background-position: bottom;
+}
+
+/* ---------- State-tinted frame ----------
+   A thin inset ring inside the player's own 8px black letterbox padding,
+   keyed to what's actually playing. Confined to that padding band so it
+   never overlaps the iframe itself. */
+.player-wrap {
   background: #000;
   padding: 8px;
   box-sizing: border-box;
 }
 .player-wrap iframe { width: 100%; height: 100%; border: 0; }
 
-/* State-tinted frame: a thin inset ring inside the player's own 8px black
-   letterbox padding, keyed to what's actually playing. Confined to that
-   padding band so it never overlaps the iframe itself — the status-badge
-   above was deliberately moved off an absolute overlay ON the player for
-   exactly that overlap reason (see the comment below), so this stays
-   strictly outside the iframe's box instead of repeating that mistake. */
 .player-wrap--live { box-shadow: inset 0 0 0 3px var(--accent-red); }
 .player-wrap--twitch { box-shadow: inset 0 0 0 3px var(--twitch-purple); }
 .player-wrap--youtube { box-shadow: inset 0 0 0 3px var(--accent-red); }
 
-/* No video at all yet (fresh install, feeds empty) — keeps the aspect-ratio
-   frame instead of collapsing, so the layout below doesn't jump. */
-.player-empty { display: flex; align-items: center; justify-content: center; }
-.player-empty .empty-state { padding: 24px 20px; }
-
-/* In-flow above the title, not an overlay on the player: a plain YouTube
-   embed shows its own title/channel name over its thumbnail before play,
-   spanning most of the frame's width, so any absolutely-positioned badge
-   overlapped it somewhere no matter which corner it sat in. Twitch's
-   player doesn't have that pre-play overlay, but keeping one rule for all
-   three states is simpler than special-casing just the YouTube branch. */
 .status-badge {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
   padding: 6px 14px;
   border-radius: 999px;
   font-weight: 800;
@@ -75,29 +169,22 @@
   50% { opacity: 0.4; transform: scale(0.8); }
 }
 
-.player-meta { padding: 14px 6px 0; color: #fff; }
-.player-meta h2 { margin: 0 0 4px; font-size: 1.2rem; }
-.player-meta p { margin: 0; opacity: 0.8; font-size: 0.92rem; }
-
 /* Stat row: game/viewers/elapsed for a live stream, or duration/views/date
-   for an offline VOD — replaces the old single caption line with the kind
-   of at-a-glance numbers Gronkh's player companion info shows. Always white
-   on the blue cutting mat behind the player, same as .player-meta itself —
-   that mat stays dark in both themes (see style.css), so no dark-mode
-   variant is needed here. */
+   for an offline VOD. Always white on the dark scrim behind it (see the
+   fixed-color comment on .vod-hero-status above) so no dark-mode variant is
+   needed here either. */
 .player-stats {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px 18px;
-  margin-top: 8px;
 }
 .player-stats .stat {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   font-size: 0.85rem;
-  opacity: 0.85;
+  color: rgba(255, 255, 255, 0.85);
 }
 .player-stats .stat svg { flex-shrink: 0; opacity: 0.9; }
 
@@ -106,7 +193,6 @@
   display: flex;
   flex-direction: column;
   padding: 16px;
-  height: 520px;
   box-sizing: border-box;
 }
 .chat-panel h2 { margin: 0 0 10px; font-size: 1.1rem; }
@@ -178,14 +264,16 @@
 .chat-send-note { font-size: 0.75rem; color: var(--text-muted); margin: 6px 0 0; }
 
 /* ---------- Loading skeletons ----------
-   Deliberately plain (no .rip) and sitting directly on the mat, same as the
-   shop grid's shimmer (js/catalog.js) — .skeleton-card's shimmer is a fixed
-   light tone meant for that dark backdrop, so these stay off the paper
-   cards rather than nesting inside .chat-panel/.player-wrap. */
-.player-skeleton { width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 4px; }
-.chat-skeleton { width: 100%; height: 520px; border-radius: 4px; }
+   Deliberately plain (no .rip) and sitting directly on the mat/hero, same as
+   the shop grid's shimmer (js/catalog.js) — .skeleton-card's shimmer is a
+   fixed light tone meant for that dark backdrop. */
+.player-skeleton { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 0; }
 
-/* ---------- VOD grid ---------- */
+@media (max-width: 640px) {
+  .vod-row .skeleton-card { flex: 0 0 240px; height: 190px; }
+}
+
+/* ---------- VOD grid (YouTube VOD-channel archive) ---------- */
 .vod-section-head {
   display: flex;
   align-items: center;
@@ -194,12 +282,12 @@
   margin: 20px 0 30px;
   flex-wrap: wrap;
 }
-/* The Twitch archive's sort pills and spotlight pick only mount when there's
-   enough data to justify them (see js/vods.js renderTwitchArchive) — when
-   they don't, their container is left empty rather than removed from the
-   DOM, so this collapses the gap that would otherwise leave instead of
-   showing a section that's just a heading with nothing under it. */
-#twitch-archive-head:empty, #twitch-spotlight:empty { display: none; margin: 0; }
+/* The Twitch archive's sort pills only mount when there's enough data to
+   justify them (see js/vods.js renderTwitchArchive) — when they don't,
+   their container is left empty rather than removed from the DOM, so this
+   collapses the gap that would otherwise leave instead of showing a section
+   that's just a heading with nothing under it. */
+#twitch-archive-head:empty { display: none; margin: 0; }
 
 .vod-grid {
   display: grid;
@@ -221,9 +309,9 @@
   animation: fadeUp 0.5s ease both;
   transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
-/* Same hand-placed stagger as .product-card in shop.css, tuned a little
-   lighter for these shorter cards. Reset on narrow single-column screens
-   below so it doesn't just read as uneven gaps between stacked cards. */
+/* Hand-placed stagger, only meaningful in the wrapping YouTube grid — reset
+   for .vod-row cards just below since a horizontal row has no "rows" to
+   stagger between. */
 .vod-card:nth-child(3n + 2) { margin-top: 20px; }
 .vod-card:nth-child(3n + 3) { margin-top: -8px; }
 .vod-card:hover, .vod-card:focus-visible { transform: rotate(0deg) scale(1.02) translateY(-4px) !important; }
@@ -335,6 +423,38 @@
 }
 .vod-card .vod-date { font-size: 0.8rem; color: var(--text-muted); margin-top: auto; }
 
+/* ---------- Horizontal card rows ----------
+   The core of the gronkh.tv-style upgrade: "Die neusten Streams" and "Aus
+   dem Archiv" scroll sideways as shelves of paper cards/stickers instead of
+   wrapping into a uniform grid (the YouTube archive further down keeps that
+   uniform .vod-grid — this is deliberately a different, row-shaped rhythm
+   for the Twitch side only). Reuses .vod-card/.vod-thumb/.vod-duration-badge
+   as-is, just given a fixed width and a scroll-snapping flex track instead
+   of a CSS grid. */
+.vod-row {
+  display: flex;
+  gap: 24px;
+  width: 100%;
+  max-width: 1200px;
+  overflow-x: auto;
+  padding: 10px 4px 26px;
+  margin: 0 0 8px;
+  scroll-snap-type: x proximity;
+  scroll-margin-top: calc(var(--header-h) + 20px);
+  scrollbar-width: thin;
+  scrollbar-color: var(--paper-accent) transparent;
+}
+.vod-row::-webkit-scrollbar { height: 10px; }
+.vod-row::-webkit-scrollbar-track { background: transparent; }
+.vod-row::-webkit-scrollbar-thumb { background: var(--paper-accent); border-radius: 999px; }
+
+.vod-row .vod-card {
+  flex: 0 0 280px;
+  scroll-snap-align: start;
+  margin-top: 0 !important;
+}
+.vod-row > .empty-state { flex: 1 1 100%; }
+
 /* ---------- Twitch archive cards ----------
    Own classes rather than reusing youtube.css's .yt-card-meta/.yt-card-views
    — that file scopes anything yt-prefixed to youtube.js's own elements on
@@ -359,35 +479,21 @@
 }
 .twitch-card-views svg { flex-shrink: 0; opacity: 0.8; }
 
-/* ---------- "Aus dem Archiv" spotlight ----------
-   A single wide horizontal pick rather than a second mini-grid — reuses
-   .vod-card (and its .vod-thumb hover/play-hint treatment) as a base with
-   .rip--accent for the highlighted paper tone, just laid out sideways. */
-.twitch-spotlight-label {
-  font-family: "Bebas Neue", sans-serif;
-  font-size: 0.9rem;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: var(--accent-red);
-  margin: 0 0 10px 4px;
-}
-/* #twitch-spotlight needs an explicit width here: its parent .container is a
-   centered flex column (see vods/index.html), so without this the container
-   would shrink-wrap to the card's own content instead of the card's 100%
-   resolving against the real (up to 1200px) row width — same reason
-   .vod-grid/.live-layout set width:100% themselves just above. */
-#twitch-spotlight { width: 100%; }
-.twitch-spotlight-card {
-  display: flex;
-  flex-direction: row;
-  gap: 20px;
-  align-items: center;
-  max-width: 720px;
-  width: 100%;
-  margin: 0 auto 36px;
-}
-.twitch-spotlight-card .vod-thumb { flex: 0 0 240px; margin-bottom: 0; }
-.twitch-spotlight-info p { margin: 4px 0 0; font-size: 0.82rem; color: var(--text-muted); }
+/* ---------- "Aus dem Archiv" discovery row ----------
+   A small shuffled set of past broadcasts (see js/vods.js renderTwitchArchive
+   for the pool/gating logic) in the same .vod-row shelf as "Die neusten
+   Streams" above, just on the gold .rip--accent paper tone so it still reads
+   as a distinct "discovery" pick rather than a duplicate of the chronological
+   row. #twitch-spotlight-wrap's whole heading+row pair is toggled by JS
+   (display:none) rather than a CSS :empty rule, since — unlike
+   #twitch-archive-head — the heading text itself isn't JS-generated. */
+/* Needs an explicit width: its parent .container is a centered flex column
+   (see vods/index.html), so without this the wrapper would shrink-wrap to
+   its content instead of 100% resolving against the real (up to 1200px)
+   row width — same reason .vod-grid/.vod-row/.vod-section-head set an
+   explicit width themselves. */
+#twitch-spotlight-wrap { width: 100%; }
+.vod-row--accent .vod-card { position: relative; }
 
 /* ---------- Twitch VOD modal ----------
    Mirrors youtube.css's .yt-modal-* treatment (own classes — see the
@@ -409,14 +515,19 @@
 }
 
 @media (max-width: 980px) {
-  .live-layout { flex-direction: column; }
-  .chat-col { width: 100%; flex-basis: auto; }
-  .chat-panel { height: 420px; }
-  .chat-skeleton { height: 420px; }
+  .vod-hero-row { flex-direction: column; height: auto; gap: 0; }
+  .vod-hero-player { flex: none; width: 100%; aspect-ratio: 16 / 9; }
+  .vod-hero-chat { flex: none; width: 100%; margin: 16px; }
+  .vod-hero-chat .chat-panel, .vod-hero-chat .chat-skeleton { height: 420px; }
+  .vod-hero-status { padding: 30px 18px 16px; }
+  .vod-hero-actions { margin-top: 12px; }
 }
 
 @media (max-width: 640px) {
-  .vod-card:nth-child(3n + 2), .vod-card:nth-child(3n + 3) { margin-top: 0; }
-  .twitch-spotlight-card { flex-direction: column; align-items: stretch; }
-  .twitch-spotlight-card .vod-thumb { flex-basis: auto; margin-bottom: 12px; }
+  .vod-row .vod-card { flex-basis: 240px; }
+}
+
+@media (max-width: 480px) {
+  .vod-hero-btn { padding: 9px 16px; font-size: 0.82rem; }
+  .vod-hero-status { padding: 24px 14px 14px; }
 }
