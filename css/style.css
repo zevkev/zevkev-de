@@ -419,8 +419,17 @@ h1, h2, .display-font {
 
 /* ---------- Cart drawer + toast ---------- */
 
+/* Shared by the cart drawer and the shop quick-view modal (js/catalog.js
+   reuses this class, on a different element id -- #quick-view below scopes
+   to just that one). */
 .cart-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
 .cart-backdrop.is-open { opacity: 1; pointer-events: auto; }
+/* Quick-view: no dimming overlay at all -- the paper panel itself, sitting
+   on top of the ordinary, undimmed page, is meant to read like a physical
+   note stuck on the desk rather than a dialog that darkens everything
+   behind it. Click-outside-to-close still works; there's just nothing
+   visible to click on. */
+#quick-view.cart-backdrop { background: transparent; }
 
 /* Chrome, not content: flat rectangle with the same paper-grain texture as
    the header/footer (see the "Chrome" comment above) rather than a .rip
@@ -444,8 +453,12 @@ h1, h2, .display-font {
 /* .cart-close is shared with the shop quick-view modal's close button
    (js/catalog.js) via the same class name — the bare rule must keep
    working unmodified there, so the icon-button treatment below is scoped
-   to .cart-drawer only and never touches the quick-view modal. */
-.cart-close { background: none; border: none; font-size: 1.6rem; line-height: 1; }
+   to .cart-drawer only and never touches the quick-view modal.
+   color: buttons don't inherit text color from ancestors by default (an
+   easy-to-miss CSS quirk — form controls use the UA's own default, not
+   the cascade), so without this the "x" rendered black regardless of
+   theme, nearly invisible on the dark-mode panel it sits on. */
+.cart-close { background: none; border: none; font-size: 1.6rem; line-height: 1; color: var(--text-dark); }
 .cart-drawer .cart-close {
   display: flex; align-items: center; justify-content: center;
   width: 34px; height: 34px; border-radius: 50%;
