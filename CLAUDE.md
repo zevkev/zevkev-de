@@ -28,15 +28,14 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
 | `js/catalog.js` | Shop grid — cards navigate to `/shop/<slug>`, a real product page (no more quick-view modal) |
 | `js/product.js` + `shop/product/index.html` | Product detail page. Reads the slug from `?slug=` or (when there's none) the URL path, so it renders identically whether loaded at `/shop/product/?slug=<slug>` or via `404.html`'s clean-URL fallback (see `404.html` below) |
 | `404.html` (repo root) | GitHub Pages' standard clean-URL workaround (no server-side rewrites on this host): served site-wide for any unmatched path. Detects `/shop/<slug>` and mounts `js/product.js` to render that product; anything else gets a plain generic 404. Must stay at the repo root — GitHub Pages only honors one, and only there |
-| `js/currency.js` | Loads `/assets/data/exchange-rate.json` once per page, exports `money()`/`toEUR()` to convert Fourthwall's USD prices to EUR for display. Falls back to showing USD if the rate file is missing/unreachable |
+| `js/currency.js` | Pure `money(amount, currency)` price formatter (Intl.NumberFormat, `de-DE`). No conversion logic — `js/fourthwall-api.js` requests every price directly in EUR from Fourthwall itself (see its own entry below), so there's nothing left to convert here |
 | `js/vods.js` + `js/twitch-auth.js` | VODs page: live > Twitch VOD > YouTube fallback player (now via `YT.Player`/`Twitch.Player` SDKs for watch-time, not bare iframes), Twitch OAuth popup login + chat |
 | `js/youtube.js` | YouTube page: Videos/Shorts grid, custom modal player (`YT.Player` SDK) |
 | `js/watchlist.js` | Dedicated Watchlist page — reads the shared `zevkev-watchlist` key, resolves ids against both `videos.json` and `main-videos.json` |
 | `js/track.js` | Analytics client. Exports `track(type, path, value)` and `observeImpressions(selector, pathFn, root)` (IntersectionObserver, fires once per element) — both report via `window.gtag(...)`, silently no-op if `gtag` isn't defined (i.e. no consent yet). Wired into `layout.js` (page_view), `product.js` (product_view), `cart.js` (add_to_cart), various `data-track-click` attributes (click), video-card grids in `vods.js`/`youtube.js` (impression), and watch-time heartbeats from the player-embedding code itself |
 | `js/consent.js` + `js/ga-config.js` | Cookie consent banner (GDPR: GA4 never loads before explicit accept) + the GA4 Measurement ID (not a secret, plain file, currently a placeholder — see "Known issues"). `js/consent.js` also exports `openConsentSettings()`, wired to a "Cookie-Einstellungen" footer link so a visitor can change their mind later |
-| `scripts/fetch-main-feed.mjs` | Fetches full YouTube upload history via Data API v3 (needs `YOUTUBE_API_KEY` secret — not yet confirmed as an actual GitHub repo secret, see "Known issues"). Shorts classification is a plain duration cutoff (`isShort = durationSeconds < 120`, see `SHORT_MAX_SECONDS`) computed from `videos.list`'s `contentDetails.duration` — no network probe. Used to probe `youtube.com/shorts/<id>` for YouTube's own retroactive tag instead, but that missed pre-Shorts-era short uploads that never got tagged; switched 2026-09-17 per Kevin's explicit ask ("all videos under 2 minutes should be put in shorts") |
+| `scripts/fetch-main-feed.mjs` | Fetches full YouTube upload history via Data API v3. `YOUTUBE_API_KEY` **is** now a real GitHub repo secret (added by Kevin 2026-09-18, confirmed working via a manual `workflow_dispatch` run — see "Already done"). Shorts classification is a plain duration cutoff (`isShort = durationSeconds < 120`, see `SHORT_MAX_SECONDS`) computed from `videos.list`'s `contentDetails.duration` — no network probe. Used to probe `youtube.com/shorts/<id>` for YouTube's own retroactive tag instead, but that missed pre-Shorts-era short uploads that never got tagged; switched 2026-09-17 per Kevin's explicit ask ("all videos under 2 minutes should be put in shorts") |
 | `scripts/fetch-twitch-status.mjs`, `fetch-vod-feed.mjs` | Twitch live status + VOD archive fetch |
-| `scripts/fetch-exchange-rate.mjs` | Fetches USD->EUR from Frankfurter (free, keyless) into `assets/data/exchange-rate.json` for `js/currency.js` |
 | `.github/workflows/data-refresh.yml` | Cron (every 5 min): runs the fetch scripts, commits data back via `github-actions[bot]` |
 
 ## Conventions
@@ -284,17 +283,38 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
   seam, preserving the reason the shared layer existed in the first place.
   Verified with a forced fresh-CSS reload (not just curl) showing the dots
   rendering outside/behind the hero card, never on top of it.
-- **Full YouTube upload history fetched**: `assets/data/main-videos.json`
-  now has 206 videos (195 regular + 11 Shorts), up from the old RSS-feed
-  cap of ~15 — a one-time manual run of `scripts/fetch-main-feed.mjs`
-  using the API key Kevin provided directly in chat (used transiently as
-  a local env var, never written to any file or committed). This does
-  **not** set up ongoing automation — `YOUTUBE_API_KEY` still isn't a
-  real GitHub secret, so `main-videos.json` will NOT keep itself updated
-  with new uploads until Kevin adds it himself (Settings → Secrets and
-  variables → Actions). Don't assume new uploads are showing up
-  automatically; check the file's video count/dates against the real
-  channel before claiming it's current.
+- **Full YouTube upload history fetched, and automation confirmed working
+  end-to-end (2026-09-18).** `assets/data/main-videos.json` has 206 videos
+  (52 regular + 154 Shorts under the new duration cutoff — see the
+  `scripts/fetch-main-feed.mjs` row above). `YOUTUBE_API_KEY` **is** now a
+  real GitHub repo secret — Kevin added it himself in the browser (never
+  typed into any field by the assistant, per the hard credential rule).
+  Verified live: manually triggered `data-refresh.yml` via
+  `workflow_dispatch` (run #16), confirmed its "Fetch YouTube main channel
+  feed" step logged `Wrote 206 videos (154 shorts, <120s)`, and confirmed
+  the bot's follow-up commit landed on `origin/main`. The 5-minute cron
+  will keep this current on its own from now on — no more "check whether
+  Kevin added the secret yet" caveat needed.
+- **Fourthwall prices now match checkout exactly, because there's only
+  one conversion happening instead of two (2026-09-18).** Root cause of
+  the "price on the site doesn't match Fourthwall's checkout" report:
+  the site fetched USD prices from Fourthwall and converted them to EUR
+  itself using a separately-fetched ECB rate (`scripts/fetch-exchange-
+  rate.mjs`), while checkout applied *Fourthwall's own* USD→EUR
+  conversion — two independent rates, so the two numbers could legitimately
+  differ. Fixed by requesting `currency=EUR` directly on every Storefront
+  API call (`js/fourthwall-api.js`) — Fourthwall returns prices already
+  converted using the exact rate checkout will charge, so `js/currency.js`
+  is now a pure formatter with no conversion logic at all.
+  `scripts/fetch-exchange-rate.mjs`, its `data-refresh.yml` step, and
+  `assets/data/exchange-rate.json` are gone — nothing reads a client-side
+  rate anymore. Verified live: a direct Storefront API call returned
+  `{ currency: "EUR", value: 14.8 }` for a product, confirming the param
+  is honored. Also added a plain "Preise inkl. MwSt., zzgl.
+  Versandkosten." / "zzgl. Versandkosten" note on the shop page, the
+  product page and the cart drawer per Kevin's request — Fourthwall
+  calculates real shipping at their own checkout, this site never has that
+  number to show upfront.
 
 ## Known issues / next fixes (as of 2026-09-17)
 
@@ -348,22 +368,6 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
       don't be alarmed that GA shows zero data, check this file first.
 - [ ] GitHub Pages "Enforce HTTPS" — was pending automatic cert issuance,
       never confirmed enabled since.
-- [ ] **Full YouTube video history** needs a `YOUTUBE_API_KEY` GitHub repo
-      secret from Kevin (Google Cloud Console → enable YouTube Data API v3
-      → create an API key — exact steps are in the header comment of
-      `scripts/fetch-main-feed.mjs`). The script is already written and
-      waiting for it; this is purely a "ask Kevin to do this one console
-      step" item, not something to implement further.
-- [ ] **`assets/data/main-videos.json` still has the OLD Shorts
-      classification (YouTube's own retroactive `/shorts/` tag), not the
-      new duration-based one (`isShort = durationSeconds < 120`, see the
-      architecture map row above).** The classification logic in
-      `scripts/fetch-main-feed.mjs` was fixed 2026-09-17, but re-running it
-      needs `YOUTUBE_API_KEY` again (not retained across sessions/turns by
-      design — ask Kevin to resend it if he wants this re-run now rather
-      than waiting for the real GitHub secret to exist). Until it's re-run,
-      some videos under 2 minutes may still show up in the regular Videos
-      tab instead of Shorts.
 
 ## Testing caveat (not a site bug)
 
@@ -451,7 +455,9 @@ environment quirks worth knowing about before assuming something is broken:
 - Don't ever enter a password, API key, or other credential into a login
   form or GitHub Secret on Kevin's behalf, even if he pastes the value
   directly and asks — this is a hard rule regardless of consent. Point
-  him to the exact steps instead (already done twice this session for
-  YOUTUBE_API_KEY; he still needs to actually add it).
+  him to the exact steps instead; this actually happened with
+  `YOUTUBE_API_KEY` on 2026-09-18 — the assistant filled in only the
+  *name* field on GitHub's "New secret" form and left the value field for
+  Kevin to paste into himself.
 - Don't fabricate or guess at a Widerrufsbelehrung (right-of-withdrawal
   legal notice) — still missing, needs a Steuerberater/Anwalt, not an AI.

@@ -7,7 +7,7 @@
 // instead of a modal (#qv-*).
 import { FourthwallAPI } from "./fourthwall-api.js";
 import { Cart } from "./cart.js";
-import { money, ready as currencyReady } from "./currency.js";
+import { money } from "./currency.js";
 import { track } from "./track.js";
 
 const root = document.getElementById("product-root");
@@ -188,6 +188,7 @@ function renderProduct(product) {
           <button class="p-btn rip btn-accent" id="pd-add" data-track-click="shop-add-to-cart">In den Warenkorb</button>
         </div>
         <p class="stock-note" id="pd-stock"></p>
+        <p class="stock-note">Preise inkl. MwSt., zzgl. Versandkosten.</p>
       </div>
     </div>
     <div class="qv-lightbox" id="pd-lightbox"><img id="pd-lightbox-img" src="" alt=""><button class="cart-close qv-close" id="pd-lightbox-close" aria-label="Schließen">&times;</button></div>`;
@@ -308,10 +309,7 @@ async function init() {
   }
   renderSkeleton();
   try {
-    // Race the exchange-rate fetch alongside the product fetch (both are
-    // fast, independent, same-origin-or-not network calls) so the first
-    // real paint already has EUR prices rather than a flash of USD.
-    const [product] = await Promise.all([fetchProduct(slug), currencyReady]);
+    const product = await fetchProduct(slug);
     if (!product) {
       renderMessage("Produkt nicht gefunden", "Es gibt dieses Produkt nicht (mehr) — vielleicht wurde es entfernt oder der Link stimmt nicht mehr.");
       return;

@@ -1,5 +1,5 @@
 import { FourthwallAPI } from "./fourthwall-api.js";
-import { money, ready as currencyReady } from "./currency.js";
+import { money } from "./currency.js";
 
 const grid = document.getElementById("product-grid");
 const filterBar = document.getElementById("filter-bar");
@@ -67,10 +67,7 @@ let allProducts = [];
 async function loadCatalog() {
   renderSkeleton();
   try {
-    // Race the exchange-rate fetch alongside the catalog fetches (both are
-    // independent network calls) so the very first grid paint already
-    // shows EUR prices instead of a flash of USD.
-    const [{ results: collections = [] }] = await Promise.all([FourthwallAPI.getCollections(), currencyReady]);
+    const { results: collections = [] } = await FourthwallAPI.getCollections();
 
     if (filterBar) {
       filterBar.innerHTML =

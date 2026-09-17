@@ -11,6 +11,17 @@ async function request(path, opts = {}) {
   }
   const url = new URL(BASE + path);
   url.searchParams.set("storefront_token", FOURTHWALL_STOREFRONT_TOKEN);
+  // Fourthwall's Storefront API accepts a `currency` param on product/
+  // collection/cart endpoints and returns prices pre-converted using
+  // THEIR OWN rate -- the same rate their hosted checkout actually charges.
+  // Previously this site fetched USD prices and converted them itself using
+  // a separately-fetched ECB rate (js/currency.js), which could drift from
+  // Fourthwall's own conversion and show a different price than checkout
+  // actually charged. Requesting EUR directly here guarantees the two
+  // always match, since there's only one conversion happening now, not two.
+  // This site is exclusively for a German audience (see checkoutUrl() in
+  // js/cart.js), so EUR is always correct.
+  url.searchParams.set("currency", "EUR");
   const res = await fetch(url, {
     ...opts,
     headers: { "Content-Type": "application/json", ...(opts.headers || {}) },

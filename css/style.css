@@ -560,6 +560,7 @@ h1, h2, .display-font {
   background: var(--paper-accent); padding: 4px 12px; border-radius: 3px;
   transform: rotate(-2deg); box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.15);
 }
+.cart-shipping-note { font-size: 0.78rem; color: var(--text-muted); text-align: right; margin: -8px 0 16px; }
 
 .cart-empty { text-align: center; color: var(--text-muted); margin: 50px auto 0; max-width: 260px; }
 .cart-empty-icon { width: 52px; height: 52px; margin: 0 auto 14px; color: var(--text-muted); opacity: 0.5; transform: rotate(-6deg); }

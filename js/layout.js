@@ -98,6 +98,7 @@ function cartDrawerHTML() {
         <span class="cart-subtotal-label">Zwischensumme</span>
         <span class="cart-subtotal-value" id="cart-subtotal">0,00 €</span>
       </div>
+      <p class="cart-shipping-note">zzgl. Versandkosten</p>
       <a class="p-btn rip btn-accent" id="cart-checkout" data-track-click="cart-checkout" style="width:100%; justify-content:center;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         Zur Kasse

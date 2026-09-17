@@ -1,5 +1,5 @@
 import { FourthwallAPI } from "./fourthwall-api.js";
-import { money, ready as currencyReady } from "./currency.js";
+import { money } from "./currency.js";
 import { track } from "./track.js";
 
 const STORAGE_KEY = "zevkev-cart-id";
@@ -124,11 +124,6 @@ function itemsForUpdate() {
 }
 
 async function refreshFromApi() {
-  // Called once at page load (js/layout.js's mountLayout()) — awaiting the
-  // exchange rate here means the cart badge/drawer's very first render
-  // already shows EUR instead of a flash of USD. Resolves fast (same-origin
-  // JSON file) and never rejects, so this never blocks cart init for long.
-  await currencyReady;
   const id = localStorage.getItem(STORAGE_KEY);
   if (!id) {
     render();

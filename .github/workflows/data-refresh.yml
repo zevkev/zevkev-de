@@ -50,19 +50,10 @@ jobs:
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
         run: node scripts/fetch-twitch-status.mjs
 
-      - name: Fetch USD->EUR exchange rate
-        # continue-on-error for the same reason as the steps above: the API
-        # (Frankfurter, free and keyless — no secret needed) being briefly
-        # unreachable should never block the other feeds or the commit step.
-        # js/currency.js falls back to showing USD if this file is ever
-        # missing/stale, so a skipped run here is never a broken shop.
-        continue-on-error: true
-        run: node scripts/fetch-exchange-rate.mjs
-
       - name: Commit changes if any
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add assets/data/videos.json assets/data/main-videos.json assets/data/live-status.json assets/data/twitch-vods.json assets/data/exchange-rate.json
+          git add assets/data/videos.json assets/data/main-videos.json assets/data/live-status.json assets/data/twitch-vods.json
           git diff --cached --quiet || git commit -m "chore: refresh video feeds & live status"
           git push
