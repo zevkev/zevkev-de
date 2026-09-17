@@ -29,14 +29,15 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
 | `js/product.js` + `shop/product/index.html` | Product detail page. Reads the slug from `?slug=` or (when there's none) the URL path, so it renders identically whether loaded at `/shop/product/?slug=<slug>` or via `404.html`'s clean-URL fallback (see `404.html` below) |
 | `404.html` (repo root) | GitHub Pages' standard clean-URL workaround (no server-side rewrites on this host): served site-wide for any unmatched path. Detects `/shop/<slug>` and mounts `js/product.js` to render that product; anything else gets a plain generic 404. Must stay at the repo root — GitHub Pages only honors one, and only there |
 | `js/currency.js` | Loads `/assets/data/exchange-rate.json` once per page, exports `money()`/`toEUR()` to convert Fourthwall's USD prices to EUR for display. Falls back to showing USD if the rate file is missing/unreachable |
-| `js/vods.js` + `js/twitch-auth.js` | VODs page: live > Twitch VOD > YouTube fallback player, Twitch OAuth popup login + chat |
-| `js/youtube.js` | YouTube page: Videos/Shorts grid, custom modal player |
+| `js/vods.js` + `js/twitch-auth.js` | VODs page: live > Twitch VOD > YouTube fallback player (now via `YT.Player`/`Twitch.Player` SDKs for watch-time, not bare iframes), Twitch OAuth popup login + chat |
+| `js/youtube.js` | YouTube page: Videos/Shorts grid, custom modal player (`YT.Player` SDK) |
 | `js/watchlist.js` | Dedicated Watchlist page — reads the shared `zevkev-watchlist` key, resolves ids against both `videos.json` and `main-videos.json` |
+| `js/track.js` | Analytics tracking snippet. Exports `track(type, path, value)` (sendBeacon → fetch fallback, silently fails) and `observeImpressions(selector, pathFn, root)` (IntersectionObserver, fires once per element). POSTs to `https://privat.zevkev.de/api/track` — see `dashboard/` below. Wired into `layout.js` (page_view), `product.js` (product_view), `cart.js` (add_to_cart), various `data-track-click` attributes (click), and video-card grids in `vods.js`/`youtube.js` (impression). Watch-time heartbeats fire from the player-embedding code itself (see below) |
 | `scripts/fetch-main-feed.mjs` | Fetches full YouTube upload history via Data API v3 (needs `YOUTUBE_API_KEY` secret — Kevin has a key and was walked through adding it to GitHub Settings → Secrets on 2026-09-17; check whether `assets/data/main-videos.json` actually has more than ~4 videos to confirm it landed, don't assume) |
 | `scripts/fetch-twitch-status.mjs`, `fetch-vod-feed.mjs` | Twitch live status + VOD archive fetch |
 | `scripts/fetch-exchange-rate.mjs` | Fetches USD->EUR from Frankfurter (free, keyless) into `assets/data/exchange-rate.json` for `js/currency.js` |
 | `.github/workflows/data-refresh.yml` | Cron (every 5 min): runs the fetch scripts, commits data back via `github-actions[bot]` |
-| `dashboard/` | **In progress, incomplete.** Cloudflare Pages analytics dashboard for privat.zevkev.de — only `schema.sql` + `wrangler.toml` exist so far |
+| `dashboard/` | **Code complete, not deployed.** Password-gated analytics dashboard for `privat.zevkev.de` on Cloudflare Pages. `functions/api/{track,login,logout,stats}.js` (D1-backed, HMAC-signed session cookies via Web Crypto), `public/{index.html,app.js,style.css}` (torn-paper-styled SPA), `schema.sql` (events table: type/path/value/created_at), `README.md` has the full zero-to-deployed checklist. Blocked purely on Kevin creating a free Cloudflare account, running the `wrangler` setup commands in the README, and adding the `privat.zevkev.de` CNAME at Namecheap — none of that can be done from here |
 
 ## Conventions
 
@@ -145,14 +146,19 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
   - VODs chat column now fully collapses (`display:none`, no placeholder
     note) when offline instead of showing a "chat only during live streams"
     panel — the player (`flex:1`) reclaims the full hero width.
-  - `.p-btn` buttons (all the homepage quick-links, Discord/Twitch CTAs,
-    etc.) no longer use the shared `.rip::before` paper-grain image — at
-    button size, the fine speckle texture multiply-blended against
-    mid-tone accent colors produced a visible grid-like moire pattern on
-    some displays/zoom levels. Confirmed via a forced solid-color override
-    (rendered clean with the image removed). Photo/video/product cards
-    keep the grain, it's fine at their larger size — don't remove it there
-    without a similar reported issue.
+  - **The shared `.rip::before` torn-paper background no longer has a grain
+    image at all** (solid `--paper` color only). First tried scoping the
+    fix to just `.p-btn` (assuming the moire was a small-element problem),
+    but Kevin reported the identical grid-like pattern on the large
+    homepage hero card too — disproving that assumption. A tiled fine-noise
+    JPEG (`paper-grain.jpg`, multiply-blended) is just generally moire-prone
+    regardless of element size, varying with zoom/DPI. Removed at the root
+    (`.rip::before` in `style.css`) instead of per-component. `.rip--photo`
+    (cork/product-photo texture) is a completely separate recipe — SVG
+    `feTurbulence`, not a tiled JPEG — and is unaffected; don't add a grain
+    *image* back to the base `.rip::before` without solving the tiling/
+    moire problem first (e.g. a much larger tile size, or switching to a
+    procedural noise approach like `.rip--photo` already uses).
   - Mobile hero scaling on `/vods/` and `/youtube/`: plain `vh` units are
     sized against the largest-possible mobile viewport (as if the address
     bar were permanently hidden), not the real visible one — caused
@@ -175,6 +181,26 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
     itself), a restructure of that file needs to grep the OTHER page's
     HTML/JS for class usage before deleting anything that looks unused
     locally — test the borrowing page too, not just the one being redesigned.
+  - YouTube page's mobile nav dropdown text was unreadable in light theme
+    (white text forced by `body.yt-page:not(.yt-scrolled) .site-nav a` —
+    meant for the desktop transparent-bar-over-hero look — landing on the
+    dropdown's own solid `--paper-accent` panel below 700px). Scoped that
+    rule to `@media (min-width: 701px)` to match `style.css`'s own mobile
+    breakpoint for the dropdown.
+- **Analytics dashboard — code complete as of 2026-09-17, not deployed.**
+  D1 schema, Cloudflare Pages Functions (`/api/track` public+CORS'd,
+  `/api/login`+`/api/logout` HMAC-signed cookies, `/api/stats` auth-gated
+  aggregation), password-gated paper-styled frontend, full setup README —
+  all under `dashboard/`. Client-side `js/track.js` wired sitewide for
+  page views/clicks/product views/impressions. Watch-time specifically
+  required switching the YouTube/Twitch embeds from bare `<iframe>`s to
+  each platform's JS Player SDK (`YT.Player`/`Twitch.Player`) so play/
+  pause events are observable — verified in-browser afterward that
+  playback, the modal, and the close button all still work correctly.
+  Nothing here can go live until Kevin creates a free Cloudflare account
+  and works through `dashboard/README.md`'s setup steps (D1 database,
+  two secrets, deploy, Namecheap CNAME) — don't assume it's live, check
+  whether `privat.zevkev.de` actually resolves before relying on it.
 
 ## Known issues / next fixes (as of 2026-09-17)
 
@@ -269,7 +295,14 @@ environment quirks worth knowing about before assuming something is broken:
    after several `navigate()` calls in a row) — if a screenshot looks like
    it's showing two pages' content overlapping or a URL that doesn't match
    the visible content, close the tab and open a fresh one rather than
-   trying to debug it as a site bug.
+   trying to debug it as a site bug. This got worse when background agents
+   were also active: the browser pane's tabs are a genuinely SHARED pool —
+   an agent's own local file preview or dev-server tab can silently become
+   the "fronted" tab a plain `navigate()`/`screenshot()` call lands on if
+   you omit an explicit `tabId`. Always pass an explicit `tabId` for every
+   call once more than one thing might be using the browser, and use
+   `tabs_context` to confirm which tab is actually yours before trusting
+   a screenshot.
 4. The dev-preview server (plain `python -m http.server`, no cache-control
    headers) lets the browser cache CSS files aggressively across
    navigations in the same tab — editing a `.css` file and reloading the
