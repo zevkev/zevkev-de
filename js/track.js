@@ -1,9 +1,7 @@
-// Shared analytics tracking client for the private dashboard at
-// privat.zevkev.de (see dashboard/ — Cloudflare Pages Functions, built in a
-// parallel worktree). Anonymous, no auth, no cookies. The endpoint may not
-// be deployed yet, so every path here must fail completely silently: never
-// throw, never block/delay anything visible, never spam the console loudly
-// enough to alarm a visitor poking at devtools.
+// Shared analytics client — reports events to Google Analytics 4 (see
+// js/consent.js, which gates whether window.gtag exists at all: it's never
+// defined until the visitor accepts the cookie banner). track() must fail
+// completely silently: never throw, never block/delay anything visible.
 //
 // Usage:
 //   import { track } from "/js/track.js";
@@ -11,35 +9,19 @@
 //   track("add_to_cart", variantId, qty);
 //
 // `type` is one of "page_view" | "product_view" | "add_to_cart" | "click" |
-// "impression" | "watch_time" (the last one is fired by a separate agent's
-// video-player instrumentation, not from this file — track() itself is
-// generic and reusable for that too).
-
-const TRACK_ENDPOINT = "https://privat.zevkev.de/api/track";
+// "impression" | "watch_time". GA4 already auto-tracks page views on its
+// own once loaded, but we still send an explicit one here for consistency
+// and so it's not missed on the very first (consent-granting) page load.
 
 export function track(type, path, value = null) {
   try {
-    const payload = JSON.stringify({ type, path, value });
-
-    // sendBeacon works reliably even during page unload (page_view-on-leave
-    // patterns, watch-time heartbeats) and doesn't block navigation. Fall
-    // back to a keepalive fetch when it's unavailable or the browser
-    // rejects the beacon (e.g. queue full).
-    if (navigator.sendBeacon) {
-      const blob = new Blob([payload], { type: "application/json" });
-      if (navigator.sendBeacon(TRACK_ENDPOINT, blob)) return;
-    }
-
-    fetch(TRACK_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: payload,
-      keepalive: true,
-    }).catch(() => {});
+    if (typeof window.gtag !== "function") return; // no consent yet, or declined
+    window.gtag("event", type, {
+      event_category: "engagement",
+      event_label: path,
+      value: value ?? undefined,
+    });
   } catch (err) {
-    // Never let a tracking failure be visible or affect the page. A quiet
-    // console.debug is fine (won't show up in devtools' default log level
-    // filters for most visitors); nothing louder.
     console.debug("track() failed silently:", err);
   }
 }

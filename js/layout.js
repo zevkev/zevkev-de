@@ -1,6 +1,7 @@
 // Shared header + footer, mounted into #site-header / #site-footer on every
 // page. The cart icon/drawer only ever appears on /shop/ pages.
 import { track } from "/js/track.js";
+import { mountConsentBanner } from "/js/consent.js";
 
 const NAV = [
   { href: "/", label: "Home", match: (p) => p === "/" || p === "/index.html" },
@@ -105,6 +106,7 @@ function footerHTML() {
         <a href="/impressum/">Impressum</a>
         <a href="/datenschutz/">Datenschutz</a>
         <a href="/kontakt/">Kontakt</a>
+        <a href="#" id="cookie-settings-link">Cookie-Einstellungen</a>
       </div>
       <p class="footer-note">&copy; ${new Date().getFullYear()} ZevKev. Videos und Entertainment.</p>
     </div>
@@ -121,6 +123,13 @@ export async function mountLayout() {
   const footerSlot = document.getElementById("site-footer");
   if (headerSlot) headerSlot.outerHTML = headerHTML(isShop) + (isShop ? cartDrawerHTML() : "");
   if (footerSlot) footerSlot.outerHTML = footerHTML();
+
+  mountConsentBanner();
+  document.getElementById("cookie-settings-link")?.addEventListener("click", async (ev) => {
+    ev.preventDefault();
+    const { openConsentSettings } = await import("/js/consent.js");
+    openConsentSettings();
+  });
 
   const { getTheme, toggleTheme } = await import("/js/theme.js");
   const themeBtn = document.getElementById("theme-toggle");
