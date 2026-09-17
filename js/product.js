@@ -1,19 +1,37 @@
-// Product detail page — reads ?slug=... from the URL and renders one
-// product full-page. This replaces js/catalog.js's old openQuickView()
+// Product detail page — reads the product slug from either ?slug=... (the
+// original URL form) or the URL path (the clean /shop/<slug> form served by
+// the repo root's 404.html, see getSlugFromLocation() below) and renders
+// one product full-page. This replaces js/catalog.js's old openQuickView()
 // modal; the swatch/gallery/stock/qty/add-to-cart logic below is ported
 // close to as-is from that modal, just targeting page elements (#pd-*)
 // instead of a modal (#qv-*).
 import { FourthwallAPI } from "./fourthwall-api.js";
 import { Cart } from "./cart.js";
+import { money, ready as currencyReady } from "./currency.js";
 
 const root = document.getElementById("product-root");
 
-function money(amount, currency) {
-  try {
-    return new Intl.NumberFormat("de-DE", { style: "currency", currency: currency || "USD" }).format(amount);
-  } catch {
-    return `${amount} ${currency || ""}`;
+// GitHub Pages has no server-side rewrites/routing config, so clean product
+// URLs (zevkev.de/shop/<slug>) are served via the repo root's 404.html,
+// which GitHub Pages serves for ANY unmatched path site-wide. 404.html is
+// structurally identical to this page (loads this same script) — it just
+// has no ?slug= query string, since the slug there is the URL path itself.
+// Prefer the query string when present so the original shop/product/?slug=
+// links (already shared/bookmarked) keep working unchanged.
+function getSlugFromLocation() {
+  const qsSlug = new URLSearchParams(window.location.search).get("slug");
+  if (qsSlug) return qsSlug;
+
+  // A single path segment directly under /shop/ — e.g. /shop/zevkev-t-shirt
+  // — but not /shop/product/ itself (this page's own path, with no query
+  // string, means "no product selected", not "a product literally named
+  // product"), and not /shop/ alone (a real file, index.html, which never
+  // reaches 404.html in the first place).
+  const parts = window.location.pathname.split("/").filter(Boolean);
+  if (parts.length === 2 && parts[0] === "shop" && parts[1] !== "product") {
+    return decodeURIComponent(parts[1]);
   }
+  return null;
 }
 
 // Same fixed-ish attribute shape as catalog.js: a variant's attributes look
@@ -106,6 +124,11 @@ function updateMeta(product, imageUrl) {
   document.querySelector('meta[name="description"]')?.setAttribute("content", desc);
   document.querySelector('meta[property="og:title"]')?.setAttribute("content", `${product.name} | ZevKev Shop`);
   document.querySelector('meta[property="og:description"]')?.setAttribute("content", desc);
+  // Point the share URL at the clean, canonical /shop/<slug> form regardless
+  // of which URL form actually served this page (?slug= or the 404.html
+  // path fallback) — that's the link this site now hands out from the
+  // product grid (see catalog.js), so it's the one worth sharing further.
+  document.querySelector('meta[property="og:url"]')?.setAttribute("content", `https://zevkev.de/shop/${product.slug}`);
   if (imageUrl) {
     document.querySelector('meta[property="og:image"]')?.setAttribute("content", imageUrl);
     document.querySelector('meta[name="twitter:image"]')?.setAttribute("content", imageUrl);
@@ -134,7 +157,10 @@ function renderProduct(product) {
       </div>
       <div class="product-info rip">
         <h1>${product.name}</h1>
-        <div class="product-price-block"><span class="price-tag" id="pd-price"></span></div>
+        <div class="product-price-block">
+          <span class="price-tag" id="pd-price"></span>
+          <span class="price-compare" id="pd-compare"></span>
+        </div>
         <div class="qv-divider"></div>
         ${product.description ? `<div class="product-description">${product.description}</div><div class="qv-divider"></div>` : ""}
         <div id="pd-options"></div>
@@ -185,7 +211,16 @@ function renderProduct(product) {
     root.querySelectorAll(".swatch-size, .swatch-color").forEach((btn) => {
       btn.classList.toggle("is-selected", selection[btn.dataset.option] === btn.dataset.value);
     });
-    root.querySelector("#pd-price").textContent = variant ? money(variant.unitPrice?.value ?? 0, variant.unitPrice?.currency) : "";
+    const priceEl = root.querySelector("#pd-price");
+    const compareEl = root.querySelector("#pd-compare");
+    if (variant) {
+      priceEl.textContent = money(variant.unitPrice?.value ?? 0, variant.unitPrice?.currency);
+      const compareAt = variant.compareAtPrice?.value;
+      compareEl.textContent = compareAt ? money(compareAt, variant.unitPrice?.currency) : "";
+    } else {
+      priceEl.textContent = "";
+      compareEl.textContent = "";
+    }
     const outOfStock = variant?.stock?.type === "LIMITED" && (variant?.stock?.quantity ?? 0) <= 0;
     root.querySelector("#pd-stock").textContent = outOfStock ? "Gerade nicht auf Lager." : "";
     root.querySelector("#pd-add").disabled = !!outOfStock || !variant;
@@ -252,14 +287,17 @@ function renderProduct(product) {
 }
 
 async function init() {
-  const slug = new URLSearchParams(window.location.search).get("slug");
+  const slug = getSlugFromLocation();
   if (!slug) {
     renderMessage("Kein Produkt ausgewählt", "Für diesen Link fehlt die Produktangabe. Schau stattdessen im Shop vorbei.");
     return;
   }
   renderSkeleton();
   try {
-    const product = await fetchProduct(slug);
+    // Race the exchange-rate fetch alongside the product fetch (both are
+    // fast, independent, same-origin-or-not network calls) so the first
+    // real paint already has EUR prices rather than a flash of USD.
+    const [product] = await Promise.all([fetchProduct(slug), currencyReady]);
     if (!product) {
       renderMessage("Produkt nicht gefunden", "Es gibt dieses Produkt nicht (mehr) — vielleicht wurde es entfernt oder der Link stimmt nicht mehr.");
       return;

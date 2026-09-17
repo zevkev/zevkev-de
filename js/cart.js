@@ -1,4 +1,5 @@
 import { FourthwallAPI } from "./fourthwall-api.js";
+import { money, ready as currencyReady } from "./currency.js";
 
 const STORAGE_KEY = "zevkev-cart-id";
 // Fourthwall's hosted checkout lives on whichever domain is connected as
@@ -7,14 +8,6 @@ const STORAGE_KEY = "zevkev-cart-id";
 // not the zevkev.me apex — the apex redirects to zevkev.de, so pointing
 // checkout at it would loop. Keep in sync if the connected domain changes.
 const CHECKOUT_DOMAIN = "shop.zevkev.me";
-
-function money(amount, currency) {
-  try {
-    return new Intl.NumberFormat("de-DE", { style: "currency", currency: currency || "USD" }).format(amount);
-  } catch {
-    return `${amount} ${currency || ""}`;
-  }
-}
 
 function showToast(text) {
   let toast = document.querySelector(".toast");
@@ -50,8 +43,17 @@ function computeSubtotal(lineItems) {
   return { value, currency };
 }
 
-function checkoutUrl(cartId, currency) {
-  return `https://${CHECKOUT_DOMAIN}/checkout/?cartCurrency=${encodeURIComponent(currency || "USD")}&cartId=${encodeURIComponent(cartId)}`;
+// cartCurrency is hardcoded to EUR (not the cart/API's own currency, which
+// is always USD — see js/currency.js) — verified directly against a real
+// test cart on Fourthwall's hosted checkout: cartCurrency=EUR makes the
+// checkout's own order summary display (and, per Fourthwall's "Local
+// currencies" feature, already confirmed enabled for EUR in their
+// Settings → Checkout, actually charge) in EUR, vs. cartCurrency=USD or no
+// param at all, both of which showed USD even for a Germany-detected
+// visitor. This site is exclusively for a German audience, so EUR is
+// always correct here.
+function checkoutUrl(cartId) {
+  return `https://${CHECKOUT_DOMAIN}/checkout/?cartCurrency=EUR&cartId=${encodeURIComponent(cartId)}`;
 }
 
 function render() {
@@ -109,7 +111,7 @@ function render() {
   const sub = computeSubtotal(lineItems);
   if (footer) footer.style.display = "block";
   if (subtotal) subtotal.textContent = money(sub.value, sub.currency);
-  if (checkout) checkout.href = state.cart?.id ? checkoutUrl(state.cart.id, sub.currency) : "#";
+  if (checkout) checkout.href = state.cart?.id ? checkoutUrl(state.cart.id) : "#";
 
   items.querySelectorAll("[data-remove]").forEach((btn) => {
     btn.addEventListener("click", () => removeItem(btn.getAttribute("data-remove")));
@@ -121,6 +123,11 @@ function itemsForUpdate() {
 }
 
 async function refreshFromApi() {
+  // Called once at page load (js/layout.js's mountLayout()) — awaiting the
+  // exchange rate here means the cart badge/drawer's very first render
+  // already shows EUR instead of a flash of USD. Resolves fast (same-origin
+  // JSON file) and never rejects, so this never blocks cart init for long.
+  await currencyReady;
   const id = localStorage.getItem(STORAGE_KEY);
   if (!id) {
     render();

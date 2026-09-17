@@ -1,15 +1,8 @@
 import { FourthwallAPI } from "./fourthwall-api.js";
+import { money, ready as currencyReady } from "./currency.js";
 
 const grid = document.getElementById("product-grid");
 const filterBar = document.getElementById("filter-bar");
-
-function money(amount, currency) {
-  try {
-    return new Intl.NumberFormat("de-DE", { style: "currency", currency: currency || "USD" }).format(amount);
-  } catch {
-    return `${amount} ${currency || ""}`;
-  }
-}
 
 function cheapestVariant(product) {
   const variants = product.variants || [];
@@ -54,7 +47,11 @@ function renderGrid(products) {
     card.addEventListener("click", (ev) => {
       ev.preventDefault();
       const slug = card.getAttribute("data-product-slug");
-      if (slug) location.href = `/shop/product/?slug=${encodeURIComponent(slug)}`;
+      // Clean URL form — served on GitHub Pages via the repo root's
+      // 404.html (see js/product.js and CLAUDE.md). The older
+      // /shop/product/?slug=<slug> form still works too (js/product.js
+      // reads either), for any existing bookmarked/shared links.
+      if (slug) location.href = `/shop/${encodeURIComponent(slug)}`;
     });
   });
   import("/js/home.js").catch(() => {});
@@ -70,7 +67,10 @@ let allProducts = [];
 async function loadCatalog() {
   renderSkeleton();
   try {
-    const { results: collections = [] } = await FourthwallAPI.getCollections();
+    // Race the exchange-rate fetch alongside the catalog fetches (both are
+    // independent network calls) so the very first grid paint already
+    // shows EUR prices instead of a flash of USD.
+    const [{ results: collections = [] }] = await Promise.all([FourthwallAPI.getCollections(), currencyReady]);
 
     if (filterBar) {
       filterBar.innerHTML =
