@@ -25,11 +25,15 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
 | `js/twitch-toggle.js` | `TWITCH_ENABLED` boolean — the master on/off switch for all Twitch features, deliberately isolated in its own file for easy direct GitHub web-UI edits |
 | `js/config.js` | Public tokens (Fourthwall storefront token, Twitch client ID) — re-exports `TWITCH_ENABLED` |
 | `js/cart.js` + `js/fourthwall-api.js` | Cart state + Fourthwall Storefront API client |
-| `js/catalog.js` | Shop grid + product **quick-view modal** (not a full page — see Known Issues) |
+| `js/catalog.js` | Shop grid — cards navigate to `/shop/<slug>`, a real product page (no more quick-view modal) |
+| `js/product.js` + `shop/product/index.html` | Product detail page. Reads the slug from `?slug=` or (when there's none) the URL path, so it renders identically whether loaded at `/shop/product/?slug=<slug>` or via `404.html`'s clean-URL fallback (see `404.html` below) |
+| `404.html` (repo root) | GitHub Pages' standard clean-URL workaround (no server-side rewrites on this host): served site-wide for any unmatched path. Detects `/shop/<slug>` and mounts `js/product.js` to render that product; anything else gets a plain generic 404. Must stay at the repo root — GitHub Pages only honors one, and only there |
+| `js/currency.js` | Loads `/assets/data/exchange-rate.json` once per page, exports `money()`/`toEUR()` to convert Fourthwall's USD prices to EUR for display. Falls back to showing USD if the rate file is missing/unreachable |
 | `js/vods.js` + `js/twitch-auth.js` | VODs page: live > Twitch VOD > YouTube fallback player, Twitch OAuth popup login + chat |
 | `js/youtube.js` | YouTube page: Videos/Shorts grid, custom modal player |
 | `scripts/fetch-main-feed.mjs` | Fetches full YouTube upload history via Data API v3 (needs `YOUTUBE_API_KEY` secret — not yet set) |
 | `scripts/fetch-twitch-status.mjs`, `fetch-vod-feed.mjs` | Twitch live status + VOD archive fetch |
+| `scripts/fetch-exchange-rate.mjs` | Fetches USD->EUR from Frankfurter (free, keyless) into `assets/data/exchange-rate.json` for `js/currency.js` |
 | `.github/workflows/data-refresh.yml` | Cron (every 5 min): runs the fetch scripts, commits data back via `github-actions[bot]` |
 | `dashboard/` | **In progress, incomplete.** Cloudflare Pages analytics dashboard for privat.zevkev.de — only `schema.sql` + `wrangler.toml` exist so far |
 
@@ -41,9 +45,12 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
   always set `color` explicitly on custom buttons, or they render black
   regardless of theme. This exact bug hit `.cart-close` once already.
 - Modals reuse `.cart-backdrop` / `.qv-panel` / `.qv-close` chrome
-  (`js/catalog.js`'s quick-view is the original; `js/youtube.js` and
-  `js/vods.js`'s custom video-player modals copy the same pattern). Keep
-  new modals consistent with this rather than inventing a new pattern.
+  (`js/youtube.js` and `js/vods.js`'s custom video-player modals use this
+  pattern; the shop's own quick-view modal that originated it is gone now —
+  replaced by `js/product.js`'s real page, which still reuses the same
+  `.qv-*` class names for its lightbox/gallery/option pieces even though
+  it's no longer a modal). Keep new modals consistent with this rather than
+  inventing a new pattern.
 - Cork product-photo texture (`--photo-mat`) is an SVG `feTurbulence` noise
   filter (not gradients — those tile visibly). If you touch it: keep
   `stitchTiles="stitch"` AND pin the filter region explicitly
@@ -99,6 +106,29 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
   between cream and charcoal. If this still gets reported as "broken," the
   real ask is probably a visual design change (e.g. a genuinely light mat
   in light mode), not a functional fix — clarify which before touching it.
+- **Shop: product click now opens a real page, not the quick-view modal.**
+  `js/catalog.js`'s cards navigate to `/shop/<slug>`; `js/product.js` +
+  `shop/product/index.html` render the page (swatch/gallery/stock/qty/
+  add-to-cart logic ported close to as-is from the old modal). Clean URLs
+  work via `404.html` at the repo root (GitHub Pages' standard workaround
+  for pretty URLs on a host with no server-side rewrites — served site-wide
+  for any unmatched path, HTTP status is a 404 even though the page renders
+  normally, a known/accepted tradeoff of this technique). The older
+  `/shop/product/?slug=<slug>` form still works (`js/product.js` reads
+  either the query string or the URL path).
+- **Shop prices now show EUR, not USD.** Fourthwall's Storefront API always
+  returns USD (root cause — no setting changes that); `js/currency.js`
+  fetches/caches a USD→EUR rate from `assets/data/exchange-rate.json`
+  (written by `scripts/fetch-exchange-rate.mjs`, cron'd in
+  `data-refresh.yml`, same pattern as the video-feed fetchers) and converts
+  before formatting. Falls back to showing the original USD amount if that
+  file is ever missing/unreachable, rather than crashing. Separately:
+  `js/cart.js`'s `checkoutUrl()` now passes `cartCurrency=EUR` (was `USD`,
+  the API's own cart currency) to Fourthwall's hosted checkout — verified
+  directly against a real test cart that this actually switches the
+  checkout's displayed order-summary currency (confirmed via Fourthwall's
+  own already-enabled "Local currencies" EUR support), whereas `USD` or no
+  param at all both showed USD even for a Germany-detected visitor.
 
 ## Known issues / next fixes (as of 2026-09-17)
 
@@ -123,15 +153,6 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
       genuinely global primitives (color tokens, font-face declarations)
       in one minimal shared file, make every actual component/page style
       local to that page — ask which one is actually wanted if unsure.
-- [ ] **Shop: product click should open a full page, not the quick-view
-      modal.** `js/catalog.js`'s `openQuickView()` currently builds a modal.
-      Needs to become real navigation to a per-product page instead
-      (there's already unused `.product-page` CSS in `shop.css` from an
-      earlier plan — check whether it fits before writing new CSS). This
-      was requested after the quick-view had already been redesigned twice
-      and was still described as hard to follow — a real page (its own
-      URL, no cramped modal, room to lay things out) is the actual fix
-      being asked for, not another round of modal tweaks.
 - [ ] **New dedicated Watchlist page**, separate from both `/vods/` and
       `/youtube/`. Both pages already save starred items to the same
       localStorage key (`WATCHLIST_KEY` in `js/vods.js` / `js/youtube.js` —
@@ -177,24 +198,6 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
       `scripts/fetch-main-feed.mjs`). The script is already written and
       waiting for it; this is purely a "ask Kevin to do this one console
       step" item, not something to implement further.
-
-## Deliberately deferred — do not start without asking first
-
-- **Shop prices show USD, should show EUR.** Root cause fully diagnosed:
-  Fourthwall's base currency is permanently fixed to USD for every shop
-  (confirmed via their own help docs — not something any settings toggle
-  changes). Their "Local currencies" feature (already enabled for EUR in
-  Settings → Checkout) only converts within Fourthwall's own hosted
-  checkout page — confirmed live there for a German-detected visitor — but
-  never reaches the Storefront API data this site's `js/cart.js`/
-  `js/catalog.js` read directly, which always returns USD. The real fix
-  is a client-side display conversion (fetch + cache a USD→EUR rate,
-  probably via a GitHub Actions script writing a JSON file, same pattern
-  as the video-feed fetchers) while leaving `cartCurrency` in the actual
-  checkout URL as USD, since Fourthwall's own checkout already localizes
-  correctly for the visitor. The user explicitly said to park this and
-  focus on shop/VODs/YouTube first — don't start it without confirming
-  that's still the priority order.
 
 ## Testing caveat (not a site bug)
 
