@@ -1,0 +1,87 @@
+/* Account-page-only additions (/account/). Reuses .yt-library (paper-sheet
+   card), .vod-grid/.vod-card/.watchlist-toggle (watchlist cards), .empty-
+   state/.notfound-icon (gate) and .auth-error (form errors) as-is -- this
+   file only adds what's genuinely new to this page. */
+
+.account-profile {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto 18px;
+  padding-bottom: 26px;
+  border-bottom: 2px dashed rgba(0, 0, 0, 0.12);
+}
+:root[data-theme="dark"] .account-profile { border-bottom-color: rgba(255, 255, 255, 0.12); }
+
+.account-avatar-lg {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 2.1rem;
+  letter-spacing: 0.5px;
+  border: 4px solid #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  flex-shrink: 0;
+}
+
+.account-info { flex: 1; min-width: 0; }
+.account-name-row { display: flex; gap: 10px; align-items: flex-start; }
+.account-name-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  background: var(--paper);
+  color: var(--text-dark);
+  border: 2px solid var(--text-muted);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  transition: border-color 0.2s ease;
+}
+.account-name-row input:focus-visible { outline: none; border-color: var(--twitch-purple); box-shadow: 0 0 0 3px rgba(145, 70, 255, 0.2); }
+.account-name-form label { display: block; font-size: 0.78rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px; }
+.account-email { margin: 10px 0 0; font-size: 0.85rem; color: var(--text-muted); }
+.account-name-saved {
+  margin: 6px 0 0; font-size: 0.82rem; font-weight: bold; color: #3c7a4b;
+  opacity: 0; transition: opacity 0.3s ease;
+}
+.account-name-saved.is-visible { opacity: 1; }
+
+.account-wl-more {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  font-weight: bold;
+  color: var(--text-dark);
+  text-decoration: none;
+  transition: transform 0.2s ease;
+}
+.account-wl-more:hover { transform: scale(1.02); }
+
+.account-danger {
+  width: 100%;
+  max-width: 640px;
+  margin: 46px auto 0;
+}
+.account-danger-box {
+  padding: 22px 26px;
+  border: 2px dashed var(--accent-red);
+  border-radius: 8px;
+}
+.account-danger-box p { color: var(--text-muted); line-height: 1.55; margin: 0 0 16px; }
+.account-danger-box .p-btn { color: var(--accent-red) !important; border-color: var(--accent-red); }
+
+@media (max-width: 560px) {
+  .account-profile { flex-wrap: wrap; }
+  .account-name-row { flex-direction: column; }
+  .account-name-row button { width: 100%; justify-content: center; }
+}

@@ -429,33 +429,43 @@ h1, h2, .display-font {
 .account-button:focus-visible { outline: 2px solid var(--accent-red); outline-offset: 3px; }
 :root[data-theme="dark"] .account-button { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.16); color: var(--text-dark); }
 
-.account-chip {
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 6px 6px 14px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.5);
-  border: 2px solid rgba(0,0,0,.12);
-  font-size: 0.82rem;
-  font-weight: bold;
-  color: var(--text-dark);
-  white-space: nowrap;
-}
-:root[data-theme="dark"] .account-chip { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.16); color: var(--text-dark) !important; }
-.account-logout {
-  width: 26px; height: 26px; border-radius: 50%;
+/* Header's logged-in state: a small colored initial-letter avatar (see
+   auth.js's avatarColorFor -- deterministic per account, no stored/fetched
+   color needed) linking straight to /account/, replacing the old
+   "Willkommen, X" text chip + separate logout button. Fixed white text
+   regardless of theme: the background is one of avatarColorFor's own
+   palette colors, not a theme token, so it needs to stay legible against
+   itself in both themes the same way .watchlist-toggle's icon color does. */
+.account-avatar {
+  width: 40px; height: 40px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(0,0,0,.08);
-  color: inherit;
+  color: #fff !important;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.1rem;
+  letter-spacing: 0.5px;
+  text-decoration: none;
+  border: 2px solid rgba(255,255,255,.4);
+  box-shadow: 0 2px 6px rgba(0,0,0,.25);
   flex-shrink: 0;
-  transition: background .2s;
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
-.account-logout:hover { background: rgba(0,0,0,.18); }
-:root[data-theme="dark"] .account-logout { background: rgba(255,255,255,.1); }
-:root[data-theme="dark"] .account-logout:hover { background: rgba(255,255,255,.2); }
-@media (max-width: 700px) {
-  .account-chip span { display: none; }
-  .account-chip { padding: 6px; }
+.account-avatar:hover { transform: scale(1.08); }
+.account-avatar:focus-visible { outline: 2px solid var(--accent-red); outline-offset: 3px; }
+
+/* Reused on the account page for its own logout button -- a small circular
+   icon action, same visual language as .account-button but neutral (not
+   avatar-colored) since logging out isn't an identity-branded action. */
+.account-logout {
+  width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid rgba(0,0,0,.12);
+  background: rgba(255,255,255,.5);
+  color: var(--text-dark);
+  flex-shrink: 0;
+  transition: background .2s, transform 0.2s ease;
 }
+.account-logout:hover { background: #fff; transform: scale(1.05); }
+:root[data-theme="dark"] .account-logout { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.16); }
 
 .auth-tabs { display: flex; gap: 8px; margin-bottom: 18px; }
 .auth-tab {
