@@ -61,6 +61,14 @@ function trashIcon() {
 function flagIcon() {
   return `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V4a1 1 0 0 1 1-1h13l-3 6 3 6H6a1 1 0 0 0-1 1v5"/></svg>`;
 }
+// Badge next to the owner's own name in comments, so visitors can tell it's
+// really him and not a copycat username -- denormalized onto the comment
+// doc at post time (authorIsOwner, see postComment) same as authorName/
+// authorAvatarColor, since a comment card can never look up another
+// visitor's live Auth profile from the client.
+function verifiedBadge() {
+  return `<svg class="comment-verified" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><title>Verifizierter Kanal-Account</title><path d="M12 1.5 14.6 4l3.5-.9.9 3.5L22.5 8 21 11l1.5 3-3.5 1.4-.9 3.5-3.5-.9L12 20.5 9.4 18l-3.5.9-.9-3.5L1.5 14 3 11 1.5 8 5 6.6l.9-3.5L9.4 4Z"/><path d="M8.5 12.2 10.8 14.5 15.5 9.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
 
 let allComments = []; // flat list; each item may carry a client-only _editing/_reported flag
 let currentVideoId = null;
@@ -122,6 +130,7 @@ function commentBodyHTML(c) {
     <div class="comment-head">
       ${commentAvatarHTML(c)}
       <span class="comment-author">${escapeHTML(c.authorName || "Anonym")}</span>
+      ${c.authorIsOwner ? verifiedBadge() : ""}
       <span class="comment-time">${formatTimestamp(c.createdAt)}</span>
       ${c.editedAt ? `<span class="comment-edited-note">(bearbeitet)</span>` : ""}
     </div>
@@ -323,6 +332,7 @@ async function postComment(text, parentId) {
     // set when they wrote it -- exactly like authorName already only ever
     // reflects the name at posting time, not any later rename.
     const prefs = parseAvatarPrefs(user);
+    const authorIsOwner = isOwner(user);
     const ref = await addDoc(collection(db, "comments"), {
       videoId: currentVideoId,
       parentId: parentId || null,
@@ -330,6 +340,7 @@ async function postComment(text, parentId) {
       authorName: user.displayName || user.email?.split("@")[0] || "Anonym",
       authorAvatarColor: prefs.color,
       authorAvatarIcon: prefs.icon,
+      authorIsOwner,
       text: finalText,
       createdAt: serverTimestamp(),
     });
@@ -341,6 +352,7 @@ async function postComment(text, parentId) {
       authorName: user.displayName || user.email?.split("@")[0] || "Anonym",
       authorAvatarColor: prefs.color,
       authorAvatarIcon: prefs.icon,
+      authorIsOwner,
       text: finalText,
       createdAt: Date.now(),
     });
