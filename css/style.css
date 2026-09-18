@@ -362,6 +362,14 @@ h1, h2, .display-font {
 .site-nav a:hover { background: rgba(0, 0, 0, 0.06); }
 .site-nav a.is-active { background: var(--paper-accent); }
 
+/* Hidden on desktop by default -- the persistent #account-slot chip in
+   .header-actions already covers login-state visibility there (on the
+   pages it's shown on at all, see js/layout.js's showAccount comment).
+   This is specifically the "show it in the hamburger menu too" ask,
+   which only exists as a menu below the mobile breakpoint -- see the
+   @media (max-width: 700px) block further down for the visible styling. */
+.nav-account-slot { display: none; }
+
 .header-actions { display: flex; align-items: center; gap: 14px; }
 
 .theme-toggle {
@@ -872,4 +880,25 @@ a.comment-author:hover { text-decoration: underline; }
   .site-nav a.is-active { background: rgba(0, 0, 0, 0.1); font-weight: 900; }
   .nav-toggle { display: block; }
   .cart-drawer { width: 100%; }
+
+  .nav-account-slot {
+    display: block;
+    margin-top: 10px; padding-top: 14px;
+    border-top: 2px dashed rgba(0, 0, 0, 0.15);
+  }
+  :root[data-theme="dark"] .nav-account-slot { border-top-color: rgba(255, 255, 255, 0.15); }
+  .nav-account-line {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 10px 24px; font-weight: bold; color: var(--text-dark) !important; text-decoration: none;
+  }
+  .nav-account-avatar {
+    width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; color: #fff;
+    font-family: "Bebas Neue", sans-serif; font-size: 0.75rem;
+  }
+  .nav-account-logout {
+    display: block; margin: 0 auto; padding: 4px 20px; border: none; background: none;
+    font-size: 0.8rem; font-weight: bold; color: var(--text-muted);
+  }
+  .nav-account-logout:hover { color: var(--accent-red); }
 }

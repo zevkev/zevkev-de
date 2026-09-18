@@ -1,7 +1,7 @@
 // Login/signup modal + the header's logged-in/out state. Reuses the site's
 // existing .cart-backdrop/.qv-panel/.qv-close modal chrome (same pattern as
 // the YouTube/Twitch video modals) rather than inventing a new one.
-import { auth, onAuthChange, signUpWithEmail, signInWithEmail, signInWithGoogle, authErrorMessage, parseAvatarPrefs, avatarContentHTML } from "./auth.js";
+import { auth, onAuthChange, signUpWithEmail, signInWithEmail, signInWithGoogle, signOutUser, authErrorMessage, parseAvatarPrefs, avatarContentHTML } from "./auth.js";
 
 function personIcon() {
   return `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>`;
@@ -16,10 +16,36 @@ function escapeHTML(str) {
 
 function accountSlotHTML(user) {
   if (!user) {
-    return `<button class="account-button" id="account-open" aria-label="Anmelden" type="button">${personIcon()}</button>`;
+    // Points at the dedicated /login/ page (better styling control on
+    // larger devices than the modal, per the explicit ask) rather than
+    // opening the modal -- the modal itself stays in service only for
+    // js/comments.js's inline prompt and the account page's own gate,
+    // where navigating away would lose context (a draft comment, or just
+    // be a pointless extra hop since /account/ already shows a gate).
+    const next = encodeURIComponent(location.pathname + location.search);
+    return `<a class="account-button" href="/login/?next=${next}" aria-label="Anmelden">${personIcon()}</a>`;
   }
   const name = user.displayName || user.email?.split("@")[0] || "Account";
   return `<a class="account-avatar" href="/account/" style="background:${parseAvatarPrefs(user).color}" aria-label="Mein Konto (${escapeHTML(name)})" title="${escapeHTML(name)}">${avatarContentHTML(user, 18)}</a>`;
+}
+
+// The persistent header-actions bar (#account-slot above) is already
+// visible on every viewport without opening the hamburger menu, but the
+// collapsed drawer itself carried no login-state cue at all -- this is
+// the explicit "auch im Hamburger-Menü sehen" ask, a small addition
+// alongside that bar rather than a replacement for it.
+function navAccountSlotHTML(user) {
+  if (!user) {
+    const next = encodeURIComponent(location.pathname + location.search);
+    return `<a href="/login/?next=${next}" class="nav-account-line">Anmelden</a>`;
+  }
+  const name = user.displayName || user.email?.split("@")[0] || "Account";
+  return `
+  <a href="/account/" class="nav-account-line">
+    <span class="nav-account-avatar" style="background:${parseAvatarPrefs(user).color}">${avatarContentHTML(user, 14)}</span>
+    Angemeldet als ${escapeHTML(name)}
+  </a>
+  <button type="button" class="nav-account-logout" id="nav-account-logout">Abmelden</button>`;
 }
 
 function modalHTML() {
@@ -136,17 +162,25 @@ export const openAuthModal = openModal;
 
 function renderAccountSlot(user) {
   const slot = document.getElementById("account-slot");
-  if (!slot) return;
-  slot.innerHTML = accountSlotHTML(user);
-  document.getElementById("account-open")?.addEventListener("click", openModal);
+  if (slot) slot.innerHTML = accountSlotHTML(user);
+
+  const navSlot = document.getElementById("nav-account-slot");
+  if (navSlot) {
+    navSlot.innerHTML = navAccountSlotHTML(user);
+    document.getElementById("nav-account-logout")?.addEventListener("click", () => signOutUser());
+  }
 }
 
 // Mounted once per page load (see js/layout.js's mountLayout()) — keeps the
-// header's login button / account avatar in sync with the real auth state,
-// including the very first render (onAuthChange fires immediately with the
-// current user, same contract as Firebase's own listener).
+// header's login button/account avatar AND the hamburger drawer's own
+// login-state line in sync with the real auth state, including the very
+// first render (onAuthChange fires immediately with the current user, same
+// contract as Firebase's own listener). #nav-account-slot is in every
+// page's header (js/layout.js's headerHTML(), unconditional -- unlike
+// #account-slot, which is only added on video/account pages), so this now
+// mounts everywhere rather than early-returning on pages without it.
 export function mountAccountUI() {
-  if (!document.getElementById("account-slot")) return;
+  if (!document.getElementById("account-slot") && !document.getElementById("nav-account-slot")) return;
   onAuthChange(renderAccountSlot);
 }
 

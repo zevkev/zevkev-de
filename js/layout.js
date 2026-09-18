@@ -58,6 +58,7 @@ function headerHTML(isShop, showAccount) {
       </a>
       <nav class="site-nav" id="site-nav">
         ${NAV.map((n) => `<a href="${n.href}" data-nav="${n.label}"${n.href === "/vods/" ? " data-twitch-optional" : ""}>${n.label}</a>`).join("")}
+        <div class="nav-account-slot" id="nav-account-slot"></div>
       </nav>
       <div class="header-actions" id="header-actions">
         <button class="theme-toggle" id="theme-toggle" aria-label="Dunkles Design umschalten" type="button">${themeIconHTML()}</button>
@@ -192,7 +193,12 @@ export async function mountLayout() {
   if (footerSlot) footerSlot.outerHTML = footerHTML();
 
   mountConsentBanner();
-  if (showAccount) import("/js/auth-ui.js").then(({ mountAccountUI }) => mountAccountUI());
+  // Unconditional (unlike the header's own #account-slot chip above, still
+  // deliberately scoped to showAccount per the comment there) -- the
+  // hamburger drawer's #nav-account-slot is now in every page's header, so
+  // login state shows up in the menu everywhere, even on pages where the
+  // persistent header chip itself stays hidden as not relevant there.
+  import("/js/auth-ui.js").then(({ mountAccountUI }) => mountAccountUI());
   mountOwnerNav();
   document.getElementById("cookie-settings-link")?.addEventListener("click", async (ev) => {
     ev.preventDefault();

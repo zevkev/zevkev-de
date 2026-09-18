@@ -1,0 +1,17 @@
+/* Login-page-only additions (/login/). Reuses the .auth-* form styling
+   already shared with the header's login modal (css/style.css) as-is --
+   only the card wrapper here is new. */
+.login-container { display: flex; justify-content: center; padding: 20px 0; }
+
+.login-card {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  padding: 40px 36px 44px;
+  box-sizing: border-box;
+  margin: 20px auto;
+}
+
+@media (max-width: 480px) {
+  .login-card { padding: 32px 22px 36px; }
+}
