@@ -51,18 +51,26 @@
 <div class="page-body">
   <div class="container" style="display:flex; flex-direction:column; align-items:center;">
 
-    <h2 class="yt-section-title" data-twitch-only>Die neusten Streams</h2>
-    <div class="vod-section-head" id="twitch-archive-head" data-twitch-only></div>
-    <div class="vod-row" id="twitch-vod-row" data-twitch-only></div>
+    <!-- .yt-library/.scissor-line: the same paper-sheet card + torn-edge
+         divider already used on youtube/index.html for its lower section
+         (css/youtube.css is already loaded here for .yt-section-title, so
+         this reuses that exact styling instead of duplicating it). -->
+    <div class="yt-library">
+      <div class="scissor-line" aria-hidden="true"></div>
 
-    <div id="twitch-spotlight-wrap" data-twitch-only>
-      <h2 class="yt-section-title">Aus dem Archiv</h2>
-      <div class="vod-row vod-row--accent" id="twitch-spotlight-row"></div>
+      <h2 class="yt-section-title" data-twitch-only>Die neusten Streams</h2>
+      <div class="vod-section-head" id="twitch-archive-head" data-twitch-only></div>
+      <div class="vod-row" id="twitch-vod-row" data-twitch-only></div>
+
+      <div id="twitch-spotlight-wrap" data-twitch-only>
+        <h2 class="yt-section-title">Aus dem Archiv</h2>
+        <div class="vod-row vod-row--accent" id="twitch-spotlight-row"></div>
+      </div>
+
+      <h2 class="yt-section-title">Vom YouTube VOD Kanal (ZevKev+)</h2>
+      <div class="vod-section-head" id="vod-section-head"></div>
+      <div class="vod-grid" id="vod-grid"></div>
     </div>
-
-    <h2 class="yt-section-title">Vom YouTube VOD Kanal (ZevKev+)</h2>
-    <div class="vod-section-head" id="vod-section-head"></div>
-    <div class="vod-grid" id="vod-grid"></div>
 
   </div>
 </div>
