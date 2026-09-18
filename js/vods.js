@@ -17,6 +17,32 @@ const twitchSpotlightRow = document.getElementById("twitch-spotlight-row");
 const twitchArchiveHead = document.getElementById("twitch-archive-head");
 const twitchVodRow = document.getElementById("twitch-vod-row");
 
+// Same technique as js/youtube.js's own initHeroScrollObserver (not shared
+// code -- each page's hero has a different sentinel id/scrolled class, kept
+// separate on purpose per css/youtube.css's own file-header note about not
+// leaking that page's polish onto this one). The nav (mounted by
+// js/layout.js into #site-header, untouched here) floats as a transparent
+// bar directly over the hero -- see the .vods-page rules in css/vods.css --
+// and only gains its normal solid paper background once the hero has
+// actually scrolled past it. #vod-hero-sentinel sits right at that
+// boundary; watching it (rather than a raw scroll-position number) stays
+// correct even if the hero's own height changes across breakpoints (e.g.
+// the 980px layout switch to a stacked player+chat column).
+function initHeroScrollObserver() {
+  const sentinel = document.getElementById("vod-hero-sentinel");
+  if (!sentinel) return;
+  if (!("IntersectionObserver" in window)) {
+    document.body.classList.add("vods-scrolled");
+    return;
+  }
+  const headerH = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--header-h"), 10) || 72;
+  const io = new IntersectionObserver(
+    ([entry]) => document.body.classList.toggle("vods-scrolled", !entry.isIntersecting),
+    { rootMargin: `-${headerH}px 0px 0px 0px`, threshold: 0 }
+  );
+  io.observe(sentinel);
+}
+
 function starIcon(filled) {
   return `<svg viewBox="0 0 24 24" width="18" height="18" fill="${filled ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.8"><path d="M12 3.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z" stroke-linejoin="round"/></svg>`;
 }
@@ -748,6 +774,9 @@ function renderTwitchArchive(vods, featuredId) {
 }
 
 async function init() {
+  // Doesn't depend on the feed, so it's wired up immediately rather than
+  // waiting on the fetch below -- same reasoning as js/youtube.js's init().
+  initHeroScrollObserver();
   renderSkeletons();
 
   if (TWITCH_ENABLED) {

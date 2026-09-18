@@ -10,25 +10,42 @@
    .rip torn-edge language throughout — no purple, no glass, no neon. */
 
 /* ---------- Nav floats over the hero ----------
-   .site-header is already position:fixed (see style.css) so it already
-   overlays whatever sits at the very top of the page -- it just needs to
-   read as a translucent floating bar instead of the site's normal opaque
-   chrome while it's doing that job. Scoped to body.vods-page (set in
-   vods/index.html) so this never leaks onto any other page that happens to
-   load a fixed header of its own. Specificity note: :root[data-theme="dark"]
-   .site-header in style.css outweighs a plain .vods-page .site-header rule,
-   so the dark-mode variant below is written to match/beat it rather than
-   relying on cascade order. */
-.vods-page .site-header {
-  background-color: rgba(253, 251, 245, 0.62);
+   Matches css/youtube.css's own body.yt-page treatment exactly (same
+   pattern, kept as a separate scoped copy rather than shared rules -- see
+   that file's own header comment on why its rules stay scoped to yt-page
+   only): fully transparent while sitting over the hero, gaining the site's
+   normal solid header only once js/vods.js's scroll observer adds
+   .vods-scrolled (mirrors js/youtube.js's own .yt-scrolled). Previously this
+   was an always-on frosted-glass blur regardless of scroll position, which
+   read as a different, less bold treatment than the YouTube page's fully
+   transparent one -- this brings the two in line. */
+.vods-page .site-header { transition: background-color 0.25s ease, box-shadow 0.25s ease; }
+.vods-page:not(.vods-scrolled) .site-header {
+  background-color: transparent;
   background-image: none;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(10px) saturate(1.3);
-  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
-:root[data-theme="dark"] .vods-page .site-header {
-  background-color: rgba(30, 33, 40, 0.62);
+.vods-page:not(.vods-scrolled) .site-logo,
+.vods-page:not(.vods-scrolled) .theme-toggle,
+.vods-page:not(.vods-scrolled) .nav-toggle {
+  color: #fff !important;
 }
+@media (min-width: 701px) {
+  .vods-page:not(.vods-scrolled) .site-nav a { color: #fff !important; }
+  .vods-page:not(.vods-scrolled) .site-nav a:hover { background: rgba(255, 255, 255, 0.15); }
+}
+.vods-page:not(.vods-scrolled) .nav-toggle span,
+.vods-page:not(.vods-scrolled) .nav-toggle span::before,
+.vods-page:not(.vods-scrolled) .nav-toggle span::after {
+  background: #fff;
+}
+.vods-page:not(.vods-scrolled) .theme-toggle { border-color: rgba(255, 255, 255, 0.4); }
+/* #account-slot's avatar chip already carries its own solid colored
+   circle background (see css/style.css/.account-avatar) regardless of
+   theme, so -- same as youtube.css's identical scope -- it needs no
+   override here to stay legible over the transparent nav. */
 
 /* The hero (below) already clears the fixed header itself -- it sits full
    height starting at the very top of the page, with the translucent nav
@@ -58,6 +75,23 @@
    .player-wrap--live/--twitch/--youtube below) are unchanged, just resized. */
 .vod-hero-player .player-wrap { position: absolute; inset: 0; aspect-ratio: auto; width: 100%; height: 100%; }
 .vod-hero-player .player-empty { display: flex; align-items: center; justify-content: center; }
+/* Same top-fade as css/youtube.css's .yt-hero-scrim (there covering a full
+   thumbnail image; here only the top band, since the bottom already gets
+   its own gradient from .vod-hero-status) -- needed now that the nav floats
+   fully transparent over this hero (see the .vods-page rules above): an
+   arbitrary, unpredictably-bright video frame could otherwise sit directly
+   behind white nav text/icons with no guaranteed contrast. Kept above the
+   player content (z-index 1, .player-wrap has none/auto) but pointer-events
+   none so it never blocks clicking/hovering the actual player controls. */
+.vod-hero-player::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 130px;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(6, 9, 15, 0.6) 0%, rgba(6, 9, 15, 0) 100%);
+}
 
 /* The chat panel becomes a paper note pinned beside the screen: inset from
    the hero's top/right/bottom edges (so the mat texture shows through
@@ -513,6 +547,9 @@
      16/9 just shows more of the player's own black letterbox background,
      not a stretched/cropped video. */
   .vod-hero-player { flex: none; width: 100%; aspect-ratio: 16 / 9; min-height: 230px; }
+  /* Shorter than the desktop 130px band -- on a ~230-260px-tall mobile
+     player the full-size band would cover close to half of it. */
+  .vod-hero-player::before { height: 80px; }
   .vod-hero-chat { flex: none; width: 100%; margin: 16px; }
   .vod-hero-chat .chat-panel, .vod-hero-chat .chat-skeleton { height: 420px; }
   .vod-hero-status { padding: 30px 18px 16px; }

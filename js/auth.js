@@ -26,8 +26,14 @@ const app = initializeApp(FIREBASE_CONFIG);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
+// Case/whitespace-normalized on both sides -- Firebase's own token claim is
+// already exactly what was used to sign up/in, so this is defensive rather
+// than fixing a known mismatch, but it costs nothing and this is the one
+// check every moderation/admin surface (this file's own comment-delete
+// bypass, /privat/, the users-collection ban/delete actions) ultimately
+// depends on, so it's worth not being fragile about.
 export function isOwner(user) {
-  return !!user && user.email === OWNER_EMAIL;
+  return !!user && String(user.email || "").trim().toLowerCase() === OWNER_EMAIL.trim().toLowerCase();
 }
 
 // Deterministic per-account color -- derived from the uid itself rather than
