@@ -77,6 +77,53 @@
 }
 .account-name-saved.is-visible { opacity: 1; }
 
+.account-avatar-edit-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 10px; padding: 0; border: none; background: none;
+  font-size: 0.8rem; font-weight: bold; color: var(--text-muted);
+  transition: color 0.2s ease;
+}
+.account-avatar-edit-btn:hover { color: var(--text-dark); }
+
+/* A sibling of .account-profile in the markup (not a child) -- deliberately,
+   so it always sits on its own full-width line below the whole profile row
+   regardless of viewport width, instead of becoming a 4th flex item
+   squeezed into that row's layout (or needing its own width/wrap logic to
+   avoid that). */
+.account-avatar-picker {
+  width: 100%;
+  max-width: 640px;
+  margin: 14px auto 0;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 8px;
+}
+:root[data-theme="dark"] .account-avatar-picker { background: rgba(255, 255, 255, 0.05); }
+.account-picker-label { margin: 0 0 8px; font-size: 0.78rem; font-weight: bold; color: var(--text-muted); }
+.account-picker-label:not(:first-child) { margin-top: 16px; }
+
+.account-swatch-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.account-swatch {
+  width: 34px; height: 34px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.6);
+  display: flex; align-items: center; justify-content: center; color: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.account-swatch:hover { transform: scale(1.1); }
+.account-swatch.is-active { border-color: var(--text-dark); }
+
+.account-icon-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.account-icon-choice {
+  width: 38px; height: 38px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--paper); border: 2px solid rgba(0, 0, 0, 0.12); color: var(--text-dark);
+  font-family: "Bebas Neue", sans-serif; font-size: 1.1rem;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.2s ease;
+}
+:root[data-theme="dark"] .account-icon-choice { border-color: rgba(255, 255, 255, 0.16); }
+.account-icon-choice:hover { transform: scale(1.1); }
+.account-icon-choice.is-active { border-color: var(--twitch-purple); border-width: 2px; }
+
 /* #account-wl-grid reuses .vod-grid (vods.css) as-is at desktop widths, but
    that class's minmax(280px, 1fr) track minimum is genuinely too tight for
    this page: .yt-library's own padding leaves only ~300px of content width

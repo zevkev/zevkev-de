@@ -1,7 +1,7 @@
 // Account page (/account/): profile (avatar + rename), watchlist overview,
 // and account deletion. Owner-agnostic -- any signed-in visitor sees their
 // own account here, not just kevlevin.zev@gmail.com (that's /privat/'s job).
-import { auth, onAuthChange, updateDisplayName, deleteAccount, avatarColorFor, signOutUser, authErrorMessage } from "./auth.js";
+import { auth, onAuthChange, updateDisplayName, deleteAccount, signOutUser, authErrorMessage, AVATAR_COLORS, AVATAR_ICONS, parseAvatarPrefs, avatarContentHTML, updateAvatarPrefs } from "./auth.js";
 import { getWatchlistIds, toggleWatchlistId } from "./user-data.js";
 
 function escapeHTML(str) {
@@ -49,11 +49,18 @@ function gateHTML() {
   </div>`;
 }
 
+function editIcon() {
+  return `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
+}
+function checkIcon() {
+  return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`;
+}
+
 function profileHTML(user) {
   const name = user.displayName || user.email?.split("@")[0] || "Account";
-  const letter = name.trim().charAt(0).toUpperCase() || "?";
+  const prefs = parseAvatarPrefs(user);
   return `
-  <div class="account-avatar-lg" style="background:${avatarColorFor(user.uid)}">${escapeHTML(letter)}</div>
+  <div class="account-avatar-lg" id="account-avatar-lg" style="background:${prefs.color}">${avatarContentHTML(user, 34)}</div>
   <div class="account-info">
     <form class="account-name-form" id="account-name-form">
       <label for="account-name-input">Username</label>
@@ -65,15 +72,32 @@ function profileHTML(user) {
       <p class="account-name-saved" id="account-name-saved">Gespeichert.</p>
     </form>
     <p class="account-email">${escapeHTML(user.email || "")}</p>
+    <button type="button" class="account-avatar-edit-btn" id="account-avatar-edit-btn">${editIcon()}Avatar anpassen</button>
   </div>
   <button type="button" class="account-logout" id="account-logout-btn" aria-label="Abmelden" title="Abmelden">${logoutIcon()}</button>`;
+}
+
+function avatarPickerHTML(user) {
+  const prefs = parseAvatarPrefs(user);
+  const swatches = AVATAR_COLORS.map(
+    (c) => `<button type="button" class="account-swatch${c === prefs.color ? " is-active" : ""}" data-color="${c}" style="background:${c}" aria-label="Farbe ${c}">${c === prefs.color ? checkIcon() : ""}</button>`
+  ).join("");
+  const iconBtn = (key, svgInner, active) =>
+    `<button type="button" class="account-icon-choice${active ? " is-active" : ""}" data-icon="${key}" aria-label="${key}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">${svgInner}</svg></button>`;
+  const letterBtn = `<button type="button" class="account-icon-choice${!prefs.icon ? " is-active" : ""}" data-icon="" aria-label="Buchstabe">${escapeHTML((user.displayName || user.email || "?").trim().charAt(0).toUpperCase())}</button>`;
+  const iconButtons = letterBtn + Object.entries(AVATAR_ICONS).map(([key, svg]) => iconBtn(key, svg, prefs.icon === key)).join("");
+  return `
+  <p class="account-picker-label">Farbe</p>
+  <div class="account-swatch-row">${swatches}</div>
+  <p class="account-picker-label">Symbol</p>
+  <div class="account-icon-row">${iconButtons}</div>`;
 }
 
 function dangerHTML() {
   return `
   <div class="account-danger-box">
     <h2 class="yt-section-title" style="margin-top:0;">Konto löschen</h2>
-    <p>Löscht dein Konto, deinen reservierten Username und deine Watchlist dauerhaft. Bereits geschriebene Kommentare bleiben stehen (können aber weiterhin von dir oder ZevKev entfernt werden). Das kann nicht rückgängig gemacht werden.</p>
+    <p>Löscht dein Konto, deinen reservierten Username, deine Watchlist und alle deine Kommentare dauerhaft. Das kann nicht rückgängig gemacht werden.</p>
     <p class="auth-error" id="account-delete-error"></p>
     <button type="button" class="p-btn rip" id="account-delete-btn">Konto endgültig löschen</button>
   </div>`;
@@ -171,6 +195,42 @@ function wireProfile(user) {
   });
 
   document.getElementById("account-logout-btn")?.addEventListener("click", () => signOutUser());
+
+  const picker = document.getElementById("account-avatar-picker");
+  document.getElementById("account-avatar-edit-btn")?.addEventListener("click", () => {
+    const open = picker.style.display !== "none";
+    if (open) {
+      picker.style.display = "none";
+      return;
+    }
+    picker.innerHTML = avatarPickerHTML(user);
+    picker.style.display = "";
+    wireAvatarPicker(user);
+  });
+}
+
+async function applyAvatarPrefs(color, iconKey) {
+  await updateAvatarPrefs(color, iconKey);
+  // #account-avatar-picker is a sibling of #account-profile, not one of its
+  // children, so renderProfile() (which only replaces #account-profile's
+  // own innerHTML) leaves the open panel alone -- just needs its swatch/
+  // icon highlight refreshed to match the newly-applied pick.
+  renderProfile(auth.currentUser);
+  const picker = document.getElementById("account-avatar-picker");
+  picker.innerHTML = avatarPickerHTML(auth.currentUser);
+  wireAvatarPicker(auth.currentUser);
+  const { refreshAccountSlot } = await import("./auth-ui.js");
+  refreshAccountSlot();
+}
+
+function wireAvatarPicker(user) {
+  const prefs = parseAvatarPrefs(user);
+  document.querySelectorAll("#account-avatar-picker .account-swatch").forEach((btn) => {
+    btn.addEventListener("click", () => applyAvatarPrefs(btn.dataset.color, prefs.icon));
+  });
+  document.querySelectorAll("#account-avatar-picker .account-icon-choice").forEach((btn) => {
+    btn.addEventListener("click", () => applyAvatarPrefs(prefs.color, btn.dataset.icon || null));
+  });
 }
 
 function renderProfile(user) {

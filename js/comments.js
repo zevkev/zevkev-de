@@ -4,7 +4,7 @@
 // updates its own local copy optimistically after every post/edit/delete/
 // report instead of re-querying, so a full comment thread costs exactly one
 // read no matter how much someone does on the page.
-import { auth, db, isOwner, canPost, onAuthChange, resendVerificationEmail, refreshUser } from "./auth.js";
+import { auth, db, isOwner, canPost, onAuthChange, resendVerificationEmail, refreshUser, parseAvatarPrefs, avatarColorFor, AVATAR_ICONS } from "./auth.js";
 import { trackEvent } from "./track.js";
 import {
   collection,
@@ -104,9 +104,23 @@ function actionsHTML(c, isReply) {
   return parts.join("");
 }
 
+// Older comments (posted before authorAvatarColor/authorAvatarIcon existed)
+// fall back to the same uid-hash color every other unset-avatar visitor
+// gets, so they still render a sensible circle instead of a missing/blank
+// one -- never a Firestore lookup, see postComment's own comment on why.
+function commentAvatarHTML(c) {
+  const color = c.authorAvatarColor || avatarColorFor(c.authorId || "");
+  const iconPath = c.authorAvatarIcon && AVATAR_ICONS[c.authorAvatarIcon];
+  const inner = iconPath
+    ? `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">${iconPath}</svg>`
+    : escapeHTML((c.authorName || "?").trim().charAt(0).toUpperCase() || "?");
+  return `<span class="comment-avatar" style="background:${color}">${inner}</span>`;
+}
+
 function commentBodyHTML(c) {
   return `
     <div class="comment-head">
+      ${commentAvatarHTML(c)}
       <span class="comment-author">${escapeHTML(c.authorName || "Anonym")}</span>
       <span class="comment-time">${formatTimestamp(c.createdAt)}</span>
       ${c.editedAt ? `<span class="comment-edited-note">(bearbeitet)</span>` : ""}
@@ -302,11 +316,20 @@ async function postComment(text, parentId) {
   if (!user) return false;
   try {
     const finalText = censor(text);
+    // Avatar prefs are copied onto the comment at post time, same reasoning
+    // as authorName already being copied rather than looked up live: there's
+    // no way to fetch *another* visitor's Auth profile (photoURL) from the
+    // client, so a comment card can only ever show what its own author had
+    // set when they wrote it -- exactly like authorName already only ever
+    // reflects the name at posting time, not any later rename.
+    const prefs = parseAvatarPrefs(user);
     const ref = await addDoc(collection(db, "comments"), {
       videoId: currentVideoId,
       parentId: parentId || null,
       authorId: user.uid,
       authorName: user.displayName || user.email?.split("@")[0] || "Anonym",
+      authorAvatarColor: prefs.color,
+      authorAvatarIcon: prefs.icon,
       text: finalText,
       createdAt: serverTimestamp(),
     });
@@ -316,6 +339,8 @@ async function postComment(text, parentId) {
       parentId: parentId || null,
       authorId: user.uid,
       authorName: user.displayName || user.email?.split("@")[0] || "Anonym",
+      authorAvatarColor: prefs.color,
+      authorAvatarIcon: prefs.icon,
       text: finalText,
       createdAt: Date.now(),
     });

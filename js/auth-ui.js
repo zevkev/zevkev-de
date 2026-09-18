@@ -1,7 +1,7 @@
 // Login/signup modal + the header's logged-in/out state. Reuses the site's
 // existing .cart-backdrop/.qv-panel/.qv-close modal chrome (same pattern as
 // the YouTube/Twitch video modals) rather than inventing a new one.
-import { auth, onAuthChange, signUpWithEmail, signInWithEmail, signInWithGoogle, authErrorMessage, avatarColorFor } from "./auth.js";
+import { auth, onAuthChange, signUpWithEmail, signInWithEmail, signInWithGoogle, authErrorMessage, parseAvatarPrefs, avatarContentHTML } from "./auth.js";
 
 function personIcon() {
   return `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>`;
@@ -19,8 +19,7 @@ function accountSlotHTML(user) {
     return `<button class="account-button" id="account-open" aria-label="Anmelden" type="button">${personIcon()}</button>`;
   }
   const name = user.displayName || user.email?.split("@")[0] || "Account";
-  const letter = name.trim().charAt(0).toUpperCase() || "?";
-  return `<a class="account-avatar" href="/account/" style="background:${avatarColorFor(user.uid)}" aria-label="Mein Konto (${escapeHTML(name)})" title="${escapeHTML(name)}">${escapeHTML(letter)}</a>`;
+  return `<a class="account-avatar" href="/account/" style="background:${parseAvatarPrefs(user).color}" aria-label="Mein Konto (${escapeHTML(name)})" title="${escapeHTML(name)}">${avatarContentHTML(user, 18)}</a>`;
 }
 
 function modalHTML() {

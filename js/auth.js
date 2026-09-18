@@ -18,7 +18,7 @@ import {
   sendEmailVerification,
   deleteUser,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, doc, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore, doc, deleteDoc, runTransaction, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { FIREBASE_CONFIG, OWNER_EMAIL } from "./firebase-config.js";
 import { trackEvent } from "./track.js";
 
@@ -34,11 +34,69 @@ export function isOwner(user) {
 // rolled once and stored, so it's free (no extra Firestore read/write, ever
 // available instantly) while still being exactly as "persisted per account"
 // as a stored value would be: the same uid always hashes to the same color.
-const AVATAR_PALETTE = ["#e07856", "#5b8c5a", "#4a7c9e", "#9b6b9e", "#c9a227", "#3f9c8f", "#c1548a", "#6b7fd7", "#d4823f", "#4f9d6e"];
+// Used as the fallback whenever a visitor hasn't picked their own color yet
+// (see parseAvatarPrefs below) -- also the selectable swatch list on the
+// account page's "Avatar anpassen" picker.
+export const AVATAR_COLORS = ["#e07856", "#5b8c5a", "#4a7c9e", "#9b6b9e", "#c9a227", "#3f9c8f", "#c1548a", "#6b7fd7", "#d4823f", "#4f9d6e"];
 export function avatarColorFor(uid) {
   let hash = 0;
   for (let i = 0; i < uid.length; i++) hash = (hash * 31 + uid.charCodeAt(i)) >>> 0;
-  return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+
+// A small curated icon library a visitor can pick instead of their plain
+// initial letter -- keyed by name so only the short key (not the SVG
+// markup) needs to round-trip through photoURL below. Plain stroke paths,
+// same 24x24/stroke-width:1.8-2 convention as this codebase's other icons.
+export const AVATAR_ICONS = {
+  star: '<path d="M12 3.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z" stroke-linejoin="round"/>',
+  heart: '<path d="M12 20s-6.5-4.2-9-8.2C1 8.4 2.5 5 6 5c2 0 3.5 1.1 4.5 2.6C11.5 6.1 13 5 15 5c3.5 0 5 3.4 3 6.8-2.5 4-9 8.2-9 8.2z" stroke-linejoin="round"/>',
+  ghost: '<path d="M12 3c-4 0-7 3-7 7v9l2.5-2 2 2 2.5-2 2.5 2 2-2 2.5 2v-9c0-4-3-7-7-7z" stroke-linejoin="round"/><circle cx="9.5" cy="10.5" r="1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="10.5" r="1" fill="currentColor" stroke="none"/>',
+  trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0V4z"/><path d="M8 5H5a3 3 0 0 0 3 5M16 5h3a3 3 0 0 1-3 5"/><path d="M12 13v4M9 20h6M10 17h4"/>',
+  flame: '<path d="M12 2c1 3-3 4-3 8a3 3 0 0 0 6 0c0-1-1-2-1-2 1 0 3 2 3 5a5 5 0 0 1-10 0c0-5 3-6 5-11z" stroke-linejoin="round"/>',
+  controller: '<rect x="2" y="7" width="20" height="11" rx="4"/><path d="M7 10.5v4M5 12.5h4M16 11h.01M19 13h.01"/>',
+  headset: '<path d="M4 13v-1a8 8 0 0 1 16 0v1"/><rect x="2" y="13" width="4" height="6" rx="1.5"/><rect x="18" y="13" width="4" height="6" rx="1.5"/>',
+  camera: '<path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.5"/>',
+};
+
+// Custom avatar color/icon is encoded into the Auth profile's own photoURL
+// field instead of a Firestore doc -- photoURL comes along for free on
+// every onAuthStateChanged/user object already loaded for displayName, so
+// this stays a zero-extra-read feature (this project deliberately keeps
+// Firestore reads minimal, see js/user-data.js/js/comments.js) rather than
+// adding a users/{uid} read to every page the header avatar appears on.
+// Not a real URL -- Firebase stores whatever string updateProfile() is
+// given without validating its shape, and nothing here ever loads it as an
+// image, so that's fine.
+function parseAvatarPrefs(user) {
+  const raw = user?.photoURL || "";
+  const m = /^avatar:color=([0-9a-fA-F]{6})(?:&icon=(\w+))?$/.exec(raw);
+  if (m) return { color: `#${m[1]}`, icon: m[2] && AVATAR_ICONS[m[2]] ? m[2] : null };
+  return { color: avatarColorFor(user?.uid || ""), icon: null };
+}
+export { parseAvatarPrefs };
+
+export async function updateAvatarPrefs(color, iconKey) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Nicht angemeldet.");
+  const hex = String(color || "").replace("#", "");
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) throw new Error("Ungültige Farbe.");
+  const photoURL = iconKey && AVATAR_ICONS[iconKey] ? `avatar:color=${hex}&icon=${iconKey}` : `avatar:color=${hex}`;
+  await updateProfile(user, { photoURL });
+}
+
+// Shared avatar-circle CONTENT (just the inner markup -- icon or letter,
+// not the wrapping element/size/background) so the header chip and the
+// account page's big avatar render identically instead of duplicating this
+// branch twice.
+export function avatarContentHTML(user, iconSize = 20) {
+  const { icon } = parseAvatarPrefs(user);
+  if (icon && AVATAR_ICONS[icon]) {
+    return `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">${AVATAR_ICONS[icon]}</svg>`;
+  }
+  const name = user?.displayName || user?.email?.split("@")[0] || "Account";
+  const letter = name.trim().charAt(0).toUpperCase() || "?";
+  return letter.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }
 
 // Usernames are reserved in their own top-level `usernames/{normalized}`
@@ -135,19 +193,21 @@ export async function updateDisplayName(newName) {
   await updateProfile(user, { displayName: trimmed });
 }
 
-// Permanently deletes the signed-in user's account: their reserved username,
-// their users/{uid} doc (watchlist/progress), and the Firebase Auth account
-// itself, in that order -- Firestore writes have to happen *before* the Auth
-// user is gone, since request.auth would be null (and every rule above
-// requires isSignedIn()) the instant deleteUser() resolves. Their existing
-// comments are deliberately left as-is (still moderatable by the owner via
-// /privat/) rather than mass-deleted, same reasoning a forum post staying up
-// after a account closes elsewhere -- deleting them here would just be
-// silent content loss for whoever was replying to that comment.
+// Permanently deletes the signed-in user's account: every comment they
+// wrote, their reserved username, their users/{uid} doc (watchlist/
+// progress), and the Firebase Auth account itself, in that order --
+// Firestore writes have to happen *before* the Auth user is gone, since
+// request.auth would be null (and every rule above requires isSignedIn())
+// the instant deleteUser() resolves. Comments rule allows delete when
+// request.auth.uid == resource.data.authorId, same as the single-comment
+// delete button already used elsewhere, just looped over every comment
+// this uid ever wrote instead of one at a time.
 export async function deleteAccount() {
   const user = auth.currentUser;
   if (!user) throw new Error("Nicht angemeldet.");
   const uid = user.uid;
+  const ownComments = await getDocs(query(collection(db, "comments"), where("authorId", "==", uid))).catch(() => null);
+  if (ownComments) await Promise.all(ownComments.docs.map((d) => deleteDoc(d.ref).catch(() => {})));
   const normalized = normalizeUsername(user.displayName);
   if (normalized) await deleteDoc(doc(db, "usernames", normalized)).catch(() => {});
   await deleteDoc(doc(db, "users", uid)).catch(() => {});
