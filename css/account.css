@@ -94,30 +94,38 @@
   width: 100%;
   max-width: 640px;
   margin: 14px auto 0;
-  padding: 16px;
+  padding: 22px 20px;
   background: rgba(0, 0, 0, 0.03);
   border-radius: 8px;
 }
 :root[data-theme="dark"] .account-avatar-picker { background: rgba(255, 255, 255, 0.05); }
-.account-picker-label { margin: 0 0 8px; font-size: 0.78rem; font-weight: bold; color: var(--text-muted); }
-.account-picker-label:not(:first-child) { margin-top: 16px; }
+.account-picker-label { margin: 0 0 10px; font-size: 0.78rem; font-weight: bold; color: var(--text-muted); }
+.account-picker-label:not(:first-child) { margin-top: 20px; }
 
-.account-swatch-row { display: flex; flex-wrap: wrap; gap: 10px; }
+/* max-height + overflow-y:auto -- the color/icon libraries grew well past
+   what a single unbounded flex-wrap row can show without pushing the rest
+   of the page far down (18 colors, 20+ icons and counting); this caps the
+   picker's own height and lets it scroll internally instead. Padding on the
+   row itself (not just the panel) keeps the hover scale(1.1) from clipping
+   against the scroll container's edge. */
+.account-swatch-row { display: flex; flex-wrap: wrap; gap: 12px; max-height: 168px; overflow-y: auto; padding: 4px 2px; }
 .account-swatch {
   width: 34px; height: 34px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.6);
   display: flex; align-items: center; justify-content: center; color: #fff;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
   transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 .account-swatch:hover { transform: scale(1.1); }
 .account-swatch.is-active { border-color: var(--text-dark); }
 
-.account-icon-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.account-icon-row { display: flex; flex-wrap: wrap; gap: 12px; max-height: 188px; overflow-y: auto; padding: 4px 2px; }
 .account-icon-choice {
   width: 38px; height: 38px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   background: var(--paper); border: 2px solid rgba(0, 0, 0, 0.12); color: var(--text-dark);
   font-family: "Bebas Neue", sans-serif; font-size: 1.1rem;
+  flex-shrink: 0;
   transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.2s ease;
 }
 :root[data-theme="dark"] .account-icon-choice { border-color: rgba(255, 255, 255, 0.16); }
@@ -176,4 +184,9 @@
   .account-name-form { text-align: left; }
   .account-name-row { flex-direction: column; }
   .account-name-row button { width: 100%; justify-content: center; }
+  /* Explicit block-level centering rather than relying on inherited
+     text-align -- .account-avatar-edit-btn is inline-flex, so margin:auto
+     alone wouldn't center it without also forcing a fit-content block box. */
+  .account-avatar-edit-btn { display: flex; width: fit-content; margin: 10px auto 0; }
+  .account-danger-box .p-btn { width: 100%; justify-content: center; }
 }

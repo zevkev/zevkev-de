@@ -49,8 +49,12 @@
   animation: fadeUp 0.5s ease both;
   position: relative;
 }
-.product-card:nth-child(3n + 2) { margin-top: 22px; }
-.product-card:nth-child(3n + 3) { margin-top: -8px; }
+/* No per-card vertical stagger here on purpose (there used to be an
+   :nth-child(3n+2)/:nth-child(3n+3) offset for a "scattered pinboard" look)
+   -- it assumed an exact 3-column row, which .product-grid's own
+   auto-fill/minmax(240px,1fr) track sizing doesn't guarantee (4 or 5 columns
+   on a wide desktop silently misaligns the stagger). A calm, evenly aligned
+   grid reads as consistent at every width instead. */
 .product-card:hover { transform: rotate(0deg) scale(1.035) translateY(-6px) !important; }
 .product-card:hover::before { box-shadow: var(--shadow-hover); }
 
@@ -257,6 +261,3 @@
   .product-info { padding: 26px 6px; }
 }
 
-@media (max-width: 640px) {
-  .product-card:nth-child(3n + 2), .product-card:nth-child(3n + 3) { margin-top: 0; }
-}

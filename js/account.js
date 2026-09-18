@@ -283,3 +283,10 @@ onAuthChange((user) => {
     loadWatchlist();
   }
 });
+
+// Covers signing up/in *while already sitting on this page* (via the shared
+// modal) -- see auth-ui.js's refreshAccountSlot for why a fresh signup's
+// displayName/avatar wouldn't otherwise show up here until a manual reload.
+window.addEventListener("zevkev:profile-refresh", () => {
+  if (auth.currentUser) renderProfile(auth.currentUser);
+});

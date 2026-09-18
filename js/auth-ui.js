@@ -115,6 +115,7 @@ function wireModal() {
     errorEl.textContent = "";
     try {
       await signInWithGoogle();
+      refreshAccountSlot();
       closeModal();
     } catch (err) {
       errorEl.textContent = authErrorMessage(err);
@@ -149,14 +150,20 @@ export function mountAccountUI() {
   onAuthChange(renderAccountSlot);
 }
 
-// signUpWithEmail's updateProfile(displayName) call (and account.js's own
-// rename) resolve *after* the auth state listener already fired once with
-// the old/no displayName -- profile field changes don't retrigger it, so
-// without this the header would keep showing the stale name/letter until
-// the next full reload. Reads auth.currentUser directly instead of waiting
-// on a listener event that will never come. Exported so account.js can
-// call it too, rather than re-subscribing via mountAccountUI() (which would
-// stack up a fresh onAuthChange listener on every rename).
+// signUpWithEmail's updateProfile(displayName/photoURL) call (a brand-new
+// Google sign-in's own photoURL seed, and account.js's own rename/avatar
+// changes) all resolve *after* the auth state listener already fired once
+// with the old/no displayName -- profile field changes don't retrigger it,
+// so without this the header would keep showing the stale name/letter/
+// avatar until the next full reload. Reads auth.currentUser directly
+// instead of waiting on a listener event that will never come.
+// Also dispatches a plain DOM event so *any* other currently-mounted page
+// (account.js's own #account-profile render, the future profile/login
+// pages) can react the same way without importing this module directly or
+// account.js/auth-ui.js needing to know about each other -- exported
+// mainly so callers that already have a reference can call it eagerly
+// (no event-loop delay), the event covers everything else.
 export function refreshAccountSlot() {
   renderAccountSlot(auth.currentUser);
+  window.dispatchEvent(new CustomEvent("zevkev:profile-refresh"));
 }

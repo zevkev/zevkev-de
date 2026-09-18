@@ -384,6 +384,24 @@ environment quirks worth knowing about before assuming something is broken:
    further; it's never been wrong. Don't conclude a fix didn't land
    just because the rendered page still shows the old text — check the
    served bytes directly first.
+   **Deeper variant found 2026-09-18**: a page's *already-executing*
+   top-level module side effects (e.g. a `window.addEventListener(...)`
+   registered once at module load) can keep running old logic even when
+   `fetch(url, {cache:'no-store'})` confirms the served bytes are already
+   correct, and even across a full preview-server restart + brand new
+   tab — the stale *instance* that already ran its top-level code doesn't
+   get replaced just because a later fetch/tab proves the file itself is
+   fixed. Confirmed via a real bug hunt (account.js's post-signup avatar
+   refresh silently using pre-edit logic for several restart+new-tab
+   cycles). The one thing that actually forced fresh top-level code to
+   run: `await import('/js/<file>.js?cb=' + Date.now())` — dynamically
+   re-importing the SPECIFIC page-controller module with a cache-busting
+   query from within the live page (via `javascript_tool`), which
+   re-executes its top-level side effects (new listeners etc.) in that
+   already-open tab. If a fix touches a file's top-level/module-load-time
+   code (not just a function body called fresh each time), and a normal
+   reload/new-tab/server-restart still shows old behavior despite correct
+   served bytes, try this before concluding the fix is broken.
 2. Screenshot pixel coordinates and `getBoundingClientRect()`/CSS-pixel
    coordinates were observed to NOT match 1:1 in at least one session
    (`window.innerWidth` reported 961 while screenshots rendered at 800px

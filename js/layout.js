@@ -107,6 +107,8 @@ function footerHTML() {
         <a href="/watchlist/" id="footer-watchlist-link">Watchlist</a>
         <a href="/impressum/">Impressum</a>
         <a href="/datenschutz/">Datenschutz</a>
+        <a href="/agb/">AGB</a>
+        <a href="/widerruf/">Widerrufsrecht</a>
         <a href="/kontakt/">Kontakt</a>
         <a href="#" id="cookie-settings-link">Cookie-Einstellungen</a>
       </div>

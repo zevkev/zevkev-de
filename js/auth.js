@@ -37,11 +37,28 @@ export function isOwner(user) {
 // Used as the fallback whenever a visitor hasn't picked their own color yet
 // (see parseAvatarPrefs below) -- also the selectable swatch list on the
 // account page's "Avatar anpassen" picker.
-export const AVATAR_COLORS = ["#e07856", "#5b8c5a", "#4a7c9e", "#9b6b9e", "#c9a227", "#3f9c8f", "#c1548a", "#6b7fd7", "#d4823f", "#4f9d6e"];
+export const AVATAR_COLORS = [
+  "#e07856", "#5b8c5a", "#4a7c9e", "#9b6b9e", "#c9a227", "#3f9c8f", "#c1548a", "#6b7fd7", "#d4823f", "#4f9d6e",
+  "#c0392b", "#16a085", "#8e44ad", "#2c3e8c", "#b8860b", "#d35d6e", "#556b2f", "#495867",
+];
 export function avatarColorFor(uid) {
   let hash = 0;
   for (let i = 0; i < uid.length; i++) hash = (hash * 31 + uid.charCodeAt(i)) >>> 0;
   return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+// Same hashing trick as avatarColorFor, over a *different* rolling multiplier
+// so a given uid's color pick and icon pick don't move in lockstep (two
+// accounts that land on the same color shouldn't also always land on the
+// same icon). Only used at account-creation time to seed a starting
+// color+icon combo -- see signUpWithEmail/signInWithGoogle -- not read live
+// like avatarColorFor's fallback, since parseAvatarPrefs' own icon:null
+// fallback (plain letter) stays the right behavior for any account that
+// predates this.
+function avatarIconFor(uid) {
+  let hash = 0;
+  for (let i = 0; i < uid.length; i++) hash = (hash * 17 + uid.charCodeAt(i) * 7) >>> 0;
+  const keys = Object.keys(AVATAR_ICONS);
+  return keys[hash % keys.length];
 }
 
 // A small curated icon library a visitor can pick instead of their plain
@@ -57,6 +74,18 @@ export const AVATAR_ICONS = {
   controller: '<rect x="2" y="7" width="20" height="11" rx="4"/><path d="M7 10.5v4M5 12.5h4M16 11h.01M19 13h.01"/>',
   headset: '<path d="M4 13v-1a8 8 0 0 1 16 0v1"/><rect x="2" y="13" width="4" height="6" rx="1.5"/><rect x="18" y="13" width="4" height="6" rx="1.5"/>',
   camera: '<path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.5"/>',
+  ferris: '<circle cx="12" cy="13" r="7.5"/><circle cx="12" cy="13" r="1.2" fill="currentColor" stroke="none"/><path d="M12 5.5v7.5M12 13l6.5-3.8M12 13l-6.5-3.8M12 13l6.5 3.8M12 13l-6.5 3.8M12 13v7.5"/><circle cx="12" cy="5.5" r="1" fill="currentColor" stroke="none"/><circle cx="18.5" cy="9.2" r="1" fill="currentColor" stroke="none"/><circle cx="18.5" cy="16.8" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="20.5" r="1" fill="currentColor" stroke="none"/><circle cx="5.5" cy="16.8" r="1" fill="currentColor" stroke="none"/><circle cx="5.5" cy="9.2" r="1" fill="currentColor" stroke="none"/>',
+  coaster: '<path d="M2.5 17.5c1.5-6 3.5-10 5.5-10s2 5 4 5 2-9 4.5-9 2.5 12 3.5 14" stroke-linejoin="round"/><circle cx="8" cy="9" r="1.2" fill="currentColor" stroke="none"/>',
+  ticket: '<path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1.3a1.4 1.4 0 0 0 0 2.8V14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1.9a1.4 1.4 0 0 0 0-2.8z" stroke-linejoin="round"/><path d="M14.5 6.5v9" stroke-dasharray="2 2"/>',
+  person: '<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7" stroke-linejoin="round"/>',
+  alien: '<path d="M12 3c-4 0-6.5 4-6.5 8.5 0 5 2.7 9.5 6.5 9.5s6.5-4.5 6.5-9.5C18.5 7 16 3 12 3z" stroke-linejoin="round"/><ellipse cx="9" cy="11.5" rx="1.3" ry="2.2" fill="currentColor" stroke="none"/><ellipse cx="15" cy="11.5" rx="1.3" ry="2.2" fill="currentColor" stroke="none"/>',
+  robot: '<rect x="5" y="8" width="14" height="12" rx="3"/><path d="M12 8V4M9 4h6"/><circle cx="9.5" cy="14" r="1.2" fill="currentColor" stroke="none"/><circle cx="14.5" cy="14" r="1.2" fill="currentColor" stroke="none"/><path d="M9 18h6" stroke-linecap="round"/>',
+  grin: '<circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/><path d="M7.5 14c1 1.6 3 2.2 4.5 2.2s3.5-.6 4.5-2.2" stroke-linejoin="round"/><path d="M11 16.2c0 1.6.5 3 1.4 3s1-1.4.8-2.4" stroke-linejoin="round"/>',
+  cat: '<path d="M6 9l1.7-4 3 3.2h2.6l3-3.2L18 9" stroke-linejoin="round"/><circle cx="12" cy="14" r="6"/><circle cx="9.3" cy="13.5" r="1" fill="currentColor" stroke="none"/><circle cx="14.7" cy="13.5" r="1" fill="currentColor" stroke="none"/><path d="M9.8 17c.9.8 3.5.8 4.4 0" stroke-linecap="round"/>',
+  dog: '<path d="M5 8c-1.2-2 0-4.3 2.1-4.1s1.7 2.4.6 4.4M19 8c1.2-2 0-4.3-2.1-4.1s-1.7 2.4-.6 4.4" stroke-linejoin="round"/><circle cx="12" cy="13.5" r="6"/><circle cx="9.5" cy="12.5" r="1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="12.5" r="1" fill="currentColor" stroke="none"/><path d="M10 16.5c.7.6 3.3.6 4 0" stroke-linecap="round"/>',
+  crown: '<path d="M4 18h16l-1.3-7.5-4 3.2L12 8l-2.7 5.7-4-3.2z" stroke-linejoin="round"/><path d="M4 18h16" stroke-linecap="round"/>',
+  rocket: '<path d="M12 2.5c3 2.3 4 6 4 9.5 0 2.2-1.1 4.3-4 6.3-2.9-2-4-4.1-4-6.3 0-3.5 1-7.2 4-9.5z" stroke-linejoin="round"/><circle cx="12" cy="10.5" r="1.5" fill="currentColor" stroke="none"/><path d="M8.5 15.5l-3 4.5M15.5 15.5l3 4.5M10.3 19.5l1.7 2 1.7-2" stroke-linecap="round" stroke-linejoin="round"/>',
+  pizza: '<path d="M12 3 3 20h18z" stroke-linejoin="round"/><circle cx="12" cy="12.5" r="1" fill="currentColor" stroke="none"/><circle cx="10" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="14" cy="16" r="1" fill="currentColor" stroke="none"/>',
 };
 
 // Custom avatar color/icon is encoded into the Auth profile's own photoURL
@@ -173,7 +202,12 @@ export async function signUpWithEmail(username, email, password) {
     await cred.user.delete().catch(() => {});
     throw err;
   }
-  await updateProfile(cred.user, { displayName: username });
+  // Seed a starting color+icon combo right away instead of leaving icon
+  // unset until a manual /account/ visit -- avatarColorFor's live fallback
+  // already gives every account a color for free, but never an icon, so two
+  // brand-new accounts could otherwise both show up as a plain "K" circle.
+  const hex = avatarColorFor(cred.user.uid).replace("#", "");
+  await updateProfile(cred.user, { displayName: username, photoURL: `avatar:color=${hex}&icon=${avatarIconFor(cred.user.uid)}` });
   // Fire-and-forget -- a failure here (rare: quota/network) shouldn't block
   // account creation itself. The comments UI offers its own "send again"
   // button (js/comments.js) for whenever this didn't arrive.
@@ -269,7 +303,16 @@ export async function signInWithGoogle() {
     const cred = await signInWithPopup(auth, provider);
     const isNewUser = !!getAdditionalUserInfo(cred)?.isNewUser;
     trackEvent(isNewUser ? "sign_up" : "login", { method: "google" });
-    if (isNewUser && cred.user.displayName) tryReserveUsername(cred.user.uid, cred.user.displayName);
+    if (isNewUser) {
+      if (cred.user.displayName) tryReserveUsername(cred.user.uid, cred.user.displayName);
+      // Overwrites Google's own real profile-photo URL with our own encoded
+      // avatar prefs -- parseAvatarPrefs only ever recognizes its own
+      // avatar:color=... format anyway (see its regex), so leaving Google's
+      // photoURL in place would just silently fall back to the plain-letter/
+      // hash-color combo like an email signup that never got seeded.
+      const hex = avatarColorFor(cred.user.uid).replace("#", "");
+      await updateProfile(cred.user, { photoURL: `avatar:color=${hex}&icon=${avatarIconFor(cred.user.uid)}` }).catch(() => {});
+    }
     return cred.user;
   } catch (err) {
     if (err?.code === "auth/popup-blocked" || err?.code === "auth/operation-not-supported-in-this-environment") {
@@ -286,11 +329,15 @@ export async function signInWithGoogle() {
 // on any normal page load that isn't a redirect return (nothing to do).
 export function consumeGoogleRedirect() {
   return getRedirectResult(auth)
-    .then((cred) => {
+    .then(async (cred) => {
       if (cred) {
         const isNewUser = !!getAdditionalUserInfo(cred)?.isNewUser;
         trackEvent(isNewUser ? "sign_up" : "login", { method: "google" });
-        if (isNewUser && cred.user.displayName) tryReserveUsername(cred.user.uid, cred.user.displayName);
+        if (isNewUser) {
+          if (cred.user.displayName) tryReserveUsername(cred.user.uid, cred.user.displayName);
+          const hex = avatarColorFor(cred.user.uid).replace("#", "");
+          await updateProfile(cred.user, { photoURL: `avatar:color=${hex}&icon=${avatarIconFor(cred.user.uid)}` }).catch(() => {});
+        }
       }
       return cred;
     })

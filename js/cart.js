@@ -98,11 +98,16 @@ function render() {
           <div class="cart-item-name">${name}</div>
           ${attrs ? `<div class="cart-item-attrs">${attrs}</div>` : ""}
           <div class="cart-item-meta">
-            ${qty > 1 ? `<span class="cart-item-qty">${qty} &times; ${unitPrice}</span>` : ""}
+            <div class="cart-item-stepper" role="group" aria-label="Menge">
+              <button type="button" class="cart-qty-btn" data-qty-dec="${v.id}" aria-label="Eins weniger" ${qty <= 1 ? "disabled" : ""}>&minus;</button>
+              <span class="cart-item-qty">${qty}</span>
+              <button type="button" class="cart-qty-btn" data-qty-inc="${v.id}" aria-label="Eins mehr">+</button>
+            </div>
+            <span class="cart-item-unit">${unitPrice} / Stk.</span>
             <span class="cart-item-total">${lineTotal}</span>
           </div>
         </div>
-        <button class="cart-item-remove" data-remove="${v.id}" aria-label="${name} entfernen" title="Entfernen">
+        <button class="cart-item-remove" data-remove="${v.id}" aria-label="${name} komplett entfernen" title="Komplett entfernen">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
         </button>
       </div>`;
@@ -116,6 +121,12 @@ function render() {
 
   items.querySelectorAll("[data-remove]").forEach((btn) => {
     btn.addEventListener("click", () => removeItem(btn.getAttribute("data-remove")));
+  });
+  items.querySelectorAll("[data-qty-inc]").forEach((btn) => {
+    btn.addEventListener("click", () => changeQuantity(btn.getAttribute("data-qty-inc"), 1));
+  });
+  items.querySelectorAll("[data-qty-dec]").forEach((btn) => {
+    btn.addEventListener("click", () => changeQuantity(btn.getAttribute("data-qty-dec"), -1));
   });
 }
 
@@ -159,6 +170,28 @@ async function addItem(variantId, quantity = 1) {
   } catch (err) {
     console.error("Add to cart failed:", err);
     showToast("Konnte nicht zum Warenkorb hinzugefügt werden.");
+  }
+}
+
+// Adjusts a single line's quantity by +-1 (the cart-item stepper buttons),
+// reusing the same itemsForUpdate()->FourthwallAPI.updateCart() diff path as
+// addItem/removeItem -- decrementing a qty:1 line to 0 drops it entirely,
+// same end result as clicking the trash icon.
+async function changeQuantity(variantId, delta) {
+  const id = localStorage.getItem(STORAGE_KEY);
+  if (!id || !state.cart) return;
+  const items = itemsForUpdate();
+  const match = items.find((it) => it.variantId === variantId);
+  if (!match) return;
+  const nextQty = match.quantity + delta;
+  const updated = nextQty > 0
+    ? items.map((it) => (it.variantId === variantId ? { ...it, quantity: nextQty } : it))
+    : items.filter((it) => it.variantId !== variantId);
+  try {
+    state.cart = await FourthwallAPI.updateCart(id, updated);
+    render();
+  } catch (err) {
+    console.error("Change quantity failed:", err);
   }
 }
 
