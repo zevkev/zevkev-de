@@ -14,4 +14,4 @@
 // set, analytics stays fully inactive (no script loads, no banner claims
 // tracking exists) so nothing here is ever half-configured in production.
 // ============================================================================
-export const GA_MEASUREMENT_ID = "G-XXXXXXXXXX";
+export const GA_MEASUREMENT_ID = "G-3SRT7NH4XK";
