@@ -4,7 +4,8 @@
 // updates its own local copy optimistically after every post/edit/delete/
 // report instead of re-querying, so a full comment thread costs exactly one
 // read no matter how much someone does on the page.
-import { auth, db, isOwner, canPost, onAuthChange, resendVerificationEmail } from "./auth.js";
+import { auth, db, isOwner, canPost, onAuthChange, resendVerificationEmail, refreshUser } from "./auth.js";
+import { trackEvent } from "./track.js";
 import {
   collection,
   query,
@@ -187,6 +188,7 @@ function wireCommentActions(root) {
         });
         reportedIds.add(id);
         render();
+        trackEvent("comment_report", { event_category: "engagement", event_label: currentVideoId });
       } catch (err) {
         console.error("Report comment failed:", err);
         btn.disabled = false;
@@ -318,6 +320,7 @@ async function postComment(text, parentId) {
       createdAt: Date.now(),
     });
     render();
+    trackEvent(parentId ? "comment_reply" : "comment_post", { event_category: "engagement", event_label: currentVideoId });
     return true;
   } catch (err) {
     console.error("Post comment failed:", err);
@@ -326,7 +329,7 @@ async function postComment(text, parentId) {
 }
 
 function unverifiedPromptHTML() {
-  return `<p class="comments-login-prompt">Bitte bestätige deine E-Mail-Adresse, um zu kommentieren. <button type="button" class="p-btn rip" id="comments-resend-btn">E-Mail erneut senden</button></p>`;
+  return `<p class="comments-login-prompt">Bitte bestätige deine E-Mail-Adresse, um zu kommentieren (Link auch im Spam-Ordner prüfen). <button type="button" class="p-btn rip" id="comments-recheck-btn">Ich habe bestätigt</button> <button type="button" class="p-btn rip" id="comments-resend-btn">E-Mail erneut senden</button></p>`;
 }
 function loginPromptHTML() {
   return `<p class="comments-login-prompt">Melde dich an, um zu kommentieren. <button type="button" class="p-btn rip" id="comments-login-btn">Anmelden</button></p>`;
@@ -345,6 +348,18 @@ function renderFormArea(user) {
   }
   if (!canPost(user)) {
     area.innerHTML = unverifiedPromptHTML();
+    area.querySelector("#comments-recheck-btn")?.addEventListener("click", async (ev) => {
+      ev.target.disabled = true;
+      const original = ev.target.textContent;
+      ev.target.textContent = "Prüfe...";
+      const fresh = await refreshUser();
+      if (fresh && canPost(fresh)) {
+        renderFormArea(fresh);
+      } else {
+        ev.target.disabled = false;
+        ev.target.textContent = original;
+      }
+    });
     area.querySelector("#comments-resend-btn")?.addEventListener("click", async (ev) => {
       ev.target.disabled = true;
       ev.target.textContent = "Gesendet.";
@@ -397,9 +412,21 @@ export async function mountComments(videoId) {
     <div id="comments-form-area"></div>
     <div class="comment-list" id="comments-list"><p class="comments-empty">Lade Kommentare...</p></div>`;
 
+  let autoRecheckDone = false;
   onAuthChange((user) => {
     renderFormArea(user);
     render(); // re-render so delete/edit/report controls reflect the current user
+    // One silent auto-recheck per mount for a signed-in-but-unverified visitor
+    // -- covers the common case of verifying in another tab/device and
+    // coming straight back, without making them notice and click "Ich habe
+    // bestätigt" themselves. Guarded to once so it can't loop or spam
+    // Firebase if they're genuinely still unverified.
+    if (user && !canPost(user) && !autoRecheckDone) {
+      autoRecheckDone = true;
+      refreshUser().then((fresh) => {
+        if (fresh && canPost(fresh)) renderFormArea(fresh);
+      });
+    }
   });
 
   try {

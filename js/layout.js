@@ -115,6 +115,48 @@ function footerHTML() {
   </footer>`;
 }
 
+// Owner-only "Privat" nav/footer link to /privat/ -- shown site-wide (not
+// scoped to showAccount's video-page set below, unlike the login button
+// itself) since this is Kevin's own quick access to the moderation panel,
+// useful from any page, not just video ones. Reactive via onAuthChange so
+// it appears/disappears immediately on sign-in/out without a reload, and
+// invisible (zero extra Firestore/Auth cost beyond the already-free local
+// session check) for every other visitor, who is never isOwner().
+async function mountOwnerNav() {
+  const { isOwner, onAuthChange } = await import("/js/auth.js");
+  const nav = document.getElementById("site-nav");
+  const footerLinks = document.querySelector(".footer-links");
+  onAuthChange((user) => {
+    const owner = isOwner(user);
+    let navLink = nav?.querySelector('[data-nav="Privat"]');
+    let footerLink = document.getElementById("footer-privat-link");
+    if (!owner) {
+      navLink?.remove();
+      footerLink?.remove();
+      return;
+    }
+    if (nav && !navLink) {
+      navLink = document.createElement("a");
+      navLink.href = "/privat/";
+      navLink.dataset.nav = "Privat";
+      navLink.textContent = "Privat";
+      if (window.location.pathname.startsWith("/privat")) navLink.classList.add("is-active");
+      navLink.addEventListener("click", () => {
+        nav.classList.remove("is-open");
+        document.getElementById("nav-toggle")?.setAttribute("aria-expanded", "false");
+      });
+      nav.appendChild(navLink);
+    }
+    if (footerLinks && !footerLink) {
+      footerLink = document.createElement("a");
+      footerLink.href = "/privat/";
+      footerLink.id = "footer-privat-link";
+      footerLink.textContent = "Privat";
+      footerLinks.insertBefore(footerLink, document.getElementById("cookie-settings-link") || null);
+    }
+  });
+}
+
 export async function mountLayout() {
   const path = window.location.pathname;
   const isShop = path.startsWith("/shop");
@@ -141,6 +183,7 @@ export async function mountLayout() {
 
   mountConsentBanner();
   if (showAccount) import("/js/auth-ui.js").then(({ mountAccountUI }) => mountAccountUI());
+  mountOwnerNav();
   document.getElementById("cookie-settings-link")?.addEventListener("click", async (ev) => {
     ev.preventDefault();
     const { openConsentSettings } = await import("/js/consent.js");

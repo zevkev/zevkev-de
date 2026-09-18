@@ -14,15 +14,19 @@
 // and so it's not missed on the very first (consent-granting) page load.
 
 export function track(type, path, value = null) {
+  trackEvent(type, { event_category: "engagement", event_label: path, value: value ?? undefined });
+}
+
+// Lower-level sibling of track() for events that need GA4's own named
+// parameters (e.g. "sign_up"/"login" want `method`, not event_label/value) --
+// used for the account, watchlist and comment events below. Same silent-
+// failure contract as track(): never throws, never blocks anything visible.
+export function trackEvent(name, params = {}) {
   try {
     if (typeof window.gtag !== "function") return; // no consent yet, or declined
-    window.gtag("event", type, {
-      event_category: "engagement",
-      event_label: path,
-      value: value ?? undefined,
-    });
+    window.gtag("event", name, params);
   } catch (err) {
-    console.debug("track() failed silently:", err);
+    console.debug("trackEvent() failed silently:", err);
   }
 }
 

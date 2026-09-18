@@ -5,6 +5,7 @@
 // before; the local watchlist is merged into the account (once) the first
 // time someone logs in with items already saved locally.
 import { auth, db, onAuthChange } from "./auth.js";
+import { trackEvent } from "./track.js";
 import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const LOCAL_WATCHLIST_KEY = "zevkev-watchlist";
@@ -73,15 +74,19 @@ export async function toggleWatchlistId(id) {
   const user = auth.currentUser;
   if (!user) {
     const set = localWatchlist();
-    if (set.has(id)) set.delete(id);
-    else set.add(id);
+    const added = !set.has(id);
+    if (added) set.add(id);
+    else set.delete(id);
     saveLocalWatchlist(set);
+    trackEvent(added ? "watchlist_add" : "watchlist_remove", { event_category: "engagement", event_label: id });
     return set;
   }
   const data = await ensureLoaded();
-  if (data.watchlist.has(id)) data.watchlist.delete(id);
-  else data.watchlist.add(id);
+  const added = !data.watchlist.has(id);
+  if (added) data.watchlist.add(id);
+  else data.watchlist.delete(id);
   persist(user.uid);
+  trackEvent(added ? "watchlist_add" : "watchlist_remove", { event_category: "engagement", event_label: id });
   return data.watchlist;
 }
 

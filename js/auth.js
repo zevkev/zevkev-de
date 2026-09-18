@@ -11,6 +11,7 @@ import {
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
+  getAdditionalUserInfo,
   GoogleAuthProvider,
   signOut,
   updateProfile,
@@ -18,6 +19,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { FIREBASE_CONFIG, OWNER_EMAIL } from "./firebase-config.js";
+import { trackEvent } from "./track.js";
 
 const app = initializeApp(FIREBASE_CONFIG);
 export const auth = getAuth(app);
@@ -49,6 +51,7 @@ export async function signUpWithEmail(username, email, password) {
   // account creation itself. The comments UI offers its own "send again"
   // button (js/comments.js) for whenever this didn't arrive.
   sendEmailVerification(cred.user).catch((err) => console.warn("Verification email failed to send:", err));
+  trackEvent("sign_up", { method: "email" });
   return cred.user;
 }
 
@@ -56,8 +59,31 @@ export async function resendVerificationEmail() {
   if (auth.currentUser) await sendEmailVerification(auth.currentUser);
 }
 
+// Firebase's client SDK does NOT automatically notice a verification link
+// clicked in another tab (or even a plain reload of this same tab) -- the
+// locally persisted user record, and the ID token every Firestore write is
+// stamped with, both stay frozen at whatever emailVerified was during the
+// last real sign-in until something explicitly asks the server again. A
+// visitor who verifies and comes straight back would otherwise still get
+// stuck behind the "please verify" gate, or see it disappear but have their
+// comment silently rejected server-side by the Firestore rules' isVerified()
+// check, which reads the (still stale) token claim, not the live account.
+// reload() refreshes the user object itself; getIdToken(true) forces a fresh
+// token mint so the *next* Firestore write actually carries the new claim.
+export async function refreshUser() {
+  if (!auth.currentUser) return null;
+  try {
+    await auth.currentUser.reload();
+    await auth.currentUser.getIdToken(true);
+  } catch (err) {
+    console.warn("Refreshing verification status failed:", err);
+  }
+  return auth.currentUser;
+}
+
 export async function signInWithEmail(email, password) {
   const cred = await signInWithEmailAndPassword(auth, email, password);
+  trackEvent("login", { method: "email" });
   return cred.user;
 }
 
@@ -82,6 +108,7 @@ export async function signInWithGoogle() {
   }
   try {
     const cred = await signInWithPopup(auth, provider);
+    trackEvent(getAdditionalUserInfo(cred)?.isNewUser ? "sign_up" : "login", { method: "google" });
     return cred.user;
   } catch (err) {
     if (err?.code === "auth/popup-blocked" || err?.code === "auth/operation-not-supported-in-this-environment") {
@@ -97,10 +124,15 @@ export async function signInWithGoogle() {
 // redirect finishes signing in before anything else runs. Resolves to null
 // on any normal page load that isn't a redirect return (nothing to do).
 export function consumeGoogleRedirect() {
-  return getRedirectResult(auth).catch((err) => {
-    console.warn("Google redirect sign-in failed:", err);
-    return null;
-  });
+  return getRedirectResult(auth)
+    .then((cred) => {
+      if (cred) trackEvent(getAdditionalUserInfo(cred)?.isNewUser ? "sign_up" : "login", { method: "google" });
+      return cred;
+    })
+    .catch((err) => {
+      console.warn("Google redirect sign-in failed:", err);
+      return null;
+    });
 }
 
 export async function signOutUser() {
