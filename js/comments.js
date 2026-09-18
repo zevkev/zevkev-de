@@ -5,6 +5,7 @@
 // report instead of re-querying, so a full comment thread costs exactly one
 // read no matter how much someone does on the page.
 import { auth, db, isOwner, canPost, onAuthChange, resendVerificationEmail, refreshUser, parseAvatarPrefs, avatarColorFor, AVATAR_ICONS } from "./auth.js";
+import { isBanned } from "./user-data.js";
 import { trackEvent } from "./track.js";
 import {
   collection,
@@ -12,6 +13,7 @@ import {
   where,
   orderBy,
   getDocs,
+  getDoc,
   addDoc,
   updateDoc,
   deleteDoc,
@@ -32,9 +34,15 @@ const BAD_WORDS = [
   "scheisse", "scheiße", "hure", "missgeburt", "spast", "spasti",
   "fuck", "fucking", "shit", "bitch", "asshole", "cunt", "whore", "slut", "faggot", "nigger",
 ];
+// Extra words added live via /privat/'s "Wörter" tab (settings/moderation
+// doc) on top of the baseline list above -- fetched once per page mount
+// (see mountComments), same "minimal reads" convention as the rest of this
+// file. Falls back to just the baseline list if the read fails/is empty,
+// never blocks comments from loading over this.
+let extraBannedWords = [];
 function censor(text) {
   let out = text;
-  for (const word of BAD_WORDS) {
+  for (const word of [...BAD_WORDS, ...extraBannedWords]) {
     const re = new RegExp(`\\b${word}\\w*`, "gi");
     out = out.replace(re, (m) => m[0] + "*".repeat(Math.max(1, m.length - 1)));
   }
@@ -129,7 +137,11 @@ function commentBodyHTML(c) {
   return `
     <div class="comment-head">
       ${commentAvatarHTML(c)}
-      <span class="comment-author">${escapeHTML(c.authorName || "Anonym")}</span>
+      ${
+        c.authorName
+          ? `<a class="comment-author" href="/profil/?u=${encodeURIComponent(c.authorName)}">${escapeHTML(c.authorName)}</a>`
+          : `<span class="comment-author">Anonym</span>`
+      }
       ${c.authorIsOwner ? verifiedBadge() : ""}
       <span class="comment-time">${formatTimestamp(c.createdAt)}</span>
       ${c.editedAt ? `<span class="comment-edited-note">(bearbeitet)</span>` : ""}
@@ -371,8 +383,11 @@ function unverifiedPromptHTML() {
 function loginPromptHTML() {
   return `<p class="comments-login-prompt">Melde dich an, um zu kommentieren. <button type="button" class="p-btn rip" id="comments-login-btn">Anmelden</button></p>`;
 }
+function bannedPromptHTML() {
+  return `<p class="comments-login-prompt">Dein Konto wurde für Kommentare gesperrt.</p>`;
+}
 
-function renderFormArea(user) {
+async function renderFormArea(user) {
   const area = document.getElementById("comments-form-area");
   if (!area) return;
   if (!user) {
@@ -381,6 +396,14 @@ function renderFormArea(user) {
       const { openAuthModal } = await import("./auth-ui.js");
       openAuthModal();
     });
+    return;
+  }
+  // Checked before the (synchronous) verified-email gate below so a banned
+  // account sees the actual reason rather than being told to verify an
+  // already-verified email. Firestore rules independently reject the write
+  // too (see /privat/'s Nutzer tab) -- this is just the honest UI message.
+  if (await isBanned()) {
+    area.innerHTML = bannedPromptHTML();
     return;
   }
   if (!canPost(user)) {
@@ -465,6 +488,16 @@ export async function mountComments(videoId) {
       });
     }
   });
+
+  // Fire-and-forget, not awaited alongside the comments query below -- a
+  // failed/slow settings read should never delay or block the comment
+  // thread itself from rendering, it just means extraBannedWords stays
+  // empty (baseline BAD_WORDS still applies) until it resolves.
+  getDoc(doc(db, "settings", "moderation"))
+    .then((snap) => {
+      if (snap.exists() && Array.isArray(snap.data().bannedWords)) extraBannedWords = snap.data().bannedWords;
+    })
+    .catch(() => {});
 
   try {
     const q = query(collection(db, "comments"), where("videoId", "==", videoId), orderBy("createdAt", "asc"));

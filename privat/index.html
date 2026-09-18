@@ -51,12 +51,54 @@
         <button type="button" class="p-btn rip" id="privat-logout-btn">Abmelden</button>
       </div>
 
-      <div class="yt-library">
+      <div class="privat-tabs" role="tablist">
+        <button type="button" class="privat-tab is-active" data-tab="moderation">Moderation</button>
+        <button type="button" class="privat-tab" data-tab="users">Nutzer</button>
+        <button type="button" class="privat-tab" data-tab="words">Wörter</button>
+        <button type="button" class="privat-tab" data-tab="settings">Einstellungen</button>
+        <button type="button" class="privat-tab" data-tab="campaigns">Aktionen</button>
+      </div>
+
+      <div class="yt-library privat-panel" data-panel="moderation">
         <h2 class="yt-section-title">Gemeldete Kommentare <span id="privat-reports-count"></span></h2>
         <div class="comment-list" id="privat-reports"><p class="comments-empty">Lade…</p></div>
 
         <h2 class="yt-section-title">Alle Kommentare <span id="privat-comments-count"></span></h2>
         <div class="comment-list" id="privat-comments"><p class="comments-empty">Lade…</p></div>
+      </div>
+
+      <div class="yt-library privat-panel" data-panel="users" hidden>
+        <h2 class="yt-section-title">Nutzer <span id="privat-users-count"></span></h2>
+        <p class="privat-hint">Sperren blockiert Kommentare/Posten. „Löschen“ entfernt Kommentare, Username und Kontodaten dauerhaft -- der Firebase-Login selbst bleibt bestehen (kann technisch nicht durch den Client entfernt werden).</p>
+        <div id="privat-users"><p class="comments-empty">Lade…</p></div>
+      </div>
+
+      <div class="yt-library privat-panel" data-panel="words" hidden>
+        <h2 class="yt-section-title">Gesperrte Wörter</h2>
+        <p class="privat-hint">Wird in Kommentaren automatisch zensiert (erster Buchstabe + Sternchen).</p>
+        <form id="privat-word-form" class="privat-inline-form">
+          <input type="text" id="privat-word-input" placeholder="Wort hinzufügen" maxlength="40" required>
+          <button type="submit" class="p-btn rip btn-accent">Hinzufügen</button>
+        </form>
+        <div id="privat-words"><p class="comments-empty">Lade…</p></div>
+      </div>
+
+      <div class="yt-library privat-panel" data-panel="settings" hidden>
+        <h2 class="yt-section-title">Website-Einstellungen</h2>
+        <div id="privat-settings"><p class="comments-empty">Lade…</p></div>
+      </div>
+
+      <div class="yt-library privat-panel" data-panel="campaigns" hidden>
+        <h2 class="yt-section-title">Aktionen / Promo-Codes</h2>
+        <p class="privat-hint">Zeigt den Code als Banner im Shop im gewählten Zeitraum. Der Rabatt-Code selbst muss zusätzlich passend bei Fourthwall angelegt werden -- diese Seite ist nur die Ankündigung.</p>
+        <form id="privat-campaign-form" class="privat-campaign-form">
+          <div class="privat-field"><label for="privat-campaign-code">Code</label><input type="text" id="privat-campaign-code" required maxlength="30"></div>
+          <div class="privat-field"><label for="privat-campaign-desc">Beschreibung</label><input type="text" id="privat-campaign-desc" required maxlength="120"></div>
+          <div class="privat-field"><label for="privat-campaign-start">Von</label><input type="date" id="privat-campaign-start" required></div>
+          <div class="privat-field"><label for="privat-campaign-end">Bis</label><input type="date" id="privat-campaign-end" required></div>
+          <button type="submit" class="p-btn rip btn-accent">Veröffentlichen</button>
+        </form>
+        <div id="privat-campaigns"><p class="comments-empty">Lade…</p></div>
       </div>
     </div>
   </div>

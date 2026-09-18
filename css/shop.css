@@ -5,6 +5,15 @@
 .hero-shop p { font-size: 1.15rem; color: rgba(255, 255, 255, 0.9); }
 .hero-shop .shop-shipping-note { font-size: 0.85rem; margin-top: 6px; color: rgba(255, 255, 255, 0.6); }
 
+.shop-campaign-banner {
+  display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap;
+  width: 100%; max-width: 700px; margin: 0 auto 10px;
+  padding: 14px 24px; text-align: center;
+  font-weight: bold; color: var(--text-dark);
+}
+.shop-campaign-code { color: var(--twitch-purple); }
+.shop-campaign-code strong { letter-spacing: 1px; }
+
 /* ---------- Filter bar ---------- */
 .filter-bar {
   display: flex;

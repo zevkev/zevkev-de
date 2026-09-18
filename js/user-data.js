@@ -31,7 +31,7 @@ let cachedUid = null;
 async function loadRemote(uid) {
   const snap = await getDoc(doc(db, "users", uid));
   const data = snap.exists() ? snap.data() : {};
-  return { watchlist: new Set(data.watchlist || []), progress: data.progress || {} };
+  return { watchlist: new Set(data.watchlist || []), progress: data.progress || {}, banned: !!data.banned };
 }
 
 function persist(uid) {
@@ -135,6 +135,19 @@ export async function saveProgress(id, positionSeconds, watched) {
   const data = await ensureLoaded();
   data.progress[id] = { positionSeconds: Math.floor(positionSeconds), watched: !!watched, updatedAt: Date.now() };
   persist(user.uid);
+}
+
+// Read by js/comments.js before allowing a post -- reuses the same cached
+// users/{uid} read as the watchlist (same reasoning throughout this file:
+// one read covers everything this doc holds, nothing re-fetches it).
+export async function isBanned() {
+  if (!auth.currentUser) return false;
+  try {
+    const data = await ensureLoaded();
+    return !!data.banned;
+  } catch {
+    return false;
+  }
 }
 
 onAuthChange(() => {

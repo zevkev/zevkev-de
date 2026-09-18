@@ -1,8 +1,43 @@
 import { FourthwallAPI } from "./fourthwall-api.js";
 import { money } from "./currency.js";
+import { db } from "./auth.js";
+import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const grid = document.getElementById("product-grid");
 const filterBar = document.getElementById("filter-bar");
+
+function escapeHTML(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+
+// One-shot query, same "minimal reads" convention as the rest of the site --
+// campaigns are created rarely (see /privat/'s "Aktionen" tab), so this
+// doesn't need to be live. published+dates are checked client-side rather
+// than in the query itself (Firestore range queries need the inequality
+// field to also be the first orderBy, and checking two date fields against
+// "now" isn't expressible as one query anyway) -- the whole campaigns
+// collection is expected to stay small (a handful of rows), so filtering
+// the fetched set in JS is simpler and cheap.
+async function loadCampaignBanner() {
+  const el = document.getElementById("shop-campaign-banner");
+  if (!el) return;
+  try {
+    const snap = await getDocs(query(collection(db, "campaigns"), where("published", "==", true)));
+    const today = new Date().toISOString().slice(0, 10);
+    const active = snap.docs
+      .map((d) => d.data())
+      .find((c) => !c.endedEarly && c.startDate <= today && today <= c.endDate);
+    if (!active) return;
+    el.innerHTML = `
+    <div class="shop-campaign-banner rip rip--accent">
+      <span class="shop-campaign-desc">${escapeHTML(active.description)}</span>
+      <span class="shop-campaign-code">Code: <strong>${escapeHTML(active.code)}</strong></span>
+    </div>`;
+  } catch (err) {
+    console.warn("Loading campaign banner failed:", err);
+  }
+}
+loadCampaignBanner();
 
 function cheapestVariant(product) {
   const variants = product.variants || [];

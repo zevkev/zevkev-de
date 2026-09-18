@@ -18,7 +18,7 @@ import {
   sendEmailVerification,
   deleteUser,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, doc, deleteDoc, runTransaction, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, deleteDoc, runTransaction, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { FIREBASE_CONFIG, OWNER_EMAIL } from "./firebase-config.js";
 import { trackEvent } from "./track.js";
 
@@ -112,6 +112,47 @@ export async function updateAvatarPrefs(color, iconKey) {
   if (!/^[0-9a-fA-F]{6}$/.test(hex)) throw new Error("Ungültige Farbe.");
   const photoURL = iconKey && AVATAR_ICONS[iconKey] ? `avatar:color=${hex}&icon=${iconKey}` : `avatar:color=${hex}`;
   await updateProfile(user, { photoURL });
+  await syncPublicProfile();
+}
+
+// profiles/{uid} is a small, deliberately separate PUBLIC collection (not
+// users/{uid}, which holds private watchlist/progress data) -- it exists
+// because a comment card or a visitor clicking someone's name can never
+// read another person's live Firebase Auth object (displayName/photoURL
+// only exist on your OWN auth.currentUser), so anything meant to be
+// visible on a public /profil/ page has to be denormalized somewhere
+// readable by anyone. Keeping it a separate collection (vs. adding public-
+// read rules to users/{uid}) avoids field-level Firestore rules entirely --
+// this whole doc is public, users/{uid} stays fully private.
+async function syncPublicProfile(extra = {}) {
+  const user = auth.currentUser;
+  if (!user) return;
+  const prefs = parseAvatarPrefs(user);
+  const name = user.displayName || user.email?.split("@")[0] || "Account";
+  await setDoc(
+    doc(db, "profiles", user.uid),
+    { displayName: name, avatarColor: prefs.color, avatarIcon: prefs.icon, ...extra },
+    { merge: true }
+  ).catch((err) => console.warn("Public profile sync failed:", err));
+  // Denormalized onto the PRIVATE users/{uid} doc (not profiles/{uid} above,
+  // which is public-readable -- email must never end up there) purely so
+  // /privat/'s admin "Nutzer" tab has a name+email to show without needing
+  // the Admin SDK's listUsers(), which isn't available client-side at all.
+  await setDoc(doc(db, "users", user.uid), { email: user.email || null, displayName: name }, { merge: true }).catch((err) =>
+    console.warn("User record sync failed:", err)
+  );
+}
+
+// Called after a successful js/twitch-auth.js popup login (see account.js) --
+// only the public Twitch username is ever persisted here, never the OAuth
+// token itself (that stays sessionStorage-only, per twitch-auth.js's own
+// header comment). Linking is purely a visible "this is my channel" badge,
+// not a way to auto-authenticate future chat sessions.
+export async function linkTwitch(twitchUsername) {
+  await syncPublicProfile({ twitchUsername });
+}
+export async function unlinkTwitch() {
+  await syncPublicProfile({ twitchUsername: null });
 }
 
 // Shared avatar-circle CONTENT (just the inner markup -- icon or letter,
@@ -208,6 +249,7 @@ export async function signUpWithEmail(username, email, password) {
   // brand-new accounts could otherwise both show up as a plain "K" circle.
   const hex = avatarColorFor(cred.user.uid).replace("#", "");
   await updateProfile(cred.user, { displayName: username, photoURL: `avatar:color=${hex}&icon=${avatarIconFor(cred.user.uid)}` });
+  await syncPublicProfile();
   // Fire-and-forget -- a failure here (rare: quota/network) shouldn't block
   // account creation itself. The comments UI offers its own "send again"
   // button (js/comments.js) for whenever this didn't arrive.
@@ -225,6 +267,7 @@ export async function updateDisplayName(newName) {
   const trimmed = String(newName || "").trim();
   await reserveUsername(user.uid, trimmed, normalizeUsername(user.displayName));
   await updateProfile(user, { displayName: trimmed });
+  await syncPublicProfile();
 }
 
 // Permanently deletes the signed-in user's account: every comment they
@@ -245,6 +288,7 @@ export async function deleteAccount() {
   const normalized = normalizeUsername(user.displayName);
   if (normalized) await deleteDoc(doc(db, "usernames", normalized)).catch(() => {});
   await deleteDoc(doc(db, "users", uid)).catch(() => {});
+  await deleteDoc(doc(db, "profiles", uid)).catch(() => {});
   await deleteUser(user);
 }
 
@@ -312,6 +356,7 @@ export async function signInWithGoogle() {
       // hash-color combo like an email signup that never got seeded.
       const hex = avatarColorFor(cred.user.uid).replace("#", "");
       await updateProfile(cred.user, { photoURL: `avatar:color=${hex}&icon=${avatarIconFor(cred.user.uid)}` }).catch(() => {});
+      await syncPublicProfile();
     }
     return cred.user;
   } catch (err) {
@@ -337,6 +382,7 @@ export function consumeGoogleRedirect() {
           if (cred.user.displayName) tryReserveUsername(cred.user.uid, cred.user.displayName);
           const hex = avatarColorFor(cred.user.uid).replace("#", "");
           await updateProfile(cred.user, { photoURL: `avatar:color=${hex}&icon=${avatarIconFor(cred.user.uid)}` }).catch(() => {});
+          await syncPublicProfile();
         }
       }
       return cred;

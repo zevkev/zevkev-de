@@ -524,7 +524,8 @@ h1, h2, .display-font {
   color: #fff; font-family: "Bebas Neue", sans-serif; font-size: 0.8rem;
 }
 .comment--reply .comment-avatar { width: 20px; height: 20px; font-size: 0.7rem; }
-.comment-author { font-weight: bold; font-size: 0.92rem; }
+.comment-author { font-weight: bold; font-size: 0.92rem; color: var(--text-dark); text-decoration: none; }
+a.comment-author:hover { text-decoration: underline; }
 /* Pulled tight against .comment-author via negative margin -- .comment-head's
    10px gap (meant for avatar/name/time spacing) would otherwise float this
    badge away from the name it's identifying. Gold, not a theme token: it's a

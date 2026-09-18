@@ -14,7 +14,12 @@ import {
   limit,
   getDocs,
   deleteDoc,
+  setDoc,
+  getDoc,
   doc,
+  addDoc,
+  where,
+  serverTimestamp,
   Timestamp,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
@@ -195,6 +200,275 @@ async function loadData() {
   }
 }
 
+// ---------- Tabs ----------
+function wireTabs() {
+  document.querySelectorAll(".privat-tab").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".privat-tab").forEach((b) => b.classList.toggle("is-active", b === btn));
+      document.querySelectorAll(".privat-panel").forEach((p) => {
+        p.hidden = p.dataset.panel !== btn.dataset.tab;
+      });
+    });
+  });
+}
+
+// ---------- Users (list, ban, delete-data) ----------
+let users = [];
+
+function userRowHTML(u) {
+  return `
+  <div class="privat-user-row${u.banned ? " is-banned" : ""}">
+    <div class="privat-user-info">
+      <a href="/profil/?u=${encodeURIComponent(u.displayName || "")}" target="_blank" rel="noopener">${escapeHTML(u.displayName || "(kein Name)")}</a>
+      <span class="privat-user-email">${escapeHTML(u.email || u.id)}</span>
+      ${u.banned ? `<span class="privat-user-badge">Gesperrt</span>` : ""}
+    </div>
+    <div class="privat-user-actions">
+      <button type="button" class="p-btn rip" data-toggle-ban="${u.id}">${u.banned ? "Entsperren" : "Sperren"}</button>
+      <button type="button" class="p-btn rip privat-danger-btn" data-delete-user="${u.id}">Löschen</button>
+    </div>
+  </div>`;
+}
+
+function renderUsers() {
+  const list = document.getElementById("privat-users");
+  const countEl = document.getElementById("privat-users-count");
+  if (!list) return;
+  if (countEl) countEl.textContent = users.length ? `(${users.length})` : "";
+  list.innerHTML = users.length ? users.map(userRowHTML).join("") : `<p class="comments-empty">Keine Nutzer gefunden.</p>`;
+
+  list.querySelectorAll("[data-toggle-ban]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.toggleBan;
+      const u = users.find((x) => x.id === id);
+      if (!u) return;
+      btn.disabled = true;
+      try {
+        await setDoc(doc(db, "users", id), { banned: !u.banned }, { merge: true });
+        u.banned = !u.banned;
+        renderUsers();
+      } catch (err) {
+        console.error("Toggling ban failed:", err);
+        btn.disabled = false;
+      }
+    });
+  });
+  list.querySelectorAll("[data-delete-user]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.deleteUser;
+      const u = users.find((x) => x.id === id);
+      if (!u) return;
+      if (!confirm(`Kommentare, Username und Kontodaten von "${u.displayName || u.email}" wirklich dauerhaft löschen? Der Firebase-Login selbst bleibt bestehen (technisch nur vom Nutzer selbst löschbar).`)) return;
+      btn.disabled = true;
+      try {
+        await deleteUserData(id, u.displayName);
+        users = users.filter((x) => x.id !== id);
+        renderUsers();
+      } catch (err) {
+        console.error("Deleting user data failed:", err);
+        btn.disabled = false;
+      }
+    });
+  });
+}
+
+// Mirrors js/auth.js's own deleteAccount(), just triggered by the owner
+// for a different uid instead of self-service -- same three collections,
+// same reasoning (comments first, then the name reservation, then the
+// private doc). Cannot touch the Firebase Auth credential itself; see the
+// confirm() message above and the hint text in privat/index.html.
+async function deleteUserData(uid, displayName) {
+  const ownComments = await getDocs(query(collection(db, "comments"), where("authorId", "==", uid))).catch(() => null);
+  if (ownComments) await Promise.all(ownComments.docs.map((d) => deleteDoc(d.ref).catch(() => {})));
+  const normalized = String(displayName || "").trim().toLowerCase();
+  if (normalized) await deleteDoc(doc(db, "usernames", normalized)).catch(() => {});
+  await deleteDoc(doc(db, "profiles", uid)).catch(() => {});
+  await deleteDoc(doc(db, "users", uid)).catch(() => {});
+}
+
+async function loadUsers() {
+  try {
+    const snap = await getDocs(collection(db, "users"));
+    users = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderUsers();
+  } catch (err) {
+    console.error("Loading users failed:", err);
+    const list = document.getElementById("privat-users");
+    if (list) list.innerHTML = `<p class="comments-empty">Konnte nicht geladen werden.</p>`;
+  }
+}
+
+// ---------- Banned words ----------
+let bannedWords = [];
+
+function wordChipHTML(word) {
+  return `<span class="privat-word-chip">${escapeHTML(word)}<button type="button" data-remove-word="${escapeHTML(word)}" aria-label="${escapeHTML(word)} entfernen">&times;</button></span>`;
+}
+
+function renderWords() {
+  const el = document.getElementById("privat-words");
+  if (!el) return;
+  el.innerHTML = bannedWords.length
+    ? `<div class="privat-word-list">${bannedWords.map(wordChipHTML).join("")}</div>`
+    : `<p class="comments-empty">Keine gesperrten Wörter.</p>`;
+  el.querySelectorAll("[data-remove-word]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      bannedWords = bannedWords.filter((w) => w !== btn.dataset.removeWord);
+      renderWords();
+      await saveWords();
+    });
+  });
+}
+
+async function saveWords() {
+  await setDoc(doc(db, "settings", "moderation"), { bannedWords }, { merge: true }).catch((err) =>
+    console.error("Saving banned words failed:", err)
+  );
+}
+
+async function loadWords() {
+  try {
+    const snap = await getDoc(doc(db, "settings", "moderation"));
+    bannedWords = snap.exists() ? snap.data().bannedWords || [] : [];
+    renderWords();
+  } catch (err) {
+    console.error("Loading banned words failed:", err);
+  }
+}
+
+function wireWordForm() {
+  document.getElementById("privat-word-form")?.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const input = document.getElementById("privat-word-input");
+    const word = input.value.trim().toLowerCase();
+    input.value = "";
+    if (!word || bannedWords.includes(word)) return;
+    bannedWords.push(word);
+    renderWords();
+    await saveWords();
+  });
+}
+
+// ---------- Site settings (Twitch visibility) ----------
+// settings/site.twitchEnabled -- read by js/flags.js on every page load
+// (localStorage-cached first for zero-latency/zero-flash, refreshed in the
+// background; see the comment there for the tradeoff this implies: a flip
+// here isn't instant on someone else's already-open tab).
+let siteSettings = { twitchEnabled: true };
+
+function settingsHTML() {
+  return `
+  <label class="privat-toggle-row">
+    <input type="checkbox" id="privat-twitch-toggle" ${siteSettings.twitchEnabled ? "checked" : ""}>
+    <span id="privat-twitch-toggle-label">Twitch-Inhalte site-weit ${siteSettings.twitchEnabled ? "eingeblendet" : "ausgeblendet"}</span>
+  </label>
+  <p class="privat-hint">Blendet Player/Chat/VOD-Archiv auf der Mehr- und Live-Seite sowie den Twitch-Link auf der Startseite und im Kontakt aus. Die Mehr-Seite heißt dann „ZevKev+" statt „Mehr". Wirkt für Besucher erst beim nächsten Seitenaufruf, nicht live auf bereits offenen Tabs.</p>`;
+}
+
+// Renders once, then only ever patches the label text on toggle -- avoids
+// re-rendering (and needing to re-wire) the checkbox's own change listener.
+function renderSettings() {
+  const el = document.getElementById("privat-settings");
+  if (!el) return;
+  el.innerHTML = settingsHTML();
+  document.getElementById("privat-twitch-toggle")?.addEventListener("change", async (ev) => {
+    siteSettings.twitchEnabled = ev.target.checked;
+    const label = document.getElementById("privat-twitch-toggle-label");
+    if (label) label.textContent = `Twitch-Inhalte site-weit ${siteSettings.twitchEnabled ? "eingeblendet" : "ausgeblendet"}`;
+    await setDoc(doc(db, "settings", "site"), { twitchEnabled: siteSettings.twitchEnabled }, { merge: true }).catch((err) =>
+      console.error("Saving settings failed:", err)
+    );
+  });
+}
+
+async function loadSettings() {
+  try {
+    const snap = await getDoc(doc(db, "settings", "site"));
+    siteSettings.twitchEnabled = snap.exists() ? snap.data().twitchEnabled !== false : true;
+  } catch (err) {
+    console.error("Loading settings failed:", err);
+  }
+  renderSettings();
+}
+
+// ---------- Campaigns / promo codes ----------
+let campaigns = [];
+
+function campaignRowHTML(c) {
+  const active = c.published && !c.endedEarly;
+  return `
+  <div class="privat-campaign-row">
+    <div class="privat-campaign-info">
+      <strong>${escapeHTML(c.code)}</strong> — ${escapeHTML(c.description)}
+      <span class="privat-campaign-dates">${escapeHTML(c.startDate)} bis ${escapeHTML(c.endDate)}</span>
+      ${c.endedEarly ? `<span class="privat-campaign-status">Vorzeitig beendet</span>` : active ? `<span class="privat-campaign-status is-live">Läuft</span>` : ""}
+    </div>
+    ${!c.endedEarly ? `<button type="button" class="p-btn rip privat-danger-btn" data-end-campaign="${c.id}">Vorzeitig beenden</button>` : ""}
+  </div>`;
+}
+
+function renderCampaigns() {
+  const el = document.getElementById("privat-campaigns");
+  if (!el) return;
+  el.innerHTML = campaigns.length ? campaigns.map(campaignRowHTML).join("") : `<p class="comments-empty">Noch keine Aktionen.</p>`;
+  el.querySelectorAll("[data-end-campaign]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.endCampaign;
+      btn.disabled = true;
+      try {
+        await setDoc(doc(db, "campaigns", id), { endedEarly: true }, { merge: true });
+        const c = campaigns.find((x) => x.id === id);
+        if (c) c.endedEarly = true;
+        renderCampaigns();
+      } catch (err) {
+        console.error("Ending campaign failed:", err);
+        btn.disabled = false;
+      }
+    });
+  });
+}
+
+async function loadCampaigns() {
+  try {
+    const snap = await getDocs(query(collection(db, "campaigns"), orderBy("createdAt", "desc"), limit(50)));
+    campaigns = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderCampaigns();
+  } catch (err) {
+    console.error("Loading campaigns failed:", err);
+  }
+}
+
+function wireCampaignForm() {
+  document.getElementById("privat-campaign-form")?.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const code = document.getElementById("privat-campaign-code").value.trim();
+    const description = document.getElementById("privat-campaign-desc").value.trim();
+    const startDate = document.getElementById("privat-campaign-start").value;
+    const endDate = document.getElementById("privat-campaign-end").value;
+    if (!code || !description || !startDate || !endDate) return;
+    const submitBtn = ev.target.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    try {
+      const ref = await addDoc(collection(db, "campaigns"), {
+        code,
+        description,
+        startDate,
+        endDate,
+        published: true,
+        endedEarly: false,
+        createdAt: serverTimestamp(),
+      });
+      campaigns.unshift({ id: ref.id, code, description, startDate, endDate, published: true, endedEarly: false, createdAt: Date.now() });
+      renderCampaigns();
+      ev.target.reset();
+    } catch (err) {
+      console.error("Creating campaign failed:", err);
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+}
+
 function showGate(kind) {
   document.getElementById("privat-app").style.display = "none";
   const gate = document.getElementById("privat-gate");
@@ -228,7 +502,14 @@ onAuthChange((user) => {
   if (loadedForUid !== user.uid) {
     loadedForUid = user.uid;
     loadData();
+    loadUsers();
+    loadWords();
+    loadSettings();
+    loadCampaigns();
   }
 });
 
 document.getElementById("privat-logout-btn")?.addEventListener("click", () => signOutUser());
+wireTabs();
+wireWordForm();
+wireCampaignForm();

@@ -2,12 +2,19 @@
 // page. The cart icon/drawer only ever appears on /shop/ pages.
 import { track } from "/js/track.js";
 import { mountConsentBanner } from "/js/consent.js";
+import { TWITCH_ENABLED } from "/js/config.js";
 
+// "Mehr" becomes "ZevKev+" whenever Twitch content is switched off (see
+// /privat/'s "Einstellungen" tab) -- the page itself already falls back to
+// a YouTube-only view via [data-twitch-only] (css/style.css), this just
+// keeps the nav label honest about there being nothing Twitch-related to
+// find there right now. Reversible: flipping the toggle back on switches
+// the label back too, nothing here is written anywhere.
 const NAV = [
   { href: "/", label: "Home", match: (p) => p === "/" || p === "/index.html" },
   { href: "/shop/", label: "Shop", match: (p) => p.startsWith("/shop") },
   { href: "/youtube/", label: "YouTube", match: (p) => p.startsWith("/youtube") },
-  { href: "/vods/", label: "Mehr", match: (p) => p.startsWith("/vods") },
+  { href: "/vods/", label: TWITCH_ENABLED ? "Mehr" : "ZevKev+", match: (p) => p.startsWith("/vods") },
   { href: "/watchlist/", label: "Watchlist", match: (p) => p.startsWith("/watchlist") },
 ];
 

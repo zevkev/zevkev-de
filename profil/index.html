@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mein Konto | ZevKev</title>
-<meta name="description" content="Dein ZevKev-Konto: Profil, Watchlist und Kontoeinstellungen.">
+<title>Profil | ZevKev</title>
 <meta name="robots" content="noindex, nofollow">
 
 <link rel="icon" type="image/png" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
@@ -14,10 +13,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="/css/style.css">
-<link rel="stylesheet" href="/css/shop.css">
-<link rel="stylesheet" href="/css/vods.css">
 <link rel="stylesheet" href="/css/youtube.css">
-<link rel="stylesheet" href="/css/account.css">
+<link rel="stylesheet" href="/css/profil.css">
 </head>
 <body>
 
@@ -28,21 +25,8 @@
 
 <div class="page-body">
   <div class="container" style="display:flex; flex-direction:column; align-items:center;">
-    <h1 class="visually-hidden">Mein Konto</h1>
-
-    <div id="account-gate"></div>
-
-    <div id="account-app" class="account-app" style="display:none;">
-      <div class="yt-library">
-        <div class="account-profile" id="account-profile"></div>
-        <div class="account-avatar-picker" id="account-avatar-picker" style="display:none;"></div>
-        <div class="account-twitch" id="account-twitch"></div>
-
-        <h2 class="yt-section-title">Meine Watchlist <span id="account-wl-count"></span></h2>
-        <div class="vod-grid" id="account-wl-grid"><p class="comments-empty">Lade…</p></div>
-
-        <div class="account-danger" id="account-danger"></div>
-      </div>
+    <div id="profil-root" class="profil-root">
+      <p class="comments-empty">Lade…</p>
     </div>
   </div>
 </div>
@@ -54,6 +38,6 @@
   import { mountLayout } from "/js/layout.js";
   mountLayout();
 </script>
-<script type="module" src="/js/account.js"></script>
+<script type="module" src="/js/profil.js"></script>
 </body>
 </html>

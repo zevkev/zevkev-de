@@ -102,6 +102,21 @@
 .account-picker-label { margin: 0 0 10px; font-size: 0.78rem; font-weight: bold; color: var(--text-muted); }
 .account-picker-label:not(:first-child) { margin-top: 20px; }
 
+.account-twitch { width: 100%; max-width: 640px; margin: 18px auto 0; }
+.account-twitch-connect { display: inline-flex; align-items: center; gap: 8px; color: var(--twitch-purple) !important; border-color: var(--twitch-purple); }
+.account-twitch-hint { margin: 8px 0 0; font-size: 0.78rem; color: var(--text-muted); line-height: 1.5; }
+.account-twitch-linked {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  color: var(--twitch-purple); font-size: 0.9rem;
+}
+.account-twitch-linked a { color: var(--text-dark); font-weight: bold; }
+.account-twitch-unlink {
+  margin-left: auto; padding: 0; border: none; background: none;
+  font-size: 0.78rem; font-weight: bold; color: var(--text-muted);
+  transition: color 0.2s ease;
+}
+.account-twitch-unlink:hover { color: var(--accent-red); }
+
 /* max-height + overflow-y:auto -- the color/icon libraries grew well past
    what a single unbounded flex-wrap row can show without pushing the rest
    of the page far down (18 colors, 20+ icons and counting); this caps the

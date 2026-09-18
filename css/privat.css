@@ -43,3 +43,84 @@
    the mat before .privat-app is ever shown -- top padding so it doesn't
    crowd the header the way .notfound-state already avoids on 404.html. */
 #privat-gate .notfound-state { padding-top: 40px; }
+
+/* ---------- Tabs ---------- */
+.privat-tabs {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  width: 100%; max-width: 1200px; margin: 0 auto 18px;
+}
+.privat-tab {
+  padding: 9px 18px; border: none; border-radius: 20px;
+  background: rgba(255, 255, 255, 0.08); color: #fff;
+  font-weight: bold; font-size: 0.88rem;
+  transition: background 0.2s ease;
+}
+.privat-tab:hover { background: rgba(255, 255, 255, 0.16); }
+.privat-tab.is-active { background: var(--twitch-purple); }
+.privat-panel[hidden] { display: none; }
+
+.privat-hint { font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; margin: -6px 0 16px; }
+
+/* ---------- Users tab ---------- */
+.privat-user-row {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  padding: 12px 0; border-bottom: 2px dashed rgba(0, 0, 0, 0.1);
+}
+:root[data-theme="dark"] .privat-user-row { border-bottom-color: rgba(255, 255, 255, 0.12); }
+.privat-user-row.is-banned { opacity: 0.7; }
+.privat-user-info { display: flex; flex-direction: column; gap: 2px; }
+.privat-user-info a { font-weight: bold; color: var(--text-dark); }
+.privat-user-email { font-size: 0.78rem; color: var(--text-muted); }
+.privat-user-badge {
+  align-self: flex-start; margin-top: 2px; padding: 2px 8px; border-radius: 10px;
+  background: var(--accent-red); color: #fff; font-size: 0.7rem; font-weight: bold;
+}
+.privat-user-actions { display: flex; gap: 8px; }
+.privat-danger-btn { color: var(--accent-red) !important; border-color: var(--accent-red); }
+
+/* ---------- Banned words tab ---------- */
+.privat-inline-form { display: flex; gap: 10px; margin-bottom: 18px; max-width: 420px; }
+.privat-inline-form input {
+  flex: 1; padding: 9px 12px; border: 2px solid var(--text-muted); border-radius: 4px;
+  background: var(--paper); color: var(--text-dark); font-family: inherit;
+}
+.privat-word-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.privat-word-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 8px 6px 12px; border-radius: 16px;
+  background: rgba(0, 0, 0, 0.06); color: var(--text-dark); font-size: 0.85rem;
+}
+:root[data-theme="dark"] .privat-word-chip { background: rgba(255, 255, 255, 0.08); }
+.privat-word-chip button {
+  width: 18px; height: 18px; border-radius: 50%; border: none;
+  background: rgba(0, 0, 0, 0.12); color: var(--text-dark); line-height: 1; font-size: 0.9rem;
+}
+.privat-word-chip button:hover { background: var(--accent-red); color: #fff; }
+
+/* ---------- Settings tab ---------- */
+.privat-toggle-row { display: flex; align-items: center; gap: 10px; font-weight: bold; color: var(--text-dark); margin-bottom: 10px; }
+.privat-toggle-row input { width: 18px; height: 18px; accent-color: var(--twitch-purple); }
+
+/* ---------- Campaigns tab ---------- */
+.privat-campaign-form {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px;
+  max-width: 560px; margin-bottom: 24px;
+}
+.privat-field { display: flex; flex-direction: column; gap: 4px; }
+.privat-field label { font-size: 0.78rem; font-weight: bold; color: var(--text-muted); }
+.privat-field input {
+  padding: 9px 12px; border: 2px solid var(--text-muted); border-radius: 4px;
+  background: var(--paper); color: var(--text-dark); font-family: inherit;
+}
+.privat-campaign-form button { grid-column: 1 / -1; justify-self: start; }
+@media (max-width: 560px) { .privat-campaign-form { grid-template-columns: 1fr; } }
+
+.privat-campaign-row {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  padding: 12px 0; border-bottom: 2px dashed rgba(0, 0, 0, 0.1);
+}
+:root[data-theme="dark"] .privat-campaign-row { border-bottom-color: rgba(255, 255, 255, 0.12); }
+.privat-campaign-info { display: flex; flex-direction: column; gap: 2px; color: var(--text-dark); }
+.privat-campaign-dates { font-size: 0.78rem; color: var(--text-muted); }
+.privat-campaign-status { align-self: flex-start; font-size: 0.75rem; font-weight: bold; color: var(--text-muted); }
+.privat-campaign-status.is-live { color: var(--accent-green); }
