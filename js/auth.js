@@ -181,17 +181,6 @@ async function syncPublicProfile(extra = {}) {
   );
 }
 
-// Called after a successful js/twitch-auth.js popup login (see account.js) --
-// only the public Twitch username is ever persisted here, never the OAuth
-// token itself (that stays sessionStorage-only, per twitch-auth.js's own
-// header comment). Linking is purely a visible "this is my channel" badge,
-// not a way to auto-authenticate future chat sessions.
-export async function linkTwitch(twitchUsername) {
-  await syncPublicProfile({ twitchUsername });
-}
-export async function unlinkTwitch() {
-  await syncPublicProfile({ twitchUsername: null });
-}
 
 // Shared avatar-circle CONTENT (just the inner markup -- icon or letter,
 // not the wrapping element/size/background) so the header chip and the

@@ -1,10 +1,8 @@
 // Account page (/account/): profile (avatar + rename), watchlist overview,
 // and account deletion. Owner-agnostic -- any signed-in visitor sees their
 // own account here, not just kevlevin.zev@gmail.com (that's /privat/'s job).
-import { auth, db, onAuthChange, updateDisplayName, deleteAccount, signOutUser, authErrorMessage, AVATAR_COLORS, AVATAR_ICONS, parseAvatarPrefs, avatarContentHTML, updateAvatarPrefs, linkTwitch, unlinkTwitch } from "./auth.js";
+import { auth, onAuthChange, updateDisplayName, deleteAccount, signOutUser, authErrorMessage, AVATAR_COLORS, AVATAR_ICONS, parseAvatarPrefs, avatarContentHTML, updateAvatarPrefs } from "./auth.js";
 import { getWatchlistIds, toggleWatchlistId } from "./user-data.js";
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { startLogin as startTwitchLogin, onAuthChange as onTwitchAuthChange, getToken as getTwitchToken, consumeRedirect as consumeTwitchRedirect, getCurrentUser as getTwitchCurrentUser } from "./twitch-auth.js";
 
 function escapeHTML(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -57,11 +55,6 @@ function editIcon() {
 function checkIcon() {
   return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`;
 }
-// Same brand glyph as js/layout.js's footer social icons, so this reads as
-// "the same Twitch" everywhere on the site rather than a second icon style.
-function twitchIcon() {
-  return `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0 1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/></svg>`;
-}
 
 function profileHTML(user) {
   const name = user.displayName || user.email?.split("@")[0] || "Account";
@@ -99,69 +92,6 @@ function avatarPickerHTML(user) {
   <p class="account-picker-label">Symbol</p>
   <div class="account-icon-row">${iconButtons}</div>`;
 }
-
-// twitchUsername comes from profiles/{uid} (one Firestore read on mount,
-// see loadTwitchLink below) -- not from js/twitch-auth.js's sessionStorage
-// token, which only proves you were logged into Twitch for THIS browser
-// tab/session, not that you've linked your channel to your ZevKev account.
-function twitchSectionHTML(twitchUsername) {
-  if (twitchUsername) {
-    return `
-    <p class="account-picker-label">Twitch</p>
-    <div class="account-twitch-linked">
-      ${twitchIcon()}
-      <span>Verbunden als <a href="https://www.twitch.tv/${encodeURIComponent(twitchUsername)}" target="_blank" rel="noopener">${escapeHTML(twitchUsername)}</a></span>
-      <button type="button" class="account-twitch-unlink" id="account-twitch-unlink">Trennen</button>
-    </div>`;
-  }
-  return `
-  <p class="account-picker-label">Twitch</p>
-  <button type="button" class="p-btn rip account-twitch-connect" id="account-twitch-connect">${twitchIcon()}Twitch verbinden</button>
-  <p class="account-twitch-hint">Zeigt deinen Twitch-Kanal auf deinem Profil und bei deinen Kommentaren. Für den Chat-Login auf der Mehr-Seite musst du dich weiterhin dort separat anmelden.</p>`;
-}
-
-function renderTwitchSection(twitchUsername) {
-  const el = document.getElementById("account-twitch");
-  if (!el) return;
-  el.innerHTML = twitchSectionHTML(twitchUsername);
-  document.getElementById("account-twitch-connect")?.addEventListener("click", () => startTwitchLogin());
-  document.getElementById("account-twitch-unlink")?.addEventListener("click", async () => {
-    await unlinkTwitch();
-    renderTwitchSection(null);
-  });
-}
-
-// One-shot read of the signed-in user's OWN public profile doc -- older
-// accounts (pre-dating this feature) simply won't have one yet, which
-// getDoc resolves as exists():false rather than an error, so the "not
-// connected" state renders correctly for them too without any migration.
-async function loadTwitchLink(uid) {
-  try {
-    const snap = await getDoc(doc(db, "profiles", uid));
-    renderTwitchSection(snap.exists() ? snap.data().twitchUsername || null : null);
-  } catch (err) {
-    console.warn("Loading Twitch link failed:", err);
-    renderTwitchSection(null);
-  }
-}
-
-// js/twitch-auth.js's popup flow notifies listeners via its own onAuthChange
-// (unrelated to Firebase's) once a token lands in sessionStorage -- fetch
-// the Twitch profile that token belongs to and persist just the username.
-consumeTwitchRedirect();
-onTwitchAuthChange(async () => {
-  const token = getTwitchToken();
-  if (!token || !auth.currentUser) return;
-  try {
-    const twitchUser = await getTwitchCurrentUser(token.accessToken);
-    if (twitchUser?.login) {
-      await linkTwitch(twitchUser.login);
-      renderTwitchSection(twitchUser.login);
-    }
-  } catch (err) {
-    console.warn("Linking Twitch account failed:", err);
-  }
-});
 
 function dangerHTML() {
   return `
@@ -351,7 +281,6 @@ onAuthChange((user) => {
   if (loadedForUid !== user.uid) {
     loadedForUid = user.uid;
     loadWatchlist();
-    loadTwitchLink(user.uid);
   }
 });
 

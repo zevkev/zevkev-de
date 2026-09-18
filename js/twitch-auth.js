@@ -111,13 +111,12 @@ export function consumeRedirect() {
       storeToken(token);
       sessionStorage.removeItem(STATE_KEY);
       // Was missing here -- the token stored correctly (a real Twitch
-      // session existed) but nothing was ever told about it, so any UI
-      // relying on onAuthChange (js/account.js's "Twitch verbinden" button,
-      // the Mehr/Live chat-login box) silently stayed on its logged-out
-      // state forever, even though storeToken()/getToken() would have
-      // returned a perfectly valid token the whole time. Only ever missed
-      // when the popup path is actually blocked and this same-tab fallback
-      // runs instead -- the far more common popup path already called this
+      // session existed) but nothing was ever told about it, so the
+      // Mehr/Live chat-login box silently stayed on its logged-out state
+      // forever, even though storeToken()/getToken() would have returned a
+      // perfectly valid token the whole time. Only ever missed when the
+      // popup path is actually blocked and this same-tab fallback runs
+      // instead -- the far more common popup path already called this
       // correctly (see the message listener above).
       notifyChange();
       return true;

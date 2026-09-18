@@ -20,5 +20,3 @@
   border: 4px solid #fff;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
-
-.profil-twitch-link { display: inline-flex; align-items: center; gap: 8px; color: var(--twitch-purple) !important; border-color: var(--twitch-purple); margin-top: 6px; }
