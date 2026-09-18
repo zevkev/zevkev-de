@@ -1,0 +1,35 @@
+/* Privat-page-only additions (internal moderation panel at /privat/, not
+   linked anywhere in the site nav). Everything else it needs -- the paper-
+   sheet card (.yt-library), the comment rows (.comment/.comment-list/
+   .comment-actions), the gate/empty state (.empty-state/.notfound-icon) --
+   is reused as-is from style.css/youtube.css, so this file only adds the
+   few things genuinely new to this page. */
+
+.privat-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto 18px;
+  color: #fff;
+  font-weight: bold;
+  font-size: 0.92rem;
+}
+
+/* Video-id + timestamp line under a report/comment row -- own class since
+   nothing in comments.js's own .comment-* set needed this (the public
+   comment thread already lives on the one video it's mounted for, so it
+   never needs to say which video a comment belongs to). */
+.privat-report-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+.privat-report-meta a { color: var(--text-dark); font-weight: bold; }
+
+/* Gate screen (logged out / logged in but not the owner) sits directly on
+   the mat before .privat-app is ever shown -- top padding so it doesn't
+   crowd the header the way .notfound-state already avoids on 404.html. */
+#privat-gate .notfound-state { padding-top: 40px; }

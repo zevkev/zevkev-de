@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privat | ZevKev</title>
+<meta name="description" content="Interner Moderationsbereich.">
+<meta name="robots" content="noindex, nofollow">
+
+<link rel="icon" type="image/png" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
+<link rel="apple-touch-icon" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+
+<!--
+  Not linked in the site nav, not in sitemap.xml, disallowed in robots.txt,
+  and the <meta name="robots"> above keeps well-behaved crawlers out too --
+  but none of that is the real access control. The actual protection is
+  Firebase: js/privat.js gates all content behind isOwner(auth.currentUser),
+  and the Firestore rules (console-side, see the "reports" collection)
+  independently enforce isOwner() for reading/deleting reports regardless of
+  what the client shows. Comments themselves are already public-readable
+  everywhere else on the site (see js/comments.js), so listing them here
+  isn't a new exposure -- only the moderation actions (delete/dismiss) are
+  actually gated.
+-->
+
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/shop.css">
+<link rel="stylesheet" href="/css/vods.css">
+<link rel="stylesheet" href="/css/youtube.css">
+<link rel="stylesheet" href="/css/privat.css">
+</head>
+<body>
+
+<script type="module" src="/js/theme.js"></script>
+<script type="module" src="/js/consent.js"></script>
+
+<div id="site-header"></div>
+
+<div class="page-body">
+  <div class="container" style="display:flex; flex-direction:column; align-items:center;">
+    <h1 class="visually-hidden">Privat – Moderation</h1>
+
+    <div id="privat-gate"></div>
+
+    <div id="privat-app" class="privat-app" style="display:none;">
+      <div class="privat-topbar">
+        <span class="privat-user" id="privat-user"></span>
+        <button type="button" class="p-btn rip" id="privat-logout-btn">Abmelden</button>
+      </div>
+
+      <div class="yt-library">
+        <h2 class="yt-section-title">Gemeldete Kommentare <span id="privat-reports-count"></span></h2>
+        <div class="comment-list" id="privat-reports"><p class="comments-empty">Lade…</p></div>
+
+        <h2 class="yt-section-title">Alle Kommentare <span id="privat-comments-count"></span></h2>
+        <div class="comment-list" id="privat-comments"><p class="comments-empty">Lade…</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="site-footer"></div>
+
+<script type="module" src="/js/flags.js"></script>
+<script type="module">
+  import { mountLayout } from "/js/layout.js";
+  mountLayout();
+</script>
+<script type="module" src="/js/privat.js"></script>
+</body>
+</html>
