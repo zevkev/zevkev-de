@@ -36,10 +36,31 @@ function decodeEntities(str) {
     .replace(/&#39;/g, "'");
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// YouTube's public RSS endpoint occasionally blips a transient 404/5xx for
+// no real reason (confirmed: the exact same URL succeeds again seconds
+// later) -- a few short retries absorb that instead of failing the whole
+// scheduled run over nothing.
+async function fetchFeedWithRetry(attempts = 3) {
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(FEED_URL, { headers: { "User-Agent": "Mozilla/5.0 (ZevKev VOD feed bot)" } });
+      if (res.ok) return await res.text();
+      lastErr = new Error(`YouTube feed fetch failed: ${res.status}`);
+    } catch (err) {
+      lastErr = err;
+    }
+    if (i < attempts - 1) await sleep(2000 * (i + 1));
+  }
+  throw lastErr;
+}
+
 async function main() {
-  const res = await fetch(FEED_URL, { headers: { "User-Agent": "Mozilla/5.0 (ZevKev VOD feed bot)" } });
-  if (!res.ok) throw new Error(`YouTube feed fetch failed: ${res.status}`);
-  const xml = await res.text();
+  const xml = await fetchFeedWithRetry();
 
   const entries = xml.split("<entry>").slice(1);
   const videos = entries.map((chunk) => {

@@ -25,6 +25,14 @@ jobs:
           node-version: 22
 
       - name: Fetch YouTube VOD feed
+        # continue-on-error for the same reason as the two steps below: this
+        # hits YouTube's public RSS endpoint unauthenticated, which has been
+        # observed to blip with a transient 404/5xx (not a real channel
+        # problem -- the same URL succeeds again moments later). Without
+        # this, one blip here used to kill the whole job and block the main
+        # feed + Twitch status steps from running too, even though neither
+        # depends on this one succeeding.
+        continue-on-error: true
         run: node scripts/fetch-vod-feed.mjs
 
       - name: Fetch YouTube main channel feed
