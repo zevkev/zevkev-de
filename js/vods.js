@@ -49,6 +49,13 @@ function calendarIcon() {
 function gameIcon() {
   return `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="11" rx="4"/><path d="M7 10.5v4M5 12.5h4M16 11h.01M19 13h.01"/></svg>`;
 }
+// Empty-archive icon (clock-with-history-arc) for "nothing recorded here
+// yet" states -- reuses youtube.css's .yt-empty-icon utility (already
+// loaded on this page) rather than a bespoke class, same muted/60%-opacity
+// treatment as that page's own empty states.
+function emptyArchiveIcon() {
+  return `<svg class="yt-empty-icon" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4v6h6"/><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6.5L3 10"/><path d="M12 8v4l3 2"/></svg>`;
+}
 
 function escapeHTML(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -562,7 +569,8 @@ function renderVods(videos, mode) {
   const list = mode === "watchlist" ? videos.filter((v) => watchlist.has(v.id)) : videos;
 
   if (!list.length) {
-    vodGrid.innerHTML = `<div class="empty-state"><h2>${mode === "watchlist" ? "Watchlist ist leer" : "Noch keine Videos"}</h2><p>${mode === "watchlist" ? "Speicher Videos mit dem Stern, um sie hier wiederzufinden." : "Schau bald wieder vorbei."}</p></div>`;
+    const icon = mode === "watchlist" ? `<svg class="yt-empty-icon" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z"/></svg>` : emptyArchiveIcon();
+    vodGrid.innerHTML = `<div class="empty-state">${icon}<h2>${mode === "watchlist" ? "Watchlist ist leer" : "Noch keine Videos"}</h2><p>${mode === "watchlist" ? "Speicher Videos mit dem Stern, um sie hier wiederzufinden." : "Schau bald wieder vorbei."}</p></div>`;
     return;
   }
   vodGrid.innerHTML = list.map((v) => vodCardHTML(v, watchlist)).join("");
@@ -644,10 +652,42 @@ function twitchVodCardHTML(vod, tone = "") {
   </a>`;
 }
 
+// Shelf-arrow wiring, ported from js/youtube.js's own initShelf -- reuses
+// css/youtube.css's .yt-shelf-wrap/.yt-shelf-nav chrome around a .vod-row
+// track (a pure positioning wrapper + absolutely-positioned buttons, so it
+// doesn't care which track class sits inside it). Called once per wrap in
+// init() (the buttons themselves are static markup, not regenerated per
+// render) -- returns the updateNav function so later re-renders of the same
+// track (the sort-toggle click below) can re-check arrow visibility without
+// re-attaching a second set of scroll/resize listeners.
+function initShelf(wrapEl) {
+  const track = wrapEl?.querySelector(".vod-row");
+  const prev = wrapEl?.querySelector(".yt-shelf-nav--prev");
+  const next = wrapEl?.querySelector(".yt-shelf-nav--next");
+  if (!track || !prev || !next) return null;
+
+  prev.addEventListener("click", () => track.scrollBy({ left: -track.clientWidth * 0.85, behavior: "smooth" }));
+  next.addEventListener("click", () => track.scrollBy({ left: track.clientWidth * 0.85, behavior: "smooth" }));
+
+  const updateNav = () => {
+    const canScroll = track.scrollWidth > track.clientWidth + 4;
+    prev.classList.toggle("is-hidden", !canScroll || track.scrollLeft <= 10);
+    next.classList.toggle("is-hidden", !canScroll || track.scrollLeft >= track.scrollWidth - track.clientWidth - 10);
+  };
+  track.addEventListener("scroll", updateNav, { passive: true });
+  window.addEventListener("resize", updateNav);
+  requestAnimationFrame(updateNav);
+  setTimeout(updateNav, 300);
+  return updateNav;
+}
+let updateTwitchVodShelfNav = null;
+let updateTwitchSpotlightShelfNav = null;
+
 function paintTwitchRow(list) {
   if (!twitchVodRow) return;
   if (!list.length) {
-    twitchVodRow.innerHTML = `<div class="empty-state"><h2>Noch keine Twitch VODs</h2><p>Hier sammeln sich vergangene Streams, sobald welche archiviert sind. Bis dahin gibt's unten die YouTube Videos.</p></div>`;
+    twitchVodRow.innerHTML = `<div class="empty-state">${emptyArchiveIcon()}<h2>Noch keine Twitch VODs</h2><p>Hier sammeln sich vergangene Streams, sobald welche archiviert sind. Bis dahin gibt's unten die YouTube Videos.</p></div>`;
+    updateTwitchVodShelfNav?.();
     return;
   }
   // Cards are plain links to their own /vod/<id>/ page (see twitchVodCardHTML
@@ -655,6 +695,7 @@ function paintTwitchRow(list) {
   // the right thing (including ctrl/cmd/middle-click opening a new tab).
   twitchVodRow.innerHTML = list.map((v) => twitchVodCardHTML(v)).join("");
   observeImpressions("[data-twitch-vod-id]", (el) => el.dataset.twitchVodId, twitchVodRow);
+  updateTwitchVodShelfNav?.();
 }
 
 function renderTwitchArchive(vods, featuredId) {
@@ -675,6 +716,7 @@ function renderTwitchArchive(vods, featuredId) {
       twitchSpotlightRow.innerHTML = picks.map((v) => twitchVodCardHTML(v, "rip--accent")).join("");
       observeImpressions("[data-twitch-vod-id]", (el) => el.dataset.twitchVodId, twitchSpotlightRow);
       twitchSpotlightWrap.style.display = "";
+      updateTwitchSpotlightShelfNav?.();
     } else {
       twitchSpotlightRow.innerHTML = "";
       twitchSpotlightWrap.style.display = "none";
@@ -732,7 +774,16 @@ async function init() {
 
     renderPlayer(status, twitchVods[0], videos[0]);
     renderChat(status);
-    if (TWITCH_ENABLED) renderTwitchArchive(twitchVods, twitchVods[0]?.id);
+    if (TWITCH_ENABLED) {
+      // Wired once here, after the shelves' first render -- the nav buttons
+      // are static markup (not regenerated per render), so re-running
+      // initShelf on every sort-toggle click would just stack up duplicate
+      // scroll/resize listeners. paintTwitchRow/renderTwitchArchive call the
+      // returned updateNav functions directly on every later re-render.
+      updateTwitchVodShelfNav = initShelf(document.getElementById("twitch-vod-shelf-wrap"));
+      updateTwitchSpotlightShelfNav = initShelf(document.getElementById("twitch-spotlight-shelf-wrap"));
+      renderTwitchArchive(twitchVods, twitchVods[0]?.id);
+    }
     mountTabs(videos);
     renderVods(videos, "all");
   } catch (err) {

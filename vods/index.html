@@ -60,11 +60,24 @@
 
       <h2 class="yt-section-title" data-twitch-only>Die neusten Streams</h2>
       <div class="vod-section-head" id="twitch-archive-head" data-twitch-only></div>
-      <div class="vod-row" id="twitch-vod-row" data-twitch-only></div>
+      <!-- .yt-shelf-wrap/.yt-shelf-nav: the same shelf-arrow chrome already
+           used by youtube.css's own shelves (css/youtube.css is loaded here
+           too) -- purely a positioning wrapper + absolutely-positioned
+           buttons, so it works around a .vod-row track just as well as
+           around a .yt-shelf one without needing its own CSS. -->
+      <div class="yt-shelf-wrap" id="twitch-vod-shelf-wrap" data-twitch-only>
+        <button type="button" class="yt-shelf-nav yt-shelf-nav--prev is-hidden" aria-label="Zurück scrollen"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+        <div class="vod-row" id="twitch-vod-row"></div>
+        <button type="button" class="yt-shelf-nav yt-shelf-nav--next is-hidden" aria-label="Weiter scrollen"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+      </div>
 
       <div id="twitch-spotlight-wrap" data-twitch-only>
         <h2 class="yt-section-title">Aus dem Archiv</h2>
-        <div class="vod-row vod-row--accent" id="twitch-spotlight-row"></div>
+        <div class="yt-shelf-wrap" id="twitch-spotlight-shelf-wrap">
+          <button type="button" class="yt-shelf-nav yt-shelf-nav--prev is-hidden" aria-label="Zurück scrollen"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+          <div class="vod-row vod-row--accent" id="twitch-spotlight-row"></div>
+          <button type="button" class="yt-shelf-nav yt-shelf-nav--next is-hidden" aria-label="Weiter scrollen"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+        </div>
       </div>
 
       <h2 class="yt-section-title">Vom YouTube VOD Kanal (ZevKev+)</h2>
