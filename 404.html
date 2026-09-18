@@ -68,7 +68,7 @@
       <div class="watch-player-wrap" id="watch-player"><div class="skeleton-card player-skeleton"></div></div>
       <div class="watch-meta rip" id="watch-meta"></div>
     </div>
-    <div class="comments-section rip" id="comments-root"></div>
+    <div class="comments-section rip" id="comments-root" style="display:none;"></div>
 
   </div>
 </div>
@@ -97,6 +97,7 @@
   } else if (looksLikeWatchPath) {
     document.getElementById("shop-back-link").style.display = "none";
     document.getElementById("watch-page").style.display = "";
+    document.getElementById("comments-root").style.display = "";
     // watch/index.html's own .container carries this same inline style
     // (its content, unlike the product page's grid, needs to be a centered
     // column) -- applied here in JS since this container is shared with the
@@ -110,10 +111,18 @@
     script.src = "/js/watch.js";
     document.body.appendChild(script);
   } else {
+    // A truly unmatched path (typo, removed page, dead external link) --
+    // not shop-specific, so the "Zurück zum Shop" link from the branches
+    // above would be misleading here and is hidden instead.
+    document.getElementById("shop-back-link").style.display = "none";
     const root = document.getElementById("product-root");
     if (root) {
       root.innerHTML = `
-        <div class="empty-state">
+        <div class="empty-state notfound-state">
+          <div class="notfound-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M14.5 9.5l-2 5-5 2 2-5 5-2z"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg>
+          </div>
+          <p class="notfound-number">404</p>
           <h2>Seite nicht gefunden</h2>
           <p>Diese Seite gibt es nicht (mehr). Vielleicht ist der Link falsch oder veraltet.</p>
           <a href="/" class="p-btn rip btn-accent">Zur Startseite</a>
