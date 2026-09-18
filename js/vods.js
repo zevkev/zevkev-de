@@ -715,21 +715,30 @@ async function init() {
     onAuthChange(() => mountChatLogin());
   }
 
-  const [status, twitchFeed, feed] = await Promise.all([
-    TWITCH_ENABLED ? loadJSON("/assets/data/live-status.json", { live: false }) : Promise.resolve({ live: false }),
-    TWITCH_ENABLED ? loadJSON("/assets/data/twitch-vods.json", { videos: [] }) : Promise.resolve({ videos: [] }),
-    loadJSON("/assets/data/videos.json", { videos: [] }),
-    getWatchlistIds().then((set) => (watchlistCache = set)),
-  ]);
+  // Safety net -- see the matching comment in js/youtube.js's init(): a
+  // stuck skeleton with no explanation reads as "the page shows no content"
+  // to a visitor, so any unexpected failure here now shows a real message
+  // instead.
+  try {
+    const [status, twitchFeed, feed] = await Promise.all([
+      TWITCH_ENABLED ? loadJSON("/assets/data/live-status.json", { live: false }) : Promise.resolve({ live: false }),
+      TWITCH_ENABLED ? loadJSON("/assets/data/twitch-vods.json", { videos: [] }) : Promise.resolve({ videos: [] }),
+      loadJSON("/assets/data/videos.json", { videos: [] }),
+      getWatchlistIds().then((set) => (watchlistCache = set)),
+    ]);
 
-  const videos = feed.videos || [];
-  const twitchVods = twitchFeed.videos || [];
+    const videos = feed.videos || [];
+    const twitchVods = twitchFeed.videos || [];
 
-  renderPlayer(status, twitchVods[0], videos[0]);
-  renderChat(status);
-  if (TWITCH_ENABLED) renderTwitchArchive(twitchVods, twitchVods[0]?.id);
-  mountTabs(videos);
-  renderVods(videos, "all");
+    renderPlayer(status, twitchVods[0], videos[0]);
+    renderChat(status);
+    if (TWITCH_ENABLED) renderTwitchArchive(twitchVods, twitchVods[0]?.id);
+    mountTabs(videos);
+    renderVods(videos, "all");
+  } catch (err) {
+    console.error("Mehr page init failed:", err);
+    if (vodGrid) vodGrid.innerHTML = `<div class="empty-state"><h2>Etwas ist schiefgelaufen</h2><p>Bitte lade die Seite neu.</p></div>`;
+  }
 }
 
 init();

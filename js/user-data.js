@@ -49,25 +49,45 @@ async function ensureLoaded() {
   if (cache && cachedUid === user.uid) return cache;
   if (!loadPromise || cachedUid !== user.uid) {
     cachedUid = user.uid;
-    loadPromise = loadRemote(user.uid).then(async (remote) => {
-      const local = localWatchlist();
-      if (local.size) {
-        local.forEach((id) => remote.watchlist.add(id));
-        localStorage.removeItem(LOCAL_WATCHLIST_KEY);
-      }
-      cache = remote;
-      if (local.size) persist(user.uid);
-      return cache;
-    });
+    loadPromise = loadRemote(user.uid)
+      .then(async (remote) => {
+        const local = localWatchlist();
+        if (local.size) {
+          local.forEach((id) => remote.watchlist.add(id));
+          localStorage.removeItem(LOCAL_WATCHLIST_KEY);
+        }
+        cache = remote;
+        if (local.size) persist(user.uid);
+        return cache;
+      })
+      .catch((err) => {
+        // Reset so a later call (e.g. clicking the watchlist star again, or
+        // the next page load) gets a fresh attempt instead of being stuck
+        // replaying this one rejected promise for the rest of the session.
+        loadPromise = null;
+        cachedUid = null;
+        throw err;
+      });
   }
   return loadPromise;
 }
 
+// Never throws -- a Firestore/network blip here used to reject the
+// Promise.all() in youtube.js/vods.js/watchlist.js's init(), which had no
+// catch of its own, silently killing the entire page's content render (the
+// skeleton loaders never got replaced, reading as "nothing loads"). The
+// watchlist star state is genuinely non-critical compared to that, so this
+// falls back to "nothing starred yet" instead of taking the whole page down.
 export async function getWatchlistIds() {
   const user = auth.currentUser;
   if (!user) return localWatchlist();
-  const data = await ensureLoaded();
-  return data.watchlist;
+  try {
+    const data = await ensureLoaded();
+    return data.watchlist;
+  } catch (err) {
+    console.warn("Loading watchlist failed, showing videos without star state:", err);
+    return new Set();
+  }
 }
 
 export async function toggleWatchlistId(id) {
@@ -91,12 +111,20 @@ export async function toggleWatchlistId(id) {
 }
 
 // null when logged out (no resume tracking for anonymous visitors -- keeps
-// this module's only network activity to signed-in users) or when this
-// item has no saved progress yet.
+// this module's only network activity to signed-in users), when this item
+// has no saved progress yet, or (same reasoning as getWatchlistIds() above)
+// when loading it failed -- watch.js/watchlist.js both await this inside
+// their own init(), so a throw here would silently kill their whole page
+// render over what's ultimately just a resume-position nicety.
 export async function getProgress(id) {
   if (!auth.currentUser) return null;
-  const data = await ensureLoaded();
-  return data?.progress[id] || null;
+  try {
+    const data = await ensureLoaded();
+    return data?.progress[id] || null;
+  } catch (err) {
+    console.warn("Loading watch progress failed:", err);
+    return null;
+  }
 }
 
 // Called sparingly by watch.js (on pause/ended/page-hide, not on a timer)

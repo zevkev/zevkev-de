@@ -438,12 +438,23 @@ async function init() {
   // here; renderGrid just reveals it PAGE_SIZE cards at a time (see
   // renderLoadMore above) instead of dumping the whole history into the DOM
   // on first paint.
-  const [feed] = await Promise.all([loadJSON("/assets/data/main-videos.json", { videos: [] }), getWatchlistIds().then((set) => (watchlistCache = set))]);
-  const videos = feed.videos || [];
-  renderFeatured(videos[0]);
-  computeSpotlight(videos);
-  mountFilters(videos);
-  renderGrid(videos, "videos");
+  // Safety net: getWatchlistIds()/loadJSON() already never throw on their
+  // own, but if anything downstream unexpectedly does, this used to leave
+  // the skeleton loaders (renderSkeletons() equivalent above) stuck forever
+  // with no explanation -- reading as "the page shows no content" for
+  // whatever triggered it. A clear error state beats a silent dead end.
+  try {
+    const [feed] = await Promise.all([loadJSON("/assets/data/main-videos.json", { videos: [] }), getWatchlistIds().then((set) => (watchlistCache = set))]);
+    const videos = feed.videos || [];
+    renderFeatured(videos[0]);
+    computeSpotlight(videos);
+    mountFilters(videos);
+    renderGrid(videos, "videos");
+  } catch (err) {
+    console.error("YouTube page init failed:", err);
+    const grid = document.getElementById("yt-grid");
+    if (grid) grid.innerHTML = `<div class="empty-state"><h2>Etwas ist schiefgelaufen</h2><p>Bitte lade die Seite neu.</p></div>`;
+  }
 }
 
 init();

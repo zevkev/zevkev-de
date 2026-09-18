@@ -172,26 +172,32 @@ function renderGrid() {
 }
 
 async function init() {
-  const [vodFeed, mainFeed] = await Promise.all([
-    loadJSON("/assets/data/videos.json", { videos: [] }),
-    loadJSON("/assets/data/main-videos.json", { videos: [] }),
-    getWatchlistIds().then((set) => (watchlistCache = set)),
-  ]);
+  // Safety net -- see the matching comment in js/youtube.js's init().
+  try {
+    const [vodFeed, mainFeed] = await Promise.all([
+      loadJSON("/assets/data/videos.json", { videos: [] }),
+      loadJSON("/assets/data/main-videos.json", { videos: [] }),
+      getWatchlistIds().then((set) => (watchlistCache = set)),
+    ]);
 
-  byId = new Map();
-  (vodFeed.videos || []).forEach((v) => byId.set(v.id, { ...v, source: "vod" }));
-  (mainFeed.videos || []).forEach((v) => byId.set(v.id, { ...v, source: v.isShort ? "short" : "youtube" }));
+    byId = new Map();
+    (vodFeed.videos || []).forEach((v) => byId.set(v.id, { ...v, source: "vod" }));
+    (mainFeed.videos || []).forEach((v) => byId.set(v.id, { ...v, source: v.isShort ? "short" : "youtube" }));
 
-  if (auth.currentUser) {
-    for (const id of watchlistCache) {
-      const key = `video:${id}`;
-      const p = await getProgress(key);
-      if (p) progressCache.set(key, p);
+    if (auth.currentUser) {
+      for (const id of watchlistCache) {
+        const key = `video:${id}`;
+        const p = await getProgress(key);
+        if (p) progressCache.set(key, p);
+      }
     }
-  }
 
-  renderGrid();
-  onAuthChange(() => renderGrid());
+    renderGrid();
+    onAuthChange(() => renderGrid());
+  } catch (err) {
+    console.error("Watchlist page init failed:", err);
+    if (gridEl) gridEl.innerHTML = `<div class="empty-state"><h2>Etwas ist schiefgelaufen</h2><p>Bitte lade die Seite neu.</p></div>`;
+  }
 }
 
 init();
