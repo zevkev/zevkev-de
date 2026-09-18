@@ -3,6 +3,20 @@
    state/.notfound-icon (gate) and .auth-error (form errors) as-is -- this
    file only adds what's genuinely new to this page. */
 
+/* The real cause of this page's mobile overflow: .container (this page's
+   own, like every other page's) is a flex column with align-items:center,
+   which does NOT stretch a plain block child to the container's width --
+   it sizes the child to its own content instead. Every other page puts an
+   element with an explicit width:100% (.yt-library itself, .empty-state,
+   etc.) directly under .container, so this never came up; #account-app is
+   a plain wrapper div with no width of its own sitting in between, so
+   .yt-library's width:100% inside it was resolving against #account-app's
+   *content-sized* (i.e. as wide as its widest descendant, like .account-
+   profile's max-width:640px) width instead of the real viewport -- the
+   entire page silently rendered at that width and got clipped back down
+   to the visible viewport instead of ever actually being narrow. */
+.account-app { width: 100%; }
+
 .account-profile {
   display: flex;
   align-items: center;
@@ -31,11 +45,20 @@
   flex-shrink: 0;
 }
 
-.account-info { flex: 1; min-width: 0; }
+.account-info { flex: 1 1 0%; min-width: 0; max-width: 100%; }
 .account-name-row { display: flex; gap: 10px; align-items: flex-start; }
 .account-name-row input {
   flex: 1;
   min-width: 0;
+  /* Explicit width, not just flex:1 -- flex:1 only governs sizing along
+     the row's own main axis. The mobile media query below switches this
+     row to flex-direction:column, where the main axis becomes vertical and
+     flex:1 stops affecting the input's WIDTH at all -- without this, the
+     input fell back to the browser's plain <input> intrinsic width
+     (~170-200px) instead of filling its column, the actual cause of the
+     "cut off on the left" mobile bug (the input then forced its ancestors
+     wider than the viewport since nothing else in the chain clamped it). */
+  width: 100%;
   padding: 9px 12px;
   background: var(--paper);
   color: var(--text-dark);
@@ -53,6 +76,17 @@
   opacity: 0; transition: opacity 0.3s ease;
 }
 .account-name-saved.is-visible { opacity: 1; }
+
+/* #account-wl-grid reuses .vod-grid (vods.css) as-is at desktop widths, but
+   that class's minmax(280px, 1fr) track minimum is genuinely too tight for
+   this page: .yt-library's own padding leaves only ~300px of content width
+   on a narrow phone, and CSS Grid never shrinks a track below its declared
+   minimum -- it forces the whole grid (and everything downstream sharing
+   that horizontal scroll extent) wider than the viewport instead. Vods.js's
+   own #vod-grid usage of the same class only ever shows single/double full-
+   width cards in a much less cramped context, so it hasn't hit this, but
+   this page's grid needs its own, smaller floor. */
+#account-wl-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
 
 .account-wl-more {
   grid-column: 1 / -1;
@@ -81,7 +115,18 @@
 .account-danger-box .p-btn { color: var(--accent-red) !important; border-color: var(--accent-red); }
 
 @media (max-width: 560px) {
-  .account-profile { flex-wrap: wrap; }
+  /* Avatar + logout button share a centered top row; .account-info always
+     forced onto its own full-width line below via flex-basis:100% --
+     explicit, rather than relying on flex-wrap's own judgment call about
+     whether a flex:1/min-width:0 item "fits" alongside the other two
+     (it technically always does, since it can shrink to ~0, which is
+     exactly what produced the illegibly narrow, overflowing column that
+     triggered this fix in the first place). */
+  .account-profile { flex-wrap: wrap; justify-content: center; text-align: center; }
+  .account-avatar-lg { margin: 0 auto; }
+  .account-info { flex: 1 1 100%; order: 3; max-width: 100%; }
+  .account-logout { order: 2; }
+  .account-name-form { text-align: left; }
   .account-name-row { flex-direction: column; }
   .account-name-row button { width: 100%; justify-content: center; }
 }

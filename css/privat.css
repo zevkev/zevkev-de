@@ -5,6 +5,16 @@
    is reused as-is from style.css/youtube.css, so this file only adds the
    few things genuinely new to this page. */
 
+/* .container is a flex column with align-items:center (see privat/index.html)
+   -- that does NOT stretch a plain block child to the container's width, it
+   sizes the child to its own content instead. #privat-app is a plain
+   wrapper div with no width of its own, so .yt-library's width:100% inside
+   it was resolving against #privat-app's content-sized width (as wide as
+   its widest descendant) rather than the real viewport -- same root cause
+   as the account-page mobile overflow this was found and fixed alongside,
+   see css/account.css's much longer version of this comment. */
+.privat-app { width: 100%; }
+
 .privat-topbar {
   display: flex;
   align-items: center;
