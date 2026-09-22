@@ -65,15 +65,36 @@
    address bar were hidden), not what's actually visible -- causes the hero
    to run taller than the real screen and clip/overflow on phones. dvh
    tracks the real visible viewport; kept as a second declaration so
-   browsers without dvh support silently keep the vh fallback above. */
-.vod-hero-row { display: flex; gap: 20px; width: 100%; height: clamp(520px, 82vh, 860px); }
-.vod-hero-row { height: clamp(520px, 82dvh, 860px); }
+   browsers without dvh support silently keep the vh fallback above.
+   Each clamp() carries an extra +var(--header-h): see .vod-hero-player's
+   own padding-top comment just below for why. */
+.vod-hero-row { display: flex; gap: 20px; width: 100%; height: clamp(calc(520px + 72px), calc(82vh + 72px), calc(860px + 72px)); }
+.vod-hero-row { height: clamp(calc(520px + var(--header-h)), calc(82dvh + var(--header-h)), calc(860px + var(--header-h))); }
 
 .vod-hero-player { position: relative; flex: 1 1 auto; min-width: 0; background: #000; }
-/* Fills the player column edge-to-edge instead of the old fixed-aspect-ratio
-   card -- the 8px black letterbib padding and state-tinted ring (see
-   .player-wrap--live/--twitch/--youtube below) are unchanged, just resized. */
-.vod-hero-player .player-wrap { position: absolute; inset: 0; aspect-ratio: auto; width: 100%; height: 100%; }
+/* Real bug, not just polish: the nav floats transparently *over* this
+   full-bleed hero (see the .vods-page rules above), which works fine for a
+   plain background image (css/youtube.css's own hero) but not for an
+   actual embedded YouTube iframe -- YouTube's own player draws its native
+   title/channel overlay in the iframe's own top-left corner whenever it's
+   paused/unstarted, and that overlay is on the OTHER side of a cross-origin
+   iframe boundary, so no CSS here can move, hide or restyle it. Left
+   full-bleed to y=0 like the rest of this hero, that native overlay sat
+   directly under/behind the nav's logo and toggle buttons.
+   First attempt was `padding-top: var(--header-h)` on .vod-hero-player
+   itself, left as-is below `.player-wrap { inset: 0 }` -- turns out
+   `inset: 0` on an absolutely positioned child fills its ancestor's
+   *padding box*, and the padding box's top-left corner sits at the
+   ancestor's own border edge regardless of how much padding that ancestor
+   has (padding is INSIDE the padding box, not outside it) -- so the
+   padding never actually pushed .player-wrap down at all, it only made
+   .vod-hero-player's own content area smaller while .player-wrap kept
+   overlapping the full border box, y=0 included. Fixed instead by
+   explicitly offsetting .player-wrap's own top, which isn't subject to
+   that same confusion. The .vod-hero-row height above is still bumped by
+   var(--header-h) so the video itself doesn't end up visibly smaller than
+   before, just shifted down. */
+.vod-hero-player .player-wrap { position: absolute; top: var(--header-h); right: 0; bottom: 0; left: 0; aspect-ratio: auto; width: 100%; height: auto; }
 .vod-hero-player .player-empty { display: flex; align-items: center; justify-content: center; }
 /* Same top-fade as css/youtube.css's .yt-hero-scrim (there covering a full
    thumbnail image; here only the top band, since the bottom already gets
@@ -126,7 +147,9 @@
   margin: 10px 0 6px;
   max-width: 900px;
   color: #fff;
+  font-family: "Bebas Neue", "Futura", sans-serif;
   font-size: clamp(1.4rem, 3.4vw, 2.6rem);
+  letter-spacing: 0.3px;
   line-height: 1.15;
   text-shadow: 0 2px 14px rgba(0, 0, 0, 0.45);
   display: -webkit-box;
@@ -323,6 +346,15 @@
   margin: 20px 0 30px;
   flex-wrap: wrap;
 }
+/* Nested inside a .yt-library-head row (css/youtube.css) instead of
+   standing alone: right-aligned next to the heading, no extra margin of
+   its own -- the row itself already provides that spacing. Mirrors
+   youtube.css's own `.yt-library-head .filter-bar` override, just for the
+   pill-row class this page actually uses. */
+.yt-library-head .vod-section-head { justify-content: flex-end; margin: 0; }
+@media (max-width: 700px) {
+  .yt-library-head .vod-section-head { justify-content: center; width: 100%; }
+}
 /* The Twitch archive's sort pills only mount when there's enough data to
    justify them (see js/vods.js renderTwitchArchive) — when they don't,
    their container is left empty rather than removed from the DOM, so this
@@ -409,6 +441,18 @@
   opacity: 1;
   transform: translate(calc(-50% + 2px), -50%) scale(1);
 }
+
+/* Title color shift on hover/focus -- same small extra "this is
+   interactive" cue youtube.css's own cards get (#yt-grid/#yt-spotlight),
+   just scoped to this page's own three card containers instead (that
+   file's rule is scoped to its own ids on purpose, see its header
+   comment). The play-circle overlay itself (.yt-play-overlay/.yt-play-
+   circle, added to vodCardHTML/twitchVodCardHTML in js/vods.js) needs no
+   equivalent copy here -- those classes are already unscoped in
+   youtube.css and apply to any .vod-card, this page's included. */
+#vod-grid .vod-card h3, #twitch-vod-row .vod-card h3, #twitch-spotlight-row .vod-card h3 { transition: color 0.2s ease; }
+#vod-grid .vod-card:hover h3, #twitch-vod-row .vod-card:hover h3, #twitch-spotlight-row .vod-card:hover h3,
+#vod-grid .vod-card:focus-visible h3, #twitch-vod-row .vod-card:focus-visible h3, #twitch-spotlight-row .vod-card:focus-visible h3 { color: var(--accent-red); }
 
 .watchlist-toggle {
   position: absolute;
@@ -546,7 +590,10 @@
      behind the header instead of just clipping. The extra height beyond
      16/9 just shows more of the player's own black letterbox background,
      not a stretched/cropped video. */
-  .vod-hero-player { flex: none; width: 100%; aspect-ratio: 16 / 9; min-height: 230px; }
+  /* +var(--header-h): same padding-top compensation as the desktop
+     .vod-hero-row clamp() above, so the actual video still gets its full
+     ~230px after the header-height padding eats into the top of this box. */
+  .vod-hero-player { flex: none; width: 100%; aspect-ratio: 16 / 9; min-height: calc(230px + var(--header-h)); }
   /* Shorter than the desktop 130px band -- on a ~230-260px-tall mobile
      player the full-size band would cover close to half of it. */
   .vod-hero-player::before { height: 80px; }
