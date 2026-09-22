@@ -29,8 +29,9 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
 | `js/product.js` + `shop/product/index.html` | Product detail page. Reads the slug from `?slug=` or (when there's none) the URL path, so it renders identically whether loaded at `/shop/product/?slug=<slug>` or via `404.html`'s clean-URL fallback (see `404.html` below) |
 | `404.html` (repo root) | GitHub Pages' standard clean-URL workaround (no server-side rewrites on this host): served site-wide for any unmatched path. Detects `/shop/<slug>` and mounts `js/product.js` to render that product; anything else gets a plain generic 404. Must stay at the repo root — GitHub Pages only honors one, and only there |
 | `js/currency.js` | Pure `money(amount, currency)` price formatter (Intl.NumberFormat, `de-DE`). No conversion logic — `js/fourthwall-api.js` requests every price directly in EUR from Fourthwall itself (see its own entry below), so there's nothing left to convert here |
-| `js/vods.js` + `js/twitch-auth.js` | VODs page: live > Twitch VOD > YouTube fallback player (now via `YT.Player`/`Twitch.Player` SDKs for watch-time, not bare iframes), Twitch OAuth popup login + chat |
-| `js/youtube.js` | YouTube page: Videos/Shorts grid, custom modal player (`YT.Player` SDK) |
+| `js/vods.js` + `js/twitch-auth.js` | Mehr/ZevKev+ page: live > Twitch VOD > YouTube fallback player in the hero (via `YT.Player`/`Twitch.Player` SDKs for watch-time, not bare iframes), Twitch OAuth popup login + chat. Archive/spotlight/YouTube-VOD-channel cards all link to real `/vod/<id>/` or `/video/<id>/` pages (see `js/watch.js`) — no modal |
+| `js/youtube.js` | YouTube page: Videos/Shorts grid. Cards link to `/video/<id>/` (`js/watch.js`) — this page used to open videos in an on-page modal, but every video/VOD now gets a real page with comments instead, so don't assume "modal" from an old memory of this page |
+| `js/watch.js` + `shop/product/index.html`'s `404.html`-fallback sibling pattern | Shared single-video page for both `/video/<id>/` (YouTube) and `/vod/<id>/` (Twitch VOD) — served via `404.html`'s clean-URL fallback exactly like `js/product.js`/`/shop/<slug>`. Player + meta + comments (`js/comments.js`) + watchlist + resume-progress (`js/user-data.js`). Twitch VODs get a "Chat-Replay auf Twitch ansehen" outbound link instead of an embedded chat — Twitch's embed API doesn't support VOD chat replay, confirmed against their docs, so linking out is the honest option rather than faking a broken embed |
 | `js/watchlist.js` | Dedicated Watchlist page — reads the shared `zevkev-watchlist` key, resolves ids against both `videos.json` and `main-videos.json` |
 | `js/track.js` | Analytics client. Exports `track(type, path, value)` and `observeImpressions(selector, pathFn, root)` (IntersectionObserver, fires once per element) — both report via `window.gtag(...)`, silently no-op if `gtag` isn't defined (i.e. no consent yet). Wired into `layout.js` (page_view), `product.js` (product_view), `cart.js` (add_to_cart), various `data-track-click` attributes (click), video-card grids in `vods.js`/`youtube.js` (impression), and watch-time heartbeats from the player-embedding code itself |
 | `js/consent.js` + `js/ga-config.js` | Cookie consent banner (GDPR: GA4 never loads before explicit accept) + the GA4 Measurement ID (not a secret, plain file, currently a placeholder — see "Known issues"). `js/consent.js` also exports `openConsentSettings()`, wired to a "Cookie-Einstellungen" footer link so a visitor can change their mind later |
@@ -44,14 +45,33 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
   `:root[data-theme="dark"]`. Toggle sets `data-theme` on `<html>`.
 - **Buttons don't inherit text `color` from ancestors** (browser default) —
   always set `color` explicitly on custom buttons, or they render black
-  regardless of theme. This exact bug hit `.cart-close` once already.
-- Modals reuse `.cart-backdrop` / `.qv-panel` / `.qv-close` chrome
-  (`js/youtube.js` and `js/vods.js`'s custom video-player modals use this
-  pattern; the shop's own quick-view modal that originated it is gone now —
-  replaced by `js/product.js`'s real page, which still reuses the same
-  `.qv-*` class names for its lightbox/gallery/option pieces even though
-  it's no longer a modal). Keep new modals consistent with this rather than
-  inventing a new pattern.
+  regardless of theme. This exact bug hit `.cart-close`, `.swatch-size`,
+  `.qty-stepper button`/`input` — same root cause every time.
+- **Recurring dark-mode bug pattern, found repeatedly across a whole site
+  sweep (2026-09-22): a hardcoded hex color used as text, with no
+  `:root[data-theme="dark"]` override.** It looks fine in light mode
+  (coincidence, not correctness) and goes low/zero-contrast once `--paper`
+  turns near-black in dark mode. Hit `.legal-sheet a`, `.consent-banner a`,
+  `.account-name-saved`, `.shop-campaign-code`, the homepage hero's inline
+  `style="color:#0f4c81"` links, and `.note-accent-d`/`.note-accent-t`
+  (`--discord-blurple-dark`/`--twitch-purple-dark` used as *text*, not
+  background — those two tokens are deliberately muted for light-mode
+  paper and were never meant to double as dark-mode-safe text colors).
+  When adding any new colored text, either use an existing `--text-*`/
+  `--accent-*` token (already theme-aware) or add an explicit
+  `:root[data-theme="dark"]` override scoped to that selector — don't
+  reuse a `*-dark`-suffixed token as text color, that suffix means
+  "muted/background", not "dark-mode-safe".
+- Modals reuse `.cart-backdrop` / `.qv-panel` / `.qv-close` chrome. Both the
+  shop's old quick-view modal AND the YouTube/VODs pages' old video-player
+  modals are gone now — every product and every video/VOD gets a real page
+  (`js/product.js`+`/shop/<slug>`, `js/watch.js`+`/video|vod/<id>/`) instead,
+  all served via the same `404.html` clean-URL fallback trick. `js/product.js`
+  still reuses the `.qv-*` class names for its lightbox/gallery/option pieces
+  even though it's no longer a modal. If you're about to build a new modal,
+  first ask whether this page actually wants one — the established direction
+  this whole site has moved in is "give it a real page instead" (shareable
+  URL, comments, SEO), not modals.
 - Cork product-photo texture (`--photo-mat`) is an SVG `feTurbulence` noise
   filter (not gradients — those tile visibly). If you touch it: keep
   `stitchTiles="stitch"` AND pin the filter region explicitly
@@ -316,6 +336,85 @@ emojis, no em-dashes in copy. All UI copy is German, casual-friendly tone.
   calculates real shipping at their own checkout, this site never has that
   number to show upfront.
 
+- **Twitch on/off toggle (`/privat/`) actually self-corrects live now
+  (2026-09-22).** Root cause of "doesn't save": it always wrote to
+  Firestore (`settings/site.twitchEnabled`) correctly and every consumer
+  already read the same `js/config.js` override, but `js/flags.js` only
+  ever refreshed the localStorage cache for the *next* page load, and
+  `js/privat.js` swallowed write failures with a bare `console.error` — so
+  a real save and a silent permission failure looked identical, and even a
+  successful toggle needed two reloads to visibly change. Fixed:
+  `js/flags.js` now corrects `<html class="twitch-disabled">` live the
+  moment its background Firestore check finds a stale value (not just the
+  cache) and fires a `zevkev:twitch-flag-updated` event; `js/privat.js`
+  updates the same cache key immediately after a successful write and
+  shows a visible error in the settings UI on failure; `js/vods.js`/
+  `js/live.js` listen for that event and reload, since their `init()`
+  branches on `TWITCH_ENABLED` once at load time (can't hot-swap a live
+  Twitch/YouTube player mid-render safely). Firestore rules for
+  `settings/site` are console-managed (no rules file in this repo) — if
+  a future error surfaces there, that's a Firebase Console rules check,
+  not another client-side latency bug.
+- **Mehr/ZevKev+ page: closed the remaining visual gaps vs. the YouTube
+  page, and fixed a real hero-overlap bug (2026-09-22).** Hero title now
+  uses Bebas Neue, section headings are integrated with their filter/sort
+  pills in one `.yt-library-head` row instead of stacked separately, "Aus
+  dem Archiv" uses the lighter `.yt-spotlight-label` treatment, cards got
+  the same play-circle hover affordance, and the YouTube-VOD-channel grid
+  gained a Neueste/Älteste sort + load-more (that feed, `videos.json`, has
+  no view-count field at all, unlike `main-videos.json` — that's why it's
+  date-sort only, not Neueste/Meistgesehen like the YouTube page's). Real
+  bug also found and fixed: the hero's nav floats transparently over the
+  full-bleed video (works fine for a plain background image, which is all
+  `css/youtube.css`'s own hero ever shows), but YouTube's *embedded iframe*
+  draws its own native title/channel overlay in the top-left corner while
+  paused — landing directly under the nav. No CSS can reach into a
+  cross-origin iframe to move it, so the player is now offset by
+  `var(--header-h)` instead (see `.vod-hero-player .player-wrap`'s comment
+  for why `padding-top` on the parent does NOT work for this — an
+  absolutely-positioned `inset:0` child fills the *padding box*, whose
+  top-left corner sits at the border edge regardless of padding; the fix
+  needed an explicit `top: var(--header-h)` on the child itself instead).
+- **Shop: hover-swap-to-second-photo, tap-to-flip for touch, and several
+  real bugs fixed in one pass (2026-09-22).** Product cards crossfade to
+  the product's second photo on hover (`product.images[1]`, same field
+  `js/product.js`'s own gallery already reads) — and, since `:hover` never
+  fires on touch, an explicit tap-to-flip button (bottom-left of the
+  photo) does the same thing on any device. Product detail page now
+  surfaces Fourthwall's `additionalInformation` (material/fit,
+  guarantee/returns) and `sizeGuide` fields — fetched by the API already,
+  never rendered before — as a details accordion (confirmed live shape via
+  Fourthwall's own docs: `sizeGuide` is `{url, content}`). Removed the "All
+  Products" filter pill (Fourthwall's own built-in catch-all collection,
+  same one the hardcoded "Alle" pill already shows — two identical filters
+  side by side). Hero header (title/description/shipping note) is one
+  paper card now instead of plain text on the mat, with the campaign promo
+  banner as an inset dashed strip inside it instead of a second floating
+  `.rip` card (two nested torn-paper shapes clip against each other —
+  don't nest `.rip` inside `.rip`, use a plain tinted panel for an "inset
+  highlight" instead, see `.shop-campaign-banner`/`.info-accordion`).
+  Product photo frame got a chipped/torn edge (`clip-path: var(--tear-b)`)
+  instead of a stark rectangle — outline only, the cork grain recipe
+  itself is untouched (see "Do not" below, still applies).
+- **Homepage: fixed the dark-mode contrast bugs above, plus the "Deine
+  Hosts" team cards (2026-09-22).** The Jamon/Belloflo website-link buttons
+  (`.p-btn.rip`) sat on the *exact same* `--paper` tone as their parent
+  `.c-card`, so the "button" had no visible edge or background at all —
+  looked like bare text with nothing under it, not a design choice.
+  Recolored to `rip--accent`. Host cards also gained tape strips (same
+  pinned-to-the-board cue as `.zone-sheet`/`.how-accordion` elsewhere on
+  this page) and a hover lift that preserves each card's own tilt instead
+  of snapping flat.
+- **Footer's "Cookie-Einstellungen" is a real `<button>` now, not
+  `<a href="#">` (2026-09-22).** Was the classic `href="#"`-as-click-target
+  anti-pattern. Styled as its own small bordered pill with an icon, moved
+  out of `.footer-links` into its own line — if you touch `js/layout.js`'s
+  `mountOwnerNav()` again, note its "Privat" footer link now just
+  `appendChild`s (it used to `insertBefore(..., cookie-settings-link)` as
+  an anchor to stay last in that row; now that the button lives outside
+  `.footer-links` entirely, that `insertBefore` would throw — the
+  reference node has to be a real child of the container you call it on).
+
 ## Known issues / next fixes (as of 2026-09-17)
 
 - [ ] **Full CSS modularization — each page fully self-contained, not
@@ -460,6 +559,32 @@ environment quirks worth knowing about before assuming something is broken:
    folder containing only a `.claude/` dir) — it's session-tool metadata,
    not meaningful for diagnosing what's actually being served. Trust the
    real process's `--directory` arg (or just curl the port) instead.
+6. **The HTML document itself gets HTTP-cached too, not just CSS/JS**
+   (2026-09-22) — caveat #4 above only covers stylesheets, but a plain
+   `navigate()` to the same path, even closing the tab and opening a brand
+   new one, can keep rendering a stale *page* (confirmed via `Last-
+   Modified` on a `fetch()` of the HTML being several days old, with
+   `transferSize: 0` — served straight from disk cache, no network hit at
+   all). Query strings on `<script src>`/`<link href>` don't help this
+   layer. What actually works: `navigate()` to the path with a genuinely
+   unique query string on the DOCUMENT url itself, e.g.
+   `/index.html?v=<timestamp>` — confirmed this forces a real fresh fetch
+   where `?bust=1` (a repeated, non-unique value across calls) did not.
+7. **`mountLayout()` (`js/layout.js`) only ever mounts once per real page
+   load — calling it again against an already-mounted page silently no-
+   ops** (2026-09-22). It finds its targets via
+   `document.getElementById("site-header"/"site-footer")`, and its own
+   `outerHTML =` swap on first run replaces those placeholder divs with
+   `<header class="site-header">`/`<footer class="site-footer">` elements
+   that carry the *class* but not the *id* — so a second call's
+   `getElementById` returns `null` and the `if (slot) ...` guard quietly
+   skips the update. This isn't a bug (a genuine fresh page load only ever
+   mounts once, by design), but it means the usual "dynamically re-import
+   with `?cb=`" trick (caveat #1) doesn't work for verifying a
+   `js/layout.js` change against an already-open tab — you'll re-import
+   fresh code but `mountLayout()` will do nothing visible. Use a real
+   fresh navigation (see #6 above) instead, or manually extract/render the
+   relevant template string for a quick visual check.
 
 ## Do not
 
