@@ -72,7 +72,7 @@
 .account-name-form label { display: block; font-size: 0.78rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px; }
 .account-email { margin: 10px 0 0; font-size: 0.85rem; color: var(--text-muted); }
 .account-name-saved {
-  margin: 6px 0 0; font-size: 0.82rem; font-weight: bold; color: #3c7a4b;
+  margin: 6px 0 0; font-size: 0.82rem; font-weight: bold; color: var(--accent-green);
   opacity: 0; transition: opacity 0.3s ease;
 }
 .account-name-saved.is-visible { opacity: 1; }

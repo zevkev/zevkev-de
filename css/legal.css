@@ -15,6 +15,7 @@
 .legal-sheet h2 { font-size: 1.15rem; margin: 30px 0 8px; }
 .legal-sheet p { line-height: 1.65; margin: 0 0 4px; color: var(--text-dark); }
 .legal-sheet a { color: #0f4c81; font-weight: bold; }
+:root[data-theme="dark"] .legal-sheet a { color: #7fb2e5; }
 .legal-sheet ul { line-height: 1.65; padding-left: 22px; }
 
 .todo-flag {
