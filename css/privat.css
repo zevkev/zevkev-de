@@ -60,6 +60,7 @@
 .privat-panel[hidden] { display: none; }
 
 .privat-hint { font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; margin: -6px 0 16px; }
+.privat-error { color: var(--accent-red); font-size: 0.85rem; margin: -10px 0 16px; }
 
 /* ---------- Users tab ---------- */
 .privat-user-row {

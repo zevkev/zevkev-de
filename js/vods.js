@@ -12,10 +12,25 @@ const heroPlayer = document.getElementById("vod-hero-player");
 const chatCol = document.getElementById("chat-col");
 const vodGrid = document.getElementById("vod-grid");
 const sectionHead = document.getElementById("vod-section-head");
+const vodSortBar = document.getElementById("vod-sort-bar");
+const vodLoadMore = document.getElementById("vod-load-more");
 const twitchSpotlightWrap = document.getElementById("twitch-spotlight-wrap");
 const twitchSpotlightRow = document.getElementById("twitch-spotlight-row");
 const twitchArchiveHead = document.getElementById("twitch-archive-head");
 const twitchVodRow = document.getElementById("twitch-vod-row");
+
+// Same "reveal a page at a time" pattern as js/youtube.js's own PAGE_SIZE/
+// visibleCount (see that file's comment) -- reset to PAGE_SIZE on every
+// Alle/Watchlist tab switch and every sort change, bumped by PAGE_SIZE on
+// "load more". This feed (assets/data/videos.json, the ZevKev+ VOD
+// channel's own uploads -- a much smaller/simpler list than youtube.js's
+// main-videos.json) has no view-count field at all, unlike the main
+// channel feed, so the sort here is Neueste/Älteste (date), not
+// Neueste/Meistgesehen -- there's no honest "most viewed" to offer without
+// data this feed doesn't carry.
+const VOD_PAGE_SIZE = 24;
+let vodVisibleCount = VOD_PAGE_SIZE;
+let vodSortMode = "new";
 
 // Same technique as js/youtube.js's own initHeroScrollObserver (not shared
 // code -- each page's hero has a different sentinel id/scrolled class, kept
@@ -45,6 +60,16 @@ function initHeroScrollObserver() {
 
 function starIcon(filled) {
   return `<svg viewBox="0 0 24 24" width="18" height="18" fill="${filled ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.8"><path d="M12 3.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z" stroke-linejoin="round"/></svg>`;
+}
+// Same markup/icons as js/youtube.js's own cardHTML/renderLoadMore -- the
+// .yt-play-overlay/.yt-play-circle/.yt-load-more-btn classes they target
+// are unscoped in css/youtube.css (safe anywhere per that file's own
+// header comment) precisely so this page's cards can reuse them too.
+function playIcon(size = 20) {
+  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>`;
+}
+function chevronDownIcon(size = 14) {
+  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`;
 }
 
 // Small source-brand glyphs for the status badge, so "offline, showing a
@@ -582,6 +607,7 @@ function vodCardHTML(video, watchlist) {
   <a href="${video.url}" target="_blank" rel="noopener" class="vod-card rip reveal">
     <div class="vod-thumb">
       <img src="${video.thumbnail}" alt="" loading="lazy">
+      <span class="yt-play-overlay" aria-hidden="true"><span class="yt-play-circle">${playIcon()}</span></span>
       <button class="watchlist-toggle${saved ? " is-saved" : ""}" data-watch-id="${video.id}" aria-label="Zur Watchlist" onclick="event.preventDefault()">${starIcon(saved)}</button>
     </div>
     <h3>${video.title}</h3>
@@ -589,17 +615,69 @@ function vodCardHTML(video, watchlist) {
   </a>`;
 }
 
+function orderVods(list, sort) {
+  // Both branches copy before sorting -- `list` is a filtered *view* over
+  // the shared `videos` array (see renderVods), an in-place .sort() would
+  // corrupt the underlying order for whichever tab/sort is picked next.
+  if (sort === "old") return [...list].sort((a, b) => new Date(a.publishedAt) - new Date(b.publishedAt));
+  return [...list].sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+}
+
+// Mirrors js/youtube.js's own renderSortBar -- only shown once there's
+// enough in this tab to be worth reordering (same reasoning as
+// renderTwitchArchive's own gate further down: sorting three-or-fewer
+// cards isn't a real second angle on the data).
+function renderVodSortBar(videos, list, mode) {
+  if (!vodSortBar) return;
+  if (list.length < 4) {
+    vodSortBar.innerHTML = "";
+    return;
+  }
+  vodSortBar.innerHTML = `
+    <button type="button" class="yt-sort-btn${vodSortMode === "new" ? " is-active" : ""}" data-sort="new">Neueste</button>
+    <button type="button" class="yt-sort-btn${vodSortMode === "old" ? " is-active" : ""}" data-sort="old">Älteste</button>`;
+  vodSortBar.querySelectorAll(".yt-sort-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (btn.dataset.sort === vodSortMode) return;
+      vodSortMode = btn.dataset.sort;
+      vodVisibleCount = VOD_PAGE_SIZE;
+      renderVods(videos, mode);
+    });
+  });
+}
+
+// Same "reveal a page at a time, re-render rather than append" pattern as
+// js/youtube.js's own renderLoadMore -- see that file's comment for why.
+function renderVodLoadMore(videos, mode, shownCount, totalCount) {
+  if (!vodLoadMore) return;
+  if (shownCount >= totalCount) {
+    vodLoadMore.innerHTML = "";
+    return;
+  }
+  vodLoadMore.innerHTML = `<button type="button" class="filter-pill rip yt-load-more-btn">${chevronDownIcon()}Weitere Videos laden &middot; noch ${totalCount - shownCount}</button>`;
+  vodLoadMore.querySelector(".yt-load-more-btn").addEventListener("click", () => {
+    vodVisibleCount += VOD_PAGE_SIZE;
+    renderVods(videos, mode);
+    vodLoadMore.querySelector(".yt-load-more-btn")?.focus();
+  });
+}
+
 function renderVods(videos, mode) {
   if (!vodGrid) return;
   const watchlist = getWatchlist();
   const list = mode === "watchlist" ? videos.filter((v) => watchlist.has(v.id)) : videos;
 
+  renderVodSortBar(videos, list, mode);
+
   if (!list.length) {
     const icon = mode === "watchlist" ? `<svg class="yt-empty-icon" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z"/></svg>` : emptyArchiveIcon();
     vodGrid.innerHTML = `<div class="empty-state">${icon}<h2>${mode === "watchlist" ? "Watchlist ist leer" : "Noch keine Videos"}</h2><p>${mode === "watchlist" ? "Speicher Videos mit dem Stern, um sie hier wiederzufinden." : "Schau bald wieder vorbei."}</p></div>`;
+    renderVodLoadMore(videos, mode, 0, 0);
     return;
   }
-  vodGrid.innerHTML = list.map((v) => vodCardHTML(v, watchlist)).join("");
+  const ordered = orderVods(list, vodSortMode);
+  const shown = ordered.slice(0, vodVisibleCount);
+  vodGrid.innerHTML = shown.map((v) => vodCardHTML(v, watchlist)).join("");
   vodGrid.querySelectorAll("[data-watch-id]").forEach((btn) => {
     btn.addEventListener("click", async (ev) => {
       ev.preventDefault();
@@ -618,6 +696,8 @@ function renderVods(videos, mode) {
   // below -- its real YouTube video URL (the href it already links to) is
   // the path value here.
   observeImpressions(".vod-card", (el) => el.getAttribute("href"), vodGrid);
+
+  renderVodLoadMore(videos, mode, shown.length, ordered.length);
 }
 
 function mountTabs(videos) {
@@ -630,6 +710,8 @@ function mountTabs(videos) {
     pill.addEventListener("click", () => {
       sectionHead.querySelectorAll(".filter-pill").forEach((p) => p.classList.remove("is-active"));
       pill.classList.add("is-active");
+      vodVisibleCount = VOD_PAGE_SIZE; // fresh first page for the newly selected tab
+      vodSortMode = "new"; // and its own natural chronological order
       renderVods(videos, pill.dataset.mode);
     });
   });
@@ -668,6 +750,7 @@ function twitchVodCardHTML(vod, tone = "") {
   <a href="/vod/${vod.id}/" class="${classes}" data-twitch-vod-id="${vod.id}">
     <div class="vod-thumb">
       <img src="${vod.thumbnail}" alt="" loading="lazy">
+      <span class="yt-play-overlay" aria-hidden="true"><span class="yt-play-circle">${playIcon()}</span></span>
       ${dur ? `<span class="vod-duration-badge">${dur}</span>` : ""}
     </div>
     <h3>${vod.title}</h3>
@@ -778,6 +861,16 @@ async function init() {
   // waiting on the fetch below -- same reasoning as js/youtube.js's init().
   initHeroScrollObserver();
   renderSkeletons();
+
+  // js/flags.js fires this once its background Firestore check finds the
+  // site-wide Twitch flag differs from what this page already loaded with
+  // (e.g. an admin flipped it in /privat/ while this tab was open). This
+  // page's whole init() branches on TWITCH_ENABLED once at load time (the
+  // Twitch VOD/spotlight shelves, hero chat column, etc. only ever get
+  // fetched/rendered under the original value), so a clean reload is the
+  // safe way to pick that up -- no risk of a live Twitch player/chat iframe
+  // or watch-time tracker being left half torn-down by a partial re-render.
+  window.addEventListener("zevkev:twitch-flag-updated", () => location.reload(), { once: true });
 
   if (TWITCH_ENABLED) {
     if (consumeRedirect()) {

@@ -362,7 +362,8 @@ function settingsHTML() {
     <input type="checkbox" id="privat-twitch-toggle" ${siteSettings.twitchEnabled ? "checked" : ""}>
     <span id="privat-twitch-toggle-label">Twitch-Inhalte site-weit ${siteSettings.twitchEnabled ? "eingeblendet" : "ausgeblendet"}</span>
   </label>
-  <p class="privat-hint">Blendet Player/Chat/VOD-Archiv auf der Mehr- und Live-Seite sowie den Twitch-Link auf der Startseite und im Kontakt aus. Die Mehr-Seite heißt dann „ZevKev+" statt „Mehr". Wirkt für Besucher erst beim nächsten Seitenaufruf, nicht live auf bereits offenen Tabs.</p>`;
+  <p class="privat-hint">Blendet Player/Chat/VOD-Archiv auf der Mehr- und Live-Seite sowie den Twitch-Link auf der Startseite und im Kontakt aus. Die Mehr-Seite heißt dann „ZevKev+" statt „Mehr". Wirkt für alle Besucher innerhalb von etwa einer Sekunde, auch auf bereits offenen Tabs.</p>
+  <p class="privat-error" id="privat-twitch-toggle-error" style="display:none;"></p>`;
 }
 
 // Renders once, then only ever patches the label text on toggle -- avoids
@@ -372,12 +373,33 @@ function renderSettings() {
   if (!el) return;
   el.innerHTML = settingsHTML();
   document.getElementById("privat-twitch-toggle")?.addEventListener("change", async (ev) => {
-    siteSettings.twitchEnabled = ev.target.checked;
-    const label = document.getElementById("privat-twitch-toggle-label");
-    if (label) label.textContent = `Twitch-Inhalte site-weit ${siteSettings.twitchEnabled ? "eingeblendet" : "ausgeblendet"}`;
-    await setDoc(doc(db, "settings", "site"), { twitchEnabled: siteSettings.twitchEnabled }, { merge: true }).catch((err) =>
-      console.error("Saving settings failed:", err)
-    );
+    const next = ev.target.checked;
+    const errorEl = document.getElementById("privat-twitch-toggle-error");
+    if (errorEl) errorEl.style.display = "none";
+    try {
+      await setDoc(doc(db, "settings", "site"), { twitchEnabled: next }, { merge: true });
+      siteSettings.twitchEnabled = next;
+      const label = document.getElementById("privat-twitch-toggle-label");
+      if (label) label.textContent = `Twitch-Inhalte site-weit ${next ? "eingeblendet" : "ausgeblendet"}`;
+      // Updates the very cache js/config.js reads, instead of waiting on
+      // js/flags.js's own background refresh to eventually do it -- closes
+      // the toggle's own next-reload gap to zero, same fix as the live
+      // cross-tab correction flags.js now does for everyone else.
+      try {
+        localStorage.setItem("zevkev-twitch-enabled-cache", next ? "1" : "0");
+      } catch {
+        // ignore -- private browsing / storage full
+      }
+      document.documentElement.classList.toggle("twitch-disabled", !next);
+      window.dispatchEvent(new CustomEvent("zevkev:twitch-flag-updated", { detail: { enabled: next } }));
+    } catch (err) {
+      console.error("Saving settings failed:", err);
+      ev.target.checked = siteSettings.twitchEnabled; // revert the checkbox -- the write didn't actually happen
+      if (errorEl) {
+        errorEl.textContent = "Speichern fehlgeschlagen. Bitte erneut versuchen.";
+        errorEl.style.display = "";
+      }
+    }
   });
 }
 

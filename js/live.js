@@ -265,4 +265,13 @@ async function init() {
   else renderOffline();
 }
 
+// js/flags.js fires this once its background Firestore check finds the
+// site-wide Twitch flag differs from what this page already loaded with
+// (e.g. an admin flipped it in /privat/ while this tab was open). This
+// page's whole init() branches on TWITCH_ENABLED once at load time, so a
+// clean reload is the safe way to pick that up -- no risk of a live Twitch
+// player/chat iframe or watch-time tracker being left half torn-down by a
+// partial re-render.
+window.addEventListener("zevkev:twitch-flag-updated", () => location.reload(), { once: true });
+
 init();
