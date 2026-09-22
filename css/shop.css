@@ -145,6 +145,24 @@
   inset: 14px;
   opacity: 0;
 }
+/* Real bug, not a design nitpick: the shared ".product-photo-frame img"
+   rule above sets width:100% on every <img> in this frame, including this
+   one -- for an absolutely positioned element that resolves against the
+   frame's *padding box* (100% of the full frame, not "100% minus the 14px
+   inset"), which out-constrains inset's own right/bottom and makes the
+   browser drop them. Net effect: this image rendered 28px wider/taller
+   than the primary photo while sharing its top-left corner, so it crept
+   off-center to the bottom-right instead of sitting in the same inset the
+   photo it's replacing uses. Needs a selector at least as specific as
+   ".product-photo-frame img" (class+type, (0,1,1)) to actually win --
+   ".product-photo-hover" alone is only (0,1,0) and silently lost the
+   cascade despite coming later in the file, which is why the first fix
+   attempt here (plain width/height on .product-photo-hover) only fixed
+   height (nothing else was competing for that) and not width. */
+.product-photo-frame .product-photo-hover {
+  width: calc(100% - 28px);
+  height: calc(100% - 28px);
+}
 .product-card:hover .product-photo-hover,
 .product-card.is-flipped .product-photo-hover { opacity: 1; transform: scale(1.06); }
 .product-card:hover .product-photo-primary,
