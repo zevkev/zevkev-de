@@ -98,6 +98,12 @@ body.home .footer-socials a:hover { background: rgba(255, 255, 255, 0.22); }
 /* ---------- Hero ---------- */
 
 .hero-card { max-width: 900px; }
+/* Was inline style="color:#0f4c81" x3 in index.html -- same dark-mode
+   contrast bug fixed elsewhere this session (style.css's .consent-banner a,
+   css/legal.css's .legal-sheet a): no dark override, unreadable once
+   --paper (this card's own background) turns near-black in dark mode. */
+.hero-link { color: #0f4c81; font-weight: bold; }
+:root[data-theme="dark"] .hero-link { color: #7fb2e5; }
 
 .hero-photo {
   width: 200px; height: 200px; background: #fff; padding: 10px 10px 26px;
@@ -144,6 +150,18 @@ body.home .footer-socials a:hover { background: rgba(255, 255, 255, 0.22); }
 .note:nth-child(3):hover { transform: rotate(-1deg) translateY(-5px) scale(1.03); }
 .note b .note-accent-d { color: var(--discord-blurple-dark) !important; }
 .note b .note-accent-t { color: var(--twitch-purple-dark) !important; }
+/* Real dark-mode contrast bug: --discord-blurple-dark/--twitch-purple-dark
+   are deliberately muted, meant for text on --paper's LIGHT-mode cream --
+   neither has (or should get) a dark-mode override of its own, since both
+   tokens are reused elsewhere as backgrounds where a brighter value would
+   just break contrast the other way (e.g. .zone-title .chip a few lines
+   up). --paper turns near-black in dark mode, and dark navy blue / deep
+   purple text against that is nearly unreadable ("dunkel blau auf grau").
+   Swapping to the brighter --discord-blurple/--twitch-purple variants
+   (already used as bold accents elsewhere, e.g. the Discord/Twitch join
+   buttons) for dark mode only fixes it without touching either token. */
+:root[data-theme="dark"] .note b .note-accent-d { color: var(--discord-blurple) !important; }
+:root[data-theme="dark"] .note b .note-accent-t { color: var(--twitch-purple) !important; }
 
 .btn-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin-top: 30px; }
 
@@ -180,6 +198,9 @@ body.home .footer-socials a:hover { background: rgba(255, 255, 255, 0.22); }
 .how-accordion[open] .chev { transform: rotate(90deg); }
 .how-accordion ol { margin: 0; padding: 0 22px 22px 50px; line-height: 1.75; font-size: 0.96rem; }
 .how-accordion ol li::marker { color: var(--discord-blurple-dark); font-weight: bold; }
+/* Same dark-mode contrast fix as .note-accent-d above -- this sits on the
+   same .rip paper background (the accordion carries .rip rip--b). */
+:root[data-theme="dark"] .how-accordion ol li::marker { color: var(--discord-blurple); }
 
 .team-lead { color: #fff !important; opacity: 0.9; margin: 40px 0 24px; text-align: center; font-family: "Bebas Neue", sans-serif; font-size: 1.4rem; letter-spacing: 1px; text-transform: uppercase; }
 

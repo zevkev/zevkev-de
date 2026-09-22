@@ -288,6 +288,16 @@ h1, h2, .display-font {
 .tilt-a { transform: rotate(-1.2deg); }
 .tilt-b { transform: rotate(1deg); }
 .tilt-c { transform: rotate(-0.5deg); }
+/* Had no hover feedback at all before -- same lift-on-hover language as
+   .note/.product-card elsewhere on the site, preserving each card's own
+   static tilt instead of snapping flat like those do (there's no "active
+   selection" state here to justify un-tilting, so keeping the scattered
+   angle even on hover reads more consistently "pinned in place"). */
+.c-card { transition: transform 0.25s ease, box-shadow 0.25s ease; }
+.tilt-a:hover { transform: rotate(-1.2deg) translateY(-6px) scale(1.02); }
+.tilt-b:hover { transform: rotate(1deg) translateY(-6px) scale(1.02); }
+.tilt-c:hover { transform: rotate(-0.5deg) translateY(-6px) scale(1.02); }
+.c-card:hover::before { box-shadow: var(--shadow-hover); }
 
 /* Was an `animation` interpolating opacity 0->1 alongside the slide-up —
    meaning every card spent ~0.6s at partial opacity while scrolling into

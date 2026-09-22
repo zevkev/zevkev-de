@@ -67,8 +67,8 @@
       </div>
       <div>
         <h1 style="font-size:clamp(2.2rem,6vw,3rem); margin:0 0 10px; text-transform:uppercase;">Hey, ich bin Kevin.</h1>
-        <p style="font-size:clamp(1rem,2.6vw,1.15rem); line-height:1.6; margin:8px 0;">In meiner Freizeit produziere ich <b>Videos und Entertainment</b> für meinen YouTube Kanal <a href="https://www.youtube.com/@ZevKev" target="_blank" rel="noopener" style="color:#0f4c81; font-weight:bold;">ZevKev</a>.</p>
-        <p style="font-size:clamp(1rem,2.6vw,1.15rem); line-height:1.6; margin:8px 0;">Zusätzlich poste ich täglich Clips auf <a href="https://www.tiktok.com/@zevkev" target="_blank" rel="noopener" style="color:#0f4c81; font-weight:bold;">TikTok</a> sowie Bilder auf <a href="https://www.instagram.com/zevkev/" target="_blank" rel="noopener" style="color:#0f4c81; font-weight:bold;">Instagram</a>.</p>
+        <p style="font-size:clamp(1rem,2.6vw,1.15rem); line-height:1.6; margin:8px 0;">In meiner Freizeit produziere ich <b>Videos und Entertainment</b> für meinen YouTube Kanal <a href="https://www.youtube.com/@ZevKev" target="_blank" rel="noopener" class="hero-link">ZevKev</a>.</p>
+        <p style="font-size:clamp(1rem,2.6vw,1.15rem); line-height:1.6; margin:8px 0;">Zusätzlich poste ich täglich Clips auf <a href="https://www.tiktok.com/@zevkev" target="_blank" rel="noopener" class="hero-link">TikTok</a> sowie Bilder auf <a href="https://www.instagram.com/zevkev/" target="_blank" rel="noopener" class="hero-link">Instagram</a>.</p>
       </div>
     </div>
 
@@ -124,23 +124,32 @@
     </details>
 
     <p class="team-lead reveal">Deine Hosts</p>
+    <!-- Tape strip per card (same "pinned to the board" cue as .zone-sheet/
+         .how-accordion above) and the website link recolored to rip--accent
+         -- it used to be a plain .rip button sitting on the exact same
+         --paper tone as the card behind it, so it rendered as invisible
+         chrome (no visible edge/background difference at all, just looked
+         like bare text with no button underneath it). -->
     <div class="c-grid">
       <div class="c-card rip reveal tilt-a">
+        <div class="tape"></div>
         <div class="team-avatar-frame"><img src="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png" alt="ZevKev" loading="lazy"></div>
         <h3>ZevKev</h3>
         <p>Videos und Entertainment. Leiter vom Team.</p>
       </div>
       <div class="c-card rip rip--b reveal tilt-b">
+        <div class="tape" style="left:auto; right:20px; transform:rotate(9deg);"></div>
         <div class="team-avatar-frame"><img src="https://zevkev.github.io/Medienspeicher/Bilder/Jamon.jpg" alt="Jamon" loading="lazy"></div>
         <h3>Jamon</h3>
         <p>Gaming und Entertainment Content.</p>
-        <a class="p-btn rip" href="https://jamonhd.de" target="_blank" rel="noopener" style="padding:8px 16px; font-size:0.88rem;">jamonhd.de</a>
+        <a class="p-btn rip rip--accent" href="https://jamonhd.de" target="_blank" rel="noopener" style="padding:8px 16px; font-size:0.88rem;">jamonhd.de</a>
       </div>
       <div class="c-card rip rip--c reveal tilt-c">
+        <div class="tape"></div>
         <div class="team-avatar-frame"><img src="https://zevkev.github.io/Medienspeicher/Bilder/bello.jpg" alt="Belloflo" loading="lazy"></div>
         <h3>Belloflo</h3>
         <p>Minecraft und Real Life Content.</p>
-        <a class="p-btn rip" href="https://belloflo.de" target="_blank" rel="noopener" style="padding:8px 16px; font-size:0.88rem;">belloflo.de</a>
+        <a class="p-btn rip rip--accent" href="https://belloflo.de" target="_blank" rel="noopener" style="padding:8px 16px; font-size:0.88rem;">belloflo.de</a>
       </div>
     </div>
   </div>
