@@ -69,6 +69,37 @@ function imagesForSelection(product, selection) {
   return product.images?.length ? product.images : product.image ? [product.image] : [];
 }
 
+// Fourthwall's Storefront API returns two more per-product info fields
+// besides `description` that this page never read before: `additionalInformation`
+// (an array of { type, title, bodyHtml } -- observed types include
+// MORE_DETAILS for material/fit, SIZE_AND_FIT, GUARANTEE_AND_RETURNS) and
+// `sizeGuide` ({ url, content } -- confirmed shape via Fourthwall's own docs;
+// null on most products today). Rendered as a details/summary accordion
+// reusing the .info-accordion CSS in shop.css (already written, was unused
+// until now). Returns "" when there's nothing to show, rather than an empty
+// accordion shell.
+function additionalInfoHTML(product) {
+  const items = [...(product.additionalInformation || [])];
+  const guide = product.sizeGuide;
+  if (guide?.content || guide?.url) {
+    const link = guide.url ? `<p><a href="${guide.url}" target="_blank" rel="noopener">Größentabelle ansehen</a></p>` : "";
+    items.push({ title: "Größentabelle", bodyHtml: `${guide.content || ""}${link}` });
+  }
+  if (!items.length) return "";
+  return `
+    <div class="info-accordion">
+      ${items
+        .map(
+          (entry, i) => `
+      <details${i === 0 ? " open" : ""}>
+        <summary>${entry.title || "Details"}</summary>
+        <div class="body-html">${entry.bodyHtml || ""}</div>
+      </details>`
+        )
+        .join("")}
+    </div>`;
+}
+
 function renderSkeleton() {
   if (!root) return;
   root.innerHTML = `
@@ -177,6 +208,7 @@ function renderProduct(product) {
         </div>
         <div class="qv-divider"></div>
         ${product.description ? `<div class="product-description">${product.description}</div><div class="qv-divider"></div>` : ""}
+        ${additionalInfoHTML(product)}
         <div id="pd-options"></div>
         <div class="qv-divider"></div>
         <div class="add-to-cart-row">

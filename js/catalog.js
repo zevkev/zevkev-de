@@ -28,8 +28,12 @@ async function loadCampaignBanner() {
       .map((d) => d.data())
       .find((c) => !c.endedEarly && c.startDate <= today && today <= c.endDate);
     if (!active) return;
+    // Plain div, not .rip -- it now nests inside the hero card's own torn
+    // shape (shop/index.html), and two stacked torn-paper edges would clip
+    // against each other. css/shop.css styles it as an inset dashed-border
+    // strip instead.
     el.innerHTML = `
-    <div class="shop-campaign-banner rip rip--accent">
+    <div class="shop-campaign-banner">
       <span class="shop-campaign-desc">${escapeHTML(active.description)}</span>
       <span class="shop-campaign-code">Code: <strong>${escapeHTML(active.code)}</strong></span>
     </div>`;
@@ -50,18 +54,35 @@ function isSoldOut(product) {
   return variants.every((v) => v.stock?.type === "LIMITED" && (v.stock?.quantity ?? 0) <= 0);
 }
 
+// Small two-arrow "flip" glyph for the tap-to-flip button below -- same
+// 24x24/stroke-width:2 convention as this codebase's other small icons
+// (see e.g. js/vods.js's own icon helpers).
+function flipIcon() {
+  return `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2.1l4 4-4 4"/><path d="M3 12.1v-2a4 4 0 0 1 4-4h14"/><path d="M7 21.9l-4-4 4-4"/><path d="M21 11.9v2a4 4 0 0 1-4 4H3"/></svg>`;
+}
+
 function productCardHTML(product) {
   const img = product.images?.[0]?.url || product.image?.url || "";
+  // Second product photo -- most products have at least a front/back or
+  // two-angle shot, and Fourthwall already returns the full `images` array
+  // (same field js/product.js's own gallery reads, just taking index 1
+  // instead of building a whole thumbnail strip). Falls back to nothing
+  // when a product only has one photo -- both the hover CSS and the flip
+  // button below only ever appear when this second <img> actually exists.
+  const hoverImg = product.images?.[1]?.url || "";
   const variant = cheapestVariant(product);
   const price = variant ? money(variant.unitPrice?.value ?? 0, variant.unitPrice?.currency) : "";
   const compareAt = variant?.compareAtPrice?.value;
   const soldOut = isSoldOut(product);
+  const onSale = !soldOut && compareAt != null && compareAt > (variant.unitPrice?.value ?? 0);
 
   return `
   <a href="#" class="product-card rip reveal" data-product-slug="${product.slug}">
-    ${soldOut ? `<span class="badge-soldout">Ausverkauft</span>` : ""}
+    ${soldOut ? `<span class="badge-soldout">Ausverkauft</span>` : onSale ? `<span class="badge-sale">Sale</span>` : ""}
     <div class="product-photo-frame">
-      ${img ? `<img src="${img}" alt="${product.name}" loading="lazy">` : ""}
+      ${img ? `<img src="${img}" alt="${product.name}" loading="lazy" class="product-photo-primary">` : ""}
+      ${hoverImg ? `<img src="${hoverImg}" alt="" loading="lazy" class="product-photo-hover" aria-hidden="true">` : ""}
+      ${hoverImg ? `<button type="button" class="product-photo-flip" aria-label="Andere Ansicht zeigen" onclick="event.preventDefault()">${flipIcon()}</button>` : ""}
     </div>
     <h3>${product.name}</h3>
     <div class="price-row">
@@ -78,6 +99,18 @@ function renderGrid(products) {
     return;
   }
   grid.innerHTML = products.map(productCardHTML).join("");
+  // Tap-to-flip: the button's own inline onclick (in productCardHTML)
+  // already stops the <a>'s default navigation, but a click still bubbles
+  // up to the card's own "click" listener below (attached separately, on
+  // the <a> itself) -- stopPropagation() here is what actually keeps it
+  // from navigating away instead of just toggling the photo. Works
+  // identically on touch (tap) and mouse (click), unlike :hover.
+  grid.querySelectorAll(".product-photo-flip").forEach((btn) => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      btn.closest(".product-card")?.classList.toggle("is-flipped");
+    });
+  });
   grid.querySelectorAll("[data-product-slug]").forEach((card) => {
     card.addEventListener("click", (ev) => {
       ev.preventDefault();
@@ -103,17 +136,26 @@ async function loadCatalog() {
   renderSkeleton();
   try {
     const { results: collections = [] } = await FourthwallAPI.getCollections();
+    // Fourthwall's own built-in "All Products" collection (slug "all") is
+    // the exact same "show everything" list the hardcoded "Alle" pill
+    // below already covers -- shown as its own pill too, it read as two
+    // identical filters side by side. Computed once and reused both here
+    // (excluded from the pill list) and below (still the real catch-all
+    // data source for "Alle").
+    const catchAll = collections.find((c) => /all/i.test(c.slug) || /all/i.test(c.name));
 
     if (filterBar) {
       filterBar.innerHTML =
         `<button class="filter-pill rip rip--accent is-active" data-slug="">Alle</button>` +
-        collections.map((c) => `<button class="filter-pill rip" data-slug="${c.slug}">${c.name}</button>`).join("");
+        collections
+          .filter((c) => c !== catchAll)
+          .map((c) => `<button class="filter-pill rip" data-slug="${c.slug}">${c.name}</button>`)
+          .join("");
       filterBar.querySelectorAll(".filter-pill").forEach((pill) => {
         pill.addEventListener("click", () => selectFilter(pill, collections));
       });
     }
 
-    const catchAll = collections.find((c) => /all/i.test(c.slug) || /all/i.test(c.name));
     if (catchAll) {
       const { results = [] } = await FourthwallAPI.getCollectionProducts(catchAll.slug);
       allProducts = results;

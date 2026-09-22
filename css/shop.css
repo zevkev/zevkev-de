@@ -1,17 +1,43 @@
 /* Shop-page-only additions on top of style.css */
 
-.hero-shop { text-align: center; max-width: 760px; margin: 10px auto 10px; }
-.hero-shop h1 { font-size: 2.4rem; margin: 0 0 10px; color: #fff; }
-.hero-shop p { font-size: 1.15rem; color: rgba(255, 255, 255, 0.9); }
-.hero-shop .shop-shipping-note { font-size: 0.85rem; margin-top: 6px; color: rgba(255, 255, 255, 0.6); }
+/* One paper card for the whole header block (title, description, shipping
+   note, and -- when active -- the campaign banner as an inset strip inside
+   it) instead of separate plain-text-on-mat lines next to a standalone
+   floating banner card. */
+.hero-shop {
+  text-align: center;
+  max-width: 760px;
+  width: 95%;
+  margin: 18px auto 30px;
+  padding: 38px clamp(20px, 5vw, 48px) 34px;
+}
+.hero-shop h1 { font-size: 2.4rem; margin: 0 0 10px; color: var(--text-dark); }
+.hero-shop p { font-size: 1.15rem; color: var(--text-dark); }
+.hero-shop .shop-shipping-note { font-size: 0.85rem; margin-top: 6px; color: var(--text-muted); }
 
+/* Inset highlight strip, not a second torn-paper card nested inside the
+   first (two stacked .rip shapes would clip against each other) -- same
+   "dashed border, tinted panel" language as legal.css's .todo-flag. Empty
+   (js/catalog.js's loadCampaignBanner only fills it when a promo is
+   actually active) collapses to nothing via :empty rather than leaving a
+   stray gap. */
+#shop-campaign-banner:empty { display: none; }
 .shop-campaign-banner {
   display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap;
-  width: 100%; max-width: 700px; margin: 0 auto 10px;
+  margin: 24px 0 0;
   padding: 14px 24px; text-align: center;
+  background: var(--paper-accent);
+  border: 2px dashed var(--twitch-purple);
+  border-radius: 4px;
   font-weight: bold; color: var(--text-dark);
 }
 .shop-campaign-code { color: var(--twitch-purple); }
+/* --twitch-purple itself stays untouched -- it's reused all over as a
+   background/border/accent-color (privat.css tabs, cart buttons, form
+   focus rings), where a brighter dark-mode value would just create a new
+   contrast problem there instead. This is the one place it's used as small
+   body text, so it gets its own scoped override for dark mode. */
+:root[data-theme="dark"] .shop-campaign-code { color: #b98bff; }
 .shop-campaign-code strong { letter-spacing: 1px; }
 
 /* ---------- Filter bar ---------- */
@@ -34,9 +60,12 @@
   color: var(--text-dark) !important;
   border: none;
   background: none;
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 .filter-pill.is-active::before { background: var(--paper-accent); }
+.filter-pill.is-active { box-shadow: 0 0 0 2px var(--blue-mat); border-radius: 4px; }
 .filter-pill:hover { transform: scale(1.05) rotate(0deg); }
+.filter-pill:hover::before { box-shadow: var(--shadow-hover); }
 
 /* ---------- Product grid & cards ---------- */
 .product-grid {
@@ -94,9 +123,56 @@
   background-size: 220px 220px, 100% 100%;
   background-blend-mode: soft-light, multiply;
   box-shadow: inset 0 0 8px rgba(0,0,0,.12), inset 0 0 0 1px rgba(0,0,0,.12);
+  /* Chipped/irregular edge instead of a stark rectangle -- reuses the same
+     --tear-b polygon the rest of the site's .rip cards already cut their
+     torn-paper silhouette with (style.css), just applied to this mat
+     instead of inventing a new shape. NOT a change to the grain recipe
+     above (still the exact same feTurbulence texture the CLAUDE.md note on
+     this block warns not to re-litigate) -- purely an outline change. The
+     14px padding keeps the shallow (a few percent) edge undulations from
+     ever clipping into the actual product photo sitting inside it. */
+  clip-path: var(--tear-b);
 }
-.product-photo-frame img { width: 100%; aspect-ratio: 1 / 1; object-fit: contain; transition: transform 0.5s ease; cursor: zoom-in; }
+.product-photo-frame img { width: 100%; aspect-ratio: 1 / 1; object-fit: contain; transition: transform 0.5s ease, opacity 0.35s ease; cursor: zoom-in; }
 .product-card:hover .product-photo-frame img { transform: scale(1.06); }
+/* Second photo (front/back, different angle) crossfades in on hover instead
+   of the zoom, when a product has one -- stacked on top of the primary shot
+   via absolute positioning, invisible until hovered. Cards with only one
+   photo never get a .product-photo-hover element at all (see catalog.js),
+   so they keep the plain zoom-in-place from the rule above unchanged. */
+.product-photo-hover {
+  position: absolute;
+  inset: 14px;
+  opacity: 0;
+}
+.product-card:hover .product-photo-hover,
+.product-card.is-flipped .product-photo-hover { opacity: 1; transform: scale(1.06); }
+.product-card:hover .product-photo-primary,
+.product-card.is-flipped .product-photo-primary { opacity: 0; }
+
+/* Explicit flip control, not just a :hover discovery -- :hover never fires
+   on touch, so without this a phone visitor could never see the second
+   photo at all. Bottom-left (badge-soldout/badge-sale already own the
+   top-right corner). Only rendered when a product actually has a second
+   photo (see catalog.js), same gating as the hover crossfade above. */
+.product-photo-flip {
+  position: absolute;
+  bottom: 22px;
+  left: 22px;
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s ease;
+}
+.product-photo-flip:hover, .product-photo-flip:focus-visible { transform: scale(1.12); background: rgba(0, 0, 0, 0.75); }
+.product-photo-flip:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
 .product-card h3 { margin: 0 0 6px; font-size: 1.05rem; color: var(--text-dark); line-height: 1.3; }
 
@@ -241,7 +317,12 @@
 .swatch-color.is-selected .clip { transform: rotate(-20deg) translateY(2px) scale(1.1); }
 
 .swatch-size {
-  position: relative; padding: 10px 16px 10px 22px; background: var(--paper); border: none;
+  /* Same bug class CLAUDE.md's own .cart-close note warns about: a custom
+     <button> never inherits text color from its ancestors (browser
+     default), so with no color set here this rendered black-on-black once
+     --paper turned dark in dark mode -- coincidentally fine in light mode
+     only because --paper happens to be light there too. */
+  position: relative; padding: 10px 16px 10px 22px; background: var(--paper); color: var(--text-dark); border: none;
   font-weight: bold; font-size: 0.9rem; box-shadow: 1px 2px 5px rgba(0, 0, 0, 0.25);
   clip-path: polygon(14% 0%, 100% 0%, 100% 100%, 14% 100%, 14% 62%, 0% 50%, 14% 38%);
   transition: all 0.2s ease;
@@ -253,15 +334,32 @@
 .swatch-size:disabled { opacity: 0.4; text-decoration: line-through; cursor: not-allowed; transform: none; }
 
 .qty-stepper { display: inline-flex; align-items: center; background: var(--paper); border-radius: 6px; box-shadow: 1px 2px 6px rgba(0, 0, 0, 0.2); overflow: hidden; }
-.qty-stepper button { background: none; border: none; width: 38px; height: 38px; font-size: 1.1rem; font-weight: bold; }
+/* Same missing-color bug as .swatch-size just above -- neither a custom
+   button nor a plain input inherits text color from this dark-in-dark-mode
+   background on their own. */
+.qty-stepper button { background: none; border: none; width: 38px; height: 38px; font-size: 1.1rem; font-weight: bold; color: var(--text-dark); }
 .qty-stepper button:hover { background: var(--paper-accent); }
-.qty-stepper input { width: 40px; text-align: center; border: none; background: none; font-weight: bold; font-size: 1rem; }
+.qty-stepper input { width: 40px; text-align: center; border: none; background: none; font-weight: bold; font-size: 1rem; color: var(--text-dark); }
 
 .add-to-cart-row { display: flex; align-items: center; gap: 16px; margin-top: 26px; flex-wrap: wrap; }
 .stock-note { font-size: 0.85rem; color: var(--text-muted); }
 
-.info-accordion { margin-top: 30px; border-top: 2px dashed rgba(0, 0, 0, 0.15); }
+/* Its own inset panel (same "tinted box inside the card" language as
+   .shop-campaign-banner) instead of a flush dashed-divider section with no
+   texture of its own -- reads as its own distinct paper surface, same idea
+   as the datenschutz/impressum pages presenting their content in one
+   bounded .legal-sheet card rather than loose paragraphs. Not a second
+   nested .rip torn edge on purpose (like the campaign banner, two stacked
+   torn shapes inside one card would clip against each other) -- a plain
+   rounded panel instead. */
+.info-accordion {
+  margin-top: 30px;
+  padding: 6px 18px;
+  background: var(--paper-accent);
+  border-radius: 4px;
+}
 .info-accordion details { border-bottom: 2px dashed rgba(0, 0, 0, 0.15); padding: 14px 0; }
+.info-accordion details:last-child { border-bottom: none; }
 .info-accordion summary { font-weight: bold; cursor: pointer; }
 .info-accordion .body-html { margin-top: 10px; line-height: 1.55; color: var(--text-dark); }
 

@@ -34,13 +34,17 @@
 <div class="page-body">
   <div class="container" style="display:flex; flex-direction:column; align-items:center;">
 
-    <div class="hero-shop">
+    <!-- One paper card instead of two separately floating blocks (a plain
+         text header + a standalone campaign banner) -- js/catalog.js's
+         loadCampaignBanner() still only fills #shop-campaign-banner when a
+         promo is actually active, now as an inset strip inside this same
+         card instead of its own separate torn-paper shape. -->
+    <div class="hero-shop rip">
       <h1>ZevKev Merch</h1>
       <p>Bestickte Shirts, Hoodies und mehr für die Community.</p>
       <p class="shop-shipping-note">Preise inkl. MwSt., zzgl. Versandkosten.</p>
+      <div id="shop-campaign-banner"></div>
     </div>
-
-    <div id="shop-campaign-banner"></div>
 
     <div class="filter-bar" id="filter-bar"></div>
 
