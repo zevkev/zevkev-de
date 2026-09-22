@@ -847,6 +847,34 @@ a.comment-author:hover { text-decoration: underline; }
 .footer-links { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-bottom: 14px; }
 .footer-links a { color: var(--text-dark) !important; text-decoration: none; font-weight: bold; font-size: 0.85rem; opacity: 0.85; }
 .footer-links a:hover { opacity: 1; text-decoration: underline; }
+/* A real <button> now (was an <a href="#"> used purely as a click target --
+   never actually navigated anywhere, just opened js/consent.js's settings
+   panel, the classic href="#" anti-pattern). Set apart from the plain nav
+   links above as its own small pill with a border, since it's a settings
+   control rather than a page link. */
+.footer-cookie-btn {
+  /* flex (block-level), not inline-flex -- margin:auto only centers a
+     block-level box, and this sits as its own row between .footer-links
+     and .footer-note rather than inside either's own flex container. */
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: 6px;
+  margin: 0 auto 14px;
+  padding: 7px 14px;
+  border: 1.5px solid rgba(0, 0, 0, 0.18);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-dark) !important;
+  font-weight: bold;
+  font-size: 0.8rem;
+  opacity: 0.85;
+  transition: opacity 0.2s ease, background 0.2s ease;
+}
+.footer-cookie-btn svg { flex-shrink: 0; }
+.footer-cookie-btn:hover { opacity: 1; background: rgba(0, 0, 0, 0.06); }
+:root[data-theme="dark"] .footer-cookie-btn { border-color: rgba(255, 255, 255, 0.22); }
+:root[data-theme="dark"] .footer-cookie-btn:hover { background: rgba(255, 255, 255, 0.08); }
 .footer-socials { display: flex; gap: 14px; justify-content: center; margin-bottom: 14px; }
 .footer-socials a { width: 34px; height: 34px; border-radius: 50%; background: rgba(0,0,0,.06); display: flex; align-items: center; justify-content: center; color: var(--text-dark) !important; transition: transform .2s, background .2s; }
 .footer-socials a:hover { background: rgba(0,0,0,.12); transform: translateY(-2px); }

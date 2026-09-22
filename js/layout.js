@@ -118,8 +118,8 @@ function footerHTML() {
         <a href="/agb/">AGB</a>
         <a href="/widerruf/">Widerrufsrecht</a>
         <a href="/kontakt/">Kontakt</a>
-        <a href="#" id="cookie-settings-link">Cookie-Einstellungen</a>
       </div>
+      <button type="button" class="footer-cookie-btn" id="cookie-settings-link"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a9.96 9.96 0 0 0-7.05 2.92A10 10 0 1 0 12 2Z"/><circle cx="8.5" cy="10.5" r="1" fill="currentColor" stroke="none"/><circle cx="14" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="14.5" r="1" fill="currentColor" stroke="none"/><circle cx="10" cy="15.5" r="1" fill="currentColor" stroke="none"/></svg>Cookie-Einstellungen</button>
       <p class="footer-note">&copy; ${new Date().getFullYear()} ZevKev. Videos und Entertainment.</p>
     </div>
   </footer>`;
@@ -162,7 +162,11 @@ async function mountOwnerNav() {
       footerLink.href = "/privat/";
       footerLink.id = "footer-privat-link";
       footerLink.textContent = "Privat";
-      footerLinks.insertBefore(footerLink, document.getElementById("cookie-settings-link") || null);
+      // Cookie-Einstellungen moved out of .footer-links entirely (now its
+      // own <button> below the row, see footerHTML()) -- was previously
+      // used as the insertBefore anchor to keep it last in the row; a
+      // plain append does the same job now that there's nothing after it.
+      footerLinks.appendChild(footerLink);
     }
   });
 }
