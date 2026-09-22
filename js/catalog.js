@@ -18,6 +18,13 @@ function escapeHTML(str) {
 // "now" isn't expressible as one query anyway) -- the whole campaigns
 // collection is expected to stay small (a handful of rows), so filtering
 // the fetched set in JS is simpler and cheap.
+//
+// site: campaigns is now a SHARED collection with jamonhd-de (same
+// Firebase project) -- filtered client-side, not via a Firestore
+// where("site","==","zevkev") clause, specifically so campaigns created
+// *before* this site field existed (no "site" key at all, e.g. the live
+// "RELEASE" launch code) still match here instead of silently vanishing
+// because a strict equality filter can never match a missing field.
 async function loadCampaignBanner() {
   const el = document.getElementById("shop-campaign-banner");
   if (!el) return;
@@ -26,7 +33,7 @@ async function loadCampaignBanner() {
     const today = new Date().toISOString().slice(0, 10);
     const active = snap.docs
       .map((d) => d.data())
-      .find((c) => !c.endedEarly && c.startDate <= today && today <= c.endDate);
+      .find((c) => (c.site ?? "zevkev") === "zevkev" && !c.endedEarly && c.startDate <= today && today <= c.endDate);
     if (!active) return;
     // Plain div, not .rip -- it now nests inside the hero card's own torn
     // shape (shop/index.html), and two stacked torn-paper edges would clip

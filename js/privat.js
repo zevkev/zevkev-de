@@ -450,10 +450,14 @@ function renderCampaigns() {
   });
 }
 
+// campaigns is a SHARED Firestore collection with jamonhd-de (same Firebase
+// project) -- filtered client-side rather than via a Firestore
+// where("site",...) clause so campaigns created before this field existed
+// (no "site" key at all) still show here instead of vanishing.
 async function loadCampaigns() {
   try {
     const snap = await getDocs(query(collection(db, "campaigns"), orderBy("createdAt", "desc"), limit(50)));
-    campaigns = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    campaigns = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((c) => (c.site ?? "zevkev") === "zevkev");
     renderCampaigns();
   } catch (err) {
     console.error("Loading campaigns failed:", err);
@@ -478,9 +482,10 @@ function wireCampaignForm() {
         endDate,
         published: true,
         endedEarly: false,
+        site: "zevkev",
         createdAt: serverTimestamp(),
       });
-      campaigns.unshift({ id: ref.id, code, description, startDate, endDate, published: true, endedEarly: false, createdAt: Date.now() });
+      campaigns.unshift({ id: ref.id, code, description, startDate, endDate, published: true, endedEarly: false, site: "zevkev", createdAt: Date.now() });
       renderCampaigns();
       ev.target.reset();
     } catch (err) {

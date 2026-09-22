@@ -12,9 +12,11 @@ export const FIREBASE_CONFIG = {
   appId: "1:766382709287:web:58b0df533ab70a3c618c02",
 };
 
-// The one account that gets comment-moderation powers (delete any comment,
-// not just its own) — mirrored by the Firestore security rules' isOwner()
-// check, which is the actual enforcement; this constant just lets the UI
-// decide whether to show delete buttons on other people's comments without
-// a wasted round-trip that the rules would reject anyway.
-export const OWNER_EMAIL = "kevlevin.zev@gmail.com";
+// Every account that gets comment-moderation powers (delete any comment,
+// not just its own) across BOTH this site and jamonhd.de (same Firebase
+// project — see that repo's copy of this file) — mirrored by the Firestore
+// security rules' isOwner() check, which is the actual enforcement; this
+// constant just lets the UI decide whether to show delete buttons/the
+// verified crown without a wasted round-trip the rules would reject
+// anyway. Keep this array in sync with jamonhd-de's identical copy.
+export const OWNER_EMAILS = ["kevlevin.zev@gmail.com", "jasontummes@gmail.com"];

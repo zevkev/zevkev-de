@@ -19,7 +19,7 @@ import {
   deleteUser,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, deleteDoc, runTransaction, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { FIREBASE_CONFIG, OWNER_EMAIL } from "./firebase-config.js";
+import { FIREBASE_CONFIG, OWNER_EMAILS } from "./firebase-config.js";
 import { trackEvent } from "./track.js";
 
 const app = initializeApp(FIREBASE_CONFIG);
@@ -33,7 +33,9 @@ export const db = getFirestore(app);
 // bypass, /privat/, the users-collection ban/delete actions) ultimately
 // depends on, so it's worth not being fragile about.
 export function isOwner(user) {
-  return !!user && String(user.email || "").trim().toLowerCase() === OWNER_EMAIL.trim().toLowerCase();
+  if (!user) return false;
+  const email = String(user.email || "").trim().toLowerCase();
+  return OWNER_EMAILS.some((owner) => email === owner.trim().toLowerCase());
 }
 
 // Deterministic per-account color -- derived from the uid itself rather than
