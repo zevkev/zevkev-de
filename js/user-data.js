@@ -4,7 +4,7 @@
 // background. Logged-out visitors keep using localStorage exactly as
 // before; the local watchlist is merged into the account (once) the first
 // time someone logs in with items already saved locally.
-import { auth, db, onAuthChange } from "./auth.js";
+import { auth, db, onAuthChange, authReady } from "./auth.js";
 import { trackEvent } from "./track.js";
 import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
@@ -79,6 +79,7 @@ async function ensureLoaded() {
 // watchlist star state is genuinely non-critical compared to that, so this
 // falls back to "nothing starred yet" instead of taking the whole page down.
 export async function getWatchlistIds() {
+  await authReady;
   const user = auth.currentUser;
   if (!user) return localWatchlist();
   try {
@@ -91,6 +92,7 @@ export async function getWatchlistIds() {
 }
 
 export async function toggleWatchlistId(id) {
+  await authReady;
   const user = auth.currentUser;
   if (!user) {
     const set = localWatchlist();
@@ -117,6 +119,7 @@ export async function toggleWatchlistId(id) {
 // their own init(), so a throw here would silently kill their whole page
 // render over what's ultimately just a resume-position nicety.
 export async function getProgress(id) {
+  await authReady;
   if (!auth.currentUser) return null;
   try {
     const data = await ensureLoaded();
@@ -141,6 +144,7 @@ export async function saveProgress(id, positionSeconds, watched) {
 // users/{uid} read as the watchlist (same reasoning throughout this file:
 // one read covers everything this doc holds, nothing re-fetches it).
 export async function isBanned() {
+  await authReady;
   if (!auth.currentUser) return false;
   try {
     const data = await ensureLoaded();

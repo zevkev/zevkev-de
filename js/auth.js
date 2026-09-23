@@ -278,6 +278,25 @@ export function onAuthChange(callback) {
   return onAuthStateChanged(auth, callback);
 }
 
+// Resolves once Firebase has restored (or confirmed there is no) persisted
+// session -- auth.currentUser reads null synchronously until that first
+// onAuthStateChanged fire, even for a returning signed-in visitor, so any
+// code that reads auth.currentUser directly at page-load time (before
+// awaiting this) silently treats a signed-in visitor as anonymous. Real bug
+// this caught: js/user-data.js's getWatchlistIds()/getProgress()/
+// toggleWatchlistId()/isBanned() all read auth.currentUser synchronously --
+// awaiting this at the top of each fixes every caller (watch.js, youtube.js,
+// vods.js, watchlist.js) at once instead of each page having to remember to
+// gate its own init() on onAuthChange the way account.js already did.
+let resolveAuthReady;
+export const authReady = new Promise((resolve) => {
+  resolveAuthReady = resolve;
+});
+const unsubscribeAuthReady = onAuthStateChanged(auth, () => {
+  resolveAuthReady();
+  unsubscribeAuthReady();
+});
+
 export async function signUpWithEmail(username, email, password) {
   const cred = await createUserWithEmailAndPassword(auth, email, password);
   try {

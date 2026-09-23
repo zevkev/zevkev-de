@@ -171,29 +171,49 @@ function renderGrid() {
   attachHandlers();
 }
 
+// Re-run (not just re-rendered) whenever the signed-in uid actually changes
+// -- watchlistCache/progressCache are account-specific, so a sign-in/out
+// while already sitting on this page needs a real refetch, not just a
+// re-render of whatever was loaded for the previous auth state. Real bug
+// this replaced: the old code called getWatchlistIds() once up front and
+// only ever re-rendered on auth changes afterward, which (combined with
+// getWatchlistIds() reading auth.currentUser before Firebase had resolved
+// the persisted session -- see authReady in js/auth.js) meant a returning
+// signed-in visitor's real watchlist never loaded at all, permanently stuck
+// showing the empty/local one instead.
+let loadedForUid;
+
+async function loadWatchlistData() {
+  watchlistCache = await getWatchlistIds();
+  progressCache = new Map();
+  if (auth.currentUser) {
+    for (const id of watchlistCache) {
+      const key = `video:${id}`;
+      const p = await getProgress(key);
+      if (p) progressCache.set(key, p);
+    }
+  }
+  renderGrid();
+}
+
 async function init() {
   // Safety net -- see the matching comment in js/youtube.js's init().
   try {
     const [vodFeed, mainFeed] = await Promise.all([
       loadJSON("/assets/data/videos.json", { videos: [] }),
       loadJSON("/assets/data/main-videos.json", { videos: [] }),
-      getWatchlistIds().then((set) => (watchlistCache = set)),
     ]);
 
     byId = new Map();
     (vodFeed.videos || []).forEach((v) => byId.set(v.id, { ...v, source: "vod" }));
     (mainFeed.videos || []).forEach((v) => byId.set(v.id, { ...v, source: v.isShort ? "short" : "youtube" }));
 
-    if (auth.currentUser) {
-      for (const id of watchlistCache) {
-        const key = `video:${id}`;
-        const p = await getProgress(key);
-        if (p) progressCache.set(key, p);
-      }
-    }
-
-    renderGrid();
-    onAuthChange(() => renderGrid());
+    onAuthChange((user) => {
+      const uid = user ? user.uid : null;
+      if (loadedForUid === uid) return;
+      loadedForUid = uid;
+      loadWatchlistData();
+    });
   } catch (err) {
     console.error("Watchlist page init failed:", err);
     if (gridEl) gridEl.innerHTML = `<div class="empty-state"><h2>Etwas ist schiefgelaufen</h2><p>Bitte lade die Seite neu.</p></div>`;
