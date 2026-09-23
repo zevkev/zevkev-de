@@ -339,7 +339,7 @@ h1, h2, .display-font {
   background-blend-mode: multiply;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
-.site-header .container { display: flex; align-items: center; justify-content: space-between; gap: 20px; height: 100%; }
+.site-header .container { display: flex; align-items: center; justify-content: space-between; gap: 14px; height: 100%; }
 
 .site-logo {
   display: flex;
@@ -357,7 +357,17 @@ h1, h2, .display-font {
 /* Tab-like pills instead of bare underlined text, matching the filter-pill
    / size-swatch chip treatment used elsewhere, so the active page reads as
    a clearly "pressed" tab rather than a thin line easy to miss. */
-.site-nav { display: flex; align-items: center; gap: 4px; }
+/* Real bug, caught in a full-site audit: this nav has grown (VODs -> Mehr,
+   ZevKev+ rename, plus the Watchlist item added later) since 16px/side
+   padding was set, and the desktop breakpoint (700px, coordinated with
+   several other files -- see the @media (min-width: 701px) rules in
+   vods.css/youtube.css that specifically match it) was never revisited.
+   Between ~700-830px the six nav pills + logo + header-actions no longer
+   fit their container, silently clipping the rightmost item (the account
+   icon) off the edge instead of wrapping or shrinking. Tightened here
+   instead of moving the breakpoint itself, since several other files key
+   off that exact number. */
+.site-nav { display: flex; align-items: center; gap: 0px; }
 .site-nav a {
   color: var(--text-dark) !important;
   text-decoration: none;
@@ -365,7 +375,7 @@ h1, h2, .display-font {
   font-size: 0.95rem;
   letter-spacing: 0.2px;
   position: relative;
-  padding: 8px 16px;
+  padding: 8px 9px;
   border-radius: 20px;
   transition: background-color 0.2s ease;
 }
@@ -380,7 +390,7 @@ h1, h2, .display-font {
    @media (max-width: 700px) block further down for the visible styling. */
 .nav-account-slot { display: none; }
 
-.header-actions { display: flex; align-items: center; gap: 14px; }
+.header-actions { display: flex; align-items: center; gap: 10px; }
 
 .theme-toggle {
   width: 40px; height: 40px; border-radius: 50%;
