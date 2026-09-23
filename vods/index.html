@@ -96,6 +96,20 @@
         <h2 class="yt-section-title">Vom YouTube VOD Kanal (ZevKev+)</h2>
         <div class="vod-section-head" id="vod-section-head"></div>
       </div>
+
+      <!-- Reuses css/youtube.css's .yt-search-* classes (already loaded on
+           this page, see the <link> above) instead of duplicating the
+           styling -- same search-a-title-as-you-type feature as the
+           YouTube page, for this section's own (potentially long,
+           load-more-paginated) video list. -->
+      <div class="yt-search-row">
+        <div class="yt-search-box">
+          <svg class="yt-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="search" id="vod-search-input" class="yt-search-input" placeholder="Videos durchsuchen…" aria-label="Videos durchsuchen">
+          <button type="button" id="vod-search-clear" class="yt-search-clear" aria-label="Suche zurücksetzen" hidden>&times;</button>
+        </div>
+      </div>
+
       <div class="vod-section-head" id="vod-sort-bar"></div>
       <div class="vod-grid" id="vod-grid"></div>
       <div class="yt-load-more-row" id="vod-load-more"></div>

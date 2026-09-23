@@ -32,6 +32,16 @@ const VOD_PAGE_SIZE = 24;
 let vodVisibleCount = VOD_PAGE_SIZE;
 let vodSortMode = "new";
 
+// Current title-search text for the YouTube-VOD-channel grid below, plus
+// which of its own Alle/Watchlist tabs is active -- same pattern as
+// js/youtube.js's searchQuery/activeMode (see that file's comment). Not
+// reset on tab switch, so a search stays applied when flipping between
+// "Alle Videos" and "Meine Watchlist".
+let vodSearchQuery = "";
+let vodActiveMode = "all";
+const vodSearchInput = document.getElementById("vod-search-input");
+const vodSearchClear = document.getElementById("vod-search-clear");
+
 // Same technique as js/youtube.js's own initHeroScrollObserver (not shared
 // code -- each page's hero has a different sentinel id/scrolled class, kept
 // separate on purpose per css/youtube.css's own file-header note about not
@@ -665,13 +675,22 @@ function renderVodLoadMore(videos, mode, shownCount, totalCount) {
 function renderVods(videos, mode) {
   if (!vodGrid) return;
   const watchlist = getWatchlist();
-  const list = mode === "watchlist" ? videos.filter((v) => watchlist.has(v.id)) : videos;
+  const byMode = mode === "watchlist" ? videos.filter((v) => watchlist.has(v.id)) : videos;
+
+  const query = vodSearchQuery.trim().toLowerCase();
+  const list = query ? byMode.filter((v) => v.title.toLowerCase().includes(query)) : byMode;
 
   renderVodSortBar(videos, list, mode);
 
   if (!list.length) {
-    const icon = mode === "watchlist" ? `<svg class="yt-empty-icon" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z"/></svg>` : emptyArchiveIcon();
-    vodGrid.innerHTML = `<div class="empty-state">${icon}<h2>${mode === "watchlist" ? "Watchlist ist leer" : "Noch keine Videos"}</h2><p>${mode === "watchlist" ? "Speicher Videos mit dem Stern, um sie hier wiederzufinden." : "Schau bald wieder vorbei."}</p></div>`;
+    let html;
+    if (query) {
+      html = `<div class="empty-state">${emptyArchiveIcon()}<h2>Keine Treffer</h2><p>Keine Videos gefunden für „${escapeHTML(vodSearchQuery.trim())}".</p></div>`;
+    } else {
+      const icon = mode === "watchlist" ? `<svg class="yt-empty-icon" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z"/></svg>` : emptyArchiveIcon();
+      html = `<div class="empty-state">${icon}<h2>${mode === "watchlist" ? "Watchlist ist leer" : "Noch keine Videos"}</h2><p>${mode === "watchlist" ? "Speicher Videos mit dem Stern, um sie hier wiederzufinden." : "Schau bald wieder vorbei."}</p></div>`;
+    }
+    vodGrid.innerHTML = html;
     renderVodLoadMore(videos, mode, 0, 0);
     return;
   }
@@ -710,10 +729,31 @@ function mountTabs(videos) {
     pill.addEventListener("click", () => {
       sectionHead.querySelectorAll(".filter-pill").forEach((p) => p.classList.remove("is-active"));
       pill.classList.add("is-active");
+      vodActiveMode = pill.dataset.mode;
       vodVisibleCount = VOD_PAGE_SIZE; // fresh first page for the newly selected tab
       vodSortMode = "new"; // and its own natural chronological order
-      renderVods(videos, pill.dataset.mode);
+      renderVods(videos, vodActiveMode);
     });
+  });
+}
+
+// Same reasoning as js/youtube.js's own mountSearch -- own always-present
+// search box, re-renders the currently active tab on every keystroke.
+function mountVodSearch(videos) {
+  if (!vodSearchInput) return;
+  vodSearchInput.addEventListener("input", () => {
+    vodSearchQuery = vodSearchInput.value;
+    vodSearchClear.hidden = !vodSearchQuery;
+    vodVisibleCount = VOD_PAGE_SIZE;
+    renderVods(videos, vodActiveMode);
+  });
+  vodSearchClear?.addEventListener("click", () => {
+    vodSearchInput.value = "";
+    vodSearchQuery = "";
+    vodSearchClear.hidden = true;
+    vodVisibleCount = VOD_PAGE_SIZE;
+    renderVods(videos, vodActiveMode);
+    vodSearchInput.focus();
   });
 }
 
@@ -907,6 +947,7 @@ async function init() {
       renderTwitchArchive(twitchVods, twitchVods[0]?.id);
     }
     mountTabs(videos);
+    mountVodSearch(videos);
     renderVods(videos, "all");
   } catch (err) {
     console.error("Mehr page init failed:", err);
