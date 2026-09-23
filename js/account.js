@@ -19,6 +19,9 @@ function starIcon(filled) {
 function emptyIcon() {
   return `<svg class="wl-empty-icon" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z"/></svg>`;
 }
+function eyeIcon() {
+  return `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+}
 function formatDate(iso) {
   if (!iso) return "";
   try {
@@ -72,7 +75,10 @@ function profileHTML(user) {
       <p class="account-name-saved" id="account-name-saved">Gespeichert.</p>
     </form>
     <p class="account-email">${escapeHTML(user.email || "")}</p>
-    <button type="button" class="account-avatar-edit-btn" id="account-avatar-edit-btn">${editIcon()}Avatar anpassen</button>
+    <div class="account-info-actions">
+      <button type="button" class="account-avatar-edit-btn" id="account-avatar-edit-btn">${editIcon()}Avatar anpassen</button>
+      <a class="account-avatar-edit-btn" href="/profil/?u=${encodeURIComponent(name)}" target="_blank" rel="noopener">${eyeIcon()}Öffentliches Profil ansehen</a>
+    </div>
   </div>
   <button type="button" class="account-logout" id="account-logout-btn" aria-label="Abmelden" title="Abmelden">${logoutIcon()}</button>`;
 }

@@ -77,6 +77,7 @@
 }
 .account-name-saved.is-visible { opacity: 1; }
 
+.account-info-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .account-avatar-edit-btn {
   display: inline-flex; align-items: center; gap: 6px;
   margin-top: 10px; padding: 0; border: none; background: none;
@@ -187,6 +188,7 @@
   /* Explicit block-level centering rather than relying on inherited
      text-align -- .account-avatar-edit-btn is inline-flex, so margin:auto
      alone wouldn't center it without also forcing a fit-content block box. */
+  .account-info-actions { flex-direction: column; gap: 4px; }
   .account-avatar-edit-btn { display: flex; width: fit-content; margin: 10px auto 0; }
   .account-danger-box .p-btn { width: 100%; justify-content: center; }
 }
