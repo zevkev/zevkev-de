@@ -194,7 +194,13 @@ async function selectFilter(pill, collections) {
     const { results = [] } = await FourthwallAPI.getCollectionProducts(slug);
     renderGrid(results);
   } catch (err) {
+    // Real bug: renderSkeleton() above already replaced the grid with
+    // shimmer placeholders, and this used to just log the failure --
+    // leaving a visitor staring at "loading" cards forever with no
+    // indication anything went wrong or way to recover short of a manual
+    // reload. Same error-state pattern loadCatalog() already uses.
     console.error("Filter load failed:", err);
+    if (grid) grid.innerHTML = `<div class="error-state"><h2>Shop lädt gerade nicht</h2><p>Bitte versuch's gleich nochmal.</p></div>`;
   }
 }
 
