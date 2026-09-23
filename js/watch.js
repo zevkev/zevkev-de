@@ -213,6 +213,12 @@ function renderPlayer(item, type) {
   if (!wrap) return;
   const progressKey = `${type}:${item.id}`;
 
+  // Shorts are native 9:16 -- forcing every embed into the page's fixed
+  // 16:9 frame (see .watch-player-wrap in css/watch.css) pillarboxed them
+  // into a thin vertical strip with large empty bars on both sides. Real
+  // bug, not a design choice: nothing here ever read item.isShort before.
+  wrap.classList.toggle("watch-player-wrap--short", !!item.isShort);
+
   if (type === "video") {
     wrap.innerHTML = `
       <div class="player-wrap player-wrap--youtube rip">
