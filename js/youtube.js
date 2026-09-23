@@ -23,6 +23,17 @@ let visibleCount = PAGE_SIZE;
 // fresh tab always opens on its natural chronological order.
 let sortMode = "new";
 
+// Current title-search text, applied on top of the active Videos/Shorts tab
+// (see renderGrid) -- deliberately NOT reset on tab switch (unlike sortMode/
+// visibleCount above), so searching "Karls" then flipping between Videos and
+// Shorts keeps the same filter instead of silently dropping it.
+let searchQuery = "";
+
+// Tracks which tab is active so the search input's own handler (wired once
+// in init(), independent of mountFilters' per-pill click handlers) knows
+// which list to re-render against.
+let activeMode = "videos";
+
 // Minimum items + real view-count spread before the sort toggle is worth
 // showing at all -- same threshold js/vods.js uses for its Twitch-archive
 // sort pills (see renderSortBar below).
@@ -52,6 +63,8 @@ const filterBarEl = document.getElementById("yt-filter-bar");
 const spotlightEl = document.getElementById("yt-spotlight");
 const sortBarEl = document.getElementById("yt-sort-bar");
 const loadMoreEl = document.getElementById("yt-load-more");
+const searchInputEl = document.getElementById("yt-search-input");
+const searchClearEl = document.getElementById("yt-search-clear");
 
 function starIcon(filled) {
   return `<svg viewBox="0 0 24 24" width="18" height="18" fill="${filled ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.8"><path d="M12 3.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z" stroke-linejoin="round"/></svg>`;
@@ -316,9 +329,9 @@ function computeSpotlight(videos) {
 // scrolling it. Reuses the same cardHTML/.yt-shelf card language as the main
 // row below (not a separate wide spotlight-card layout) per the gronkh.tv
 // structural reference: a second horizontal discovery row, not a one-off.
-function renderSpotlight(mode) {
+function renderSpotlight(mode, isSearching) {
   if (!spotlightEl) return;
-  if (mode !== "videos" || !spotlightVideos.length) {
+  if (isSearching || mode !== "videos" || !spotlightVideos.length) {
     spotlightEl.innerHTML = "";
     return;
   }
@@ -367,14 +380,20 @@ function renderSortBar(videos, list, mode) {
 
 function renderGrid(videos, mode) {
   if (!gridEl) return;
-  const list = mode === "shorts" ? videos.filter((v) => v.isShort) : videos.filter((v) => !v.isShort);
+  const byMode = mode === "shorts" ? videos.filter((v) => v.isShort) : videos.filter((v) => !v.isShort);
   gridEl.classList.toggle("yt-grid--shorts", mode === "shorts");
 
-  renderSpotlight(mode);
+  const query = searchQuery.trim().toLowerCase();
+  const list = query ? byMode.filter((v) => v.title.toLowerCase().includes(query)) : byMode;
+
+  renderSpotlight(mode, !!query);
   renderSortBar(videos, list, mode);
 
   if (!list.length) {
-    gridEl.innerHTML = `<div class="empty-state">${emptyIcon()}<h2>${mode === "shorts" ? "Noch keine Shorts" : "Noch keine Videos"}</h2><p>Schau bald wieder vorbei.</p><a class="yt-empty-cta" href="https://www.youtube.com/@ZevKev" target="_blank" rel="noopener">Zum YouTube-Kanal</a></div>`;
+    const emptyHTML = query
+      ? `<div class="empty-state">${emptyIcon()}<h2>Keine Treffer</h2><p>Keine ${mode === "shorts" ? "Shorts" : "Videos"} gefunden für „${escapeHTML(searchQuery.trim())}".</p></div>`
+      : `<div class="empty-state">${emptyIcon()}<h2>${mode === "shorts" ? "Noch keine Shorts" : "Noch keine Videos"}</h2><p>Schau bald wieder vorbei.</p><a class="yt-empty-cta" href="https://www.youtube.com/@ZevKev" target="_blank" rel="noopener">Zum YouTube-Kanal</a></div>`;
+    gridEl.innerHTML = emptyHTML;
     renderLoadMore(videos, mode, 0, 0);
     return;
   }
@@ -418,10 +437,35 @@ function mountFilters(videos) {
     pill.addEventListener("click", () => {
       filterBarEl.querySelectorAll(".filter-pill").forEach((p) => p.classList.remove("is-active"));
       pill.classList.add("is-active");
+      activeMode = pill.dataset.mode;
       visibleCount = PAGE_SIZE; // fresh first page for the newly selected tab
       sortMode = "new"; // and its own natural chronological order
-      renderGrid(videos, pill.dataset.mode);
+      renderGrid(videos, activeMode);
     });
+  });
+}
+
+// Wired once against the always-present search box (own full-width row, not
+// re-rendered per tab like the filter pills) -- re-renders the currently
+// active tab on every keystroke. main-videos.json tops out in the low
+// hundreds of entries, so filtering + rebuilding the visible page's HTML on
+// every keystroke is cheap enough that a debounce would only add perceived
+// lag for no real benefit.
+function mountSearch(videos) {
+  if (!searchInputEl) return;
+  searchInputEl.addEventListener("input", () => {
+    searchQuery = searchInputEl.value;
+    searchClearEl.hidden = !searchQuery;
+    visibleCount = PAGE_SIZE; // fresh first page under the new filter
+    renderGrid(videos, activeMode);
+  });
+  searchClearEl?.addEventListener("click", () => {
+    searchInputEl.value = "";
+    searchQuery = "";
+    searchClearEl.hidden = true;
+    visibleCount = PAGE_SIZE;
+    renderGrid(videos, activeMode);
+    searchInputEl.focus();
   });
 }
 
@@ -449,6 +493,7 @@ async function init() {
     renderFeatured(videos[0]);
     computeSpotlight(videos);
     mountFilters(videos);
+    mountSearch(videos);
     renderGrid(videos, "videos");
   } catch (err) {
     console.error("YouTube page init failed:", err);

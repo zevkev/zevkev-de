@@ -268,6 +268,57 @@ body.yt-page .page-body { padding-top: 34px; }
   .yt-library-head .filter-bar { width: 100%; justify-content: center; }
 }
 
+/* ---------- Video search: main-videos.json can hold a channel's entire
+   upload history (hundreds of entries) with no way to jump straight to a
+   specific one besides scrolling/"load more" -- this filters the currently
+   active Videos/Shorts tab by title, client-side, against data already
+   loaded in memory (js/youtube.js's renderGrid). Own full-width row below
+   the tab pills rather than crammed into .yt-library-head, so it doesn't
+   fight the pills for space on medium widths. */
+.yt-search-row { width: 100%; max-width: 1000px; margin: 0 0 22px; }
+.yt-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+.yt-search-icon {
+  position: absolute; left: 14px;
+  width: 16px; height: 16px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.yt-search-input {
+  width: 100%; box-sizing: border-box;
+  padding: 10px 38px 10px 38px;
+  background: var(--paper); color: var(--text-dark);
+  border: 2px solid var(--text-muted); border-radius: 20px;
+  font-family: inherit; font-size: 0.92rem;
+  transition: border-color 0.2s ease;
+}
+.yt-search-input::placeholder { color: var(--text-muted); opacity: 0.8; }
+.yt-search-input:focus-visible { outline: none; border-color: var(--twitch-purple); box-shadow: 0 0 0 3px rgba(145,70,255,.2); }
+/* Search inputs get a native browser "clear" (x) affordance in some
+   browsers already -- suppressed so only this one, consistently styled
+   button shows across browsers instead of two overlapping clear controls. */
+.yt-search-input::-webkit-search-cancel-button { display: none; }
+.yt-search-clear {
+  position: absolute; right: 8px;
+  width: 22px; height: 22px; border-radius: 50%; border: none;
+  background: rgba(0, 0, 0, 0.08); color: var(--text-dark);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; line-height: 1; cursor: pointer;
+  transition: background 0.15s ease;
+}
+/* Same-specificity clash: this class's own display:flex above otherwise
+   beats the browser default [hidden] { display: none }, since both are
+   single-selector rules and this stylesheet comes later in the cascade. */
+.yt-search-clear[hidden] { display: none; }
+:root[data-theme="dark"] .yt-search-clear { background: rgba(255, 255, 255, 0.12); }
+.yt-search-clear:hover { background: var(--twitch-purple); color: #fff; }
+
 /* ---------- Filter bar: small icons inside the shop-style pills ---------- */
 #yt-filter-bar .filter-pill { display: inline-flex; align-items: center; gap: 7px; }
 #yt-filter-bar .filter-pill svg { flex-shrink: 0; }
