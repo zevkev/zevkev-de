@@ -1,7 +1,7 @@
 // Login/signup modal + the header's logged-in/out state. Reuses the site's
 // existing .cart-backdrop/.qv-panel/.qv-close modal chrome (same pattern as
 // the YouTube/Twitch video modals) rather than inventing a new one.
-import { auth, onAuthChange, signUpWithEmail, signInWithEmail, signInWithGoogle, signOutUser, authErrorMessage, parseAvatarPrefs, avatarContentHTML } from "./auth.js";
+import { auth, onAuthChange, signUpWithEmail, signInWithEmail, signInWithGoogle, signOutUser, resetPassword, authErrorMessage, parseAvatarPrefs, avatarContentHTML } from "./auth.js";
 
 function personIcon() {
   return `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>`;
@@ -70,7 +70,9 @@ function modalHTML() {
           <label for="auth-password">Passwort</label>
           <input type="password" id="auth-password" required autocomplete="current-password" minlength="6">
         </div>
+        <button type="button" class="auth-forgot-link" id="auth-forgot">Passwort vergessen?</button>
         <p class="auth-error" id="auth-error"></p>
+        <p class="auth-success" id="auth-success"></p>
         <button type="submit" class="p-btn rip btn-accent auth-submit" id="auth-submit">Anmelden</button>
       </form>
       <div class="auth-divider"><span>oder</span></div>
@@ -96,7 +98,9 @@ function setMode(modal, next) {
   modal.querySelector("#auth-username-field").style.display = mode === "signup" ? "block" : "none";
   modal.querySelector("#auth-password").setAttribute("autocomplete", mode === "signup" ? "new-password" : "current-password");
   modal.querySelector("#auth-submit").textContent = mode === "signup" ? "Registrieren" : "Anmelden";
+  modal.querySelector("#auth-forgot").style.display = mode === "signup" ? "none" : "inline-block";
   modal.querySelector("#auth-error").textContent = "";
+  modal.querySelector("#auth-success").textContent = "";
 }
 
 function wireModal() {
@@ -116,6 +120,7 @@ function wireModal() {
     const password = modal.querySelector("#auth-password").value;
     const username = modal.querySelector("#auth-username").value.trim();
     errorEl.textContent = "";
+    modal.querySelector("#auth-success").textContent = "";
     if (mode === "signup" && !username) {
       errorEl.textContent = "Bitte einen Username eingeben.";
       return;
@@ -133,6 +138,24 @@ function wireModal() {
       errorEl.textContent = authErrorMessage(err);
     } finally {
       submitBtn.disabled = false;
+    }
+  });
+
+  modal.querySelector("#auth-forgot").addEventListener("click", async () => {
+    const errorEl = modal.querySelector("#auth-error");
+    const successEl = modal.querySelector("#auth-success");
+    const email = modal.querySelector("#auth-email").value.trim();
+    errorEl.textContent = "";
+    successEl.textContent = "";
+    if (!email) {
+      errorEl.textContent = "Bitte zuerst deine E-Mail-Adresse oben eingeben.";
+      return;
+    }
+    try {
+      await resetPassword(email);
+      successEl.textContent = "Falls ein Konto mit dieser E-Mail existiert, wurde eine E-Mail zum Zurücksetzen des Passworts verschickt.";
+    } catch (err) {
+      errorEl.textContent = authErrorMessage(err);
     }
   });
 

@@ -513,6 +513,9 @@ h1, h2, .display-font {
 }
 .auth-field input:focus-visible { outline: none; border-color: var(--twitch-purple); box-shadow: 0 0 0 3px rgba(145,70,255,.2); }
 .auth-error { color: var(--accent-red); font-size: 0.85rem; margin: -4px 0 14px; min-height: 1em; }
+.auth-success { color: var(--accent-green); font-size: 0.85rem; margin: -4px 0 14px; min-height: 1em; }
+.auth-forgot-link { display: inline-block; background: none; border: none; padding: 0; margin: -8px 0 14px; color: var(--text-muted); font-size: 0.82rem; text-decoration: underline; cursor: pointer; }
+.auth-forgot-link:hover { color: var(--text-dark); }
 .auth-submit { width: 100%; justify-content: center; }
 .auth-divider { display: flex; align-items: center; gap: 12px; margin: 18px 0; color: var(--text-muted); font-size: 0.8rem; }
 .auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: rgba(0,0,0,.15); }

@@ -16,6 +16,7 @@ import {
   signOut,
   updateProfile,
   sendEmailVerification,
+  sendPasswordResetEmail,
   deleteUser,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, deleteDoc, runTransaction, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -388,6 +389,22 @@ export async function signInWithEmail(email, password) {
   const cred = await signInWithEmailAndPassword(auth, email, password);
   trackEvent("login", { method: "email" });
   return cred.user;
+}
+
+// There was previously no way at all to recover an email/password account
+// once its password was forgotten -- the login form had no "forgot
+// password" path, and Firebase's own reset flow was never wired up.
+// auth/user-not-found is deliberately swallowed (treated the same as a real
+// send) rather than surfaced -- showing "no account with that email" vs.
+// "email sent" would let this double as a probe for which addresses have
+// an account here. Every other failure (invalid email format, rate limit)
+// still throws, since neither of those leaks that information.
+export async function resetPassword(email) {
+  try {
+    await sendPasswordResetEmail(auth, email);
+  } catch (err) {
+    if (err?.code !== "auth/user-not-found") throw err;
+  }
 }
 
 // Popups are blocked outright (or just don't work reliably) in a lot of
