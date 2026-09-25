@@ -60,7 +60,21 @@ function cookieIcon() {
 // it neutrally, which is the kind of thing DPAs flag as a dark pattern.
 // Kevin was explicit that the banner must let people decline just as
 // easily as accept, so equal visual weight here isn't just styling.
-function bannerHTML() {
+// Revisiting via the footer's "Cookie-Einstellungen" link used to always
+// show this exact same first-visit prompt, with no indication of what a
+// returning visitor had already chosen -- someone checking "did I actually
+// accept analytics?" had no way to tell short of opening dev tools. The
+// status line below is plain text, not a styled/highlighted state on either
+// button, so it stays purely informational rather than nudging the choice
+// (see the comment on .consent-actions below for why that distinction
+// matters here specifically).
+function currentChoiceHTML(choice) {
+  if (!choice) return "";
+  const label = choice === "accepted" ? "Akzeptiert" : "Abgelehnt";
+  return `<p class="consent-status">Aktuell: <strong>${label}</strong></p>`;
+}
+
+function bannerHTML(choice) {
   return `
   <div class="consent-banner rip rip--b" id="consent-banner" role="dialog" aria-label="Cookie-Einstellungen">
     <div class="tape"></div>
@@ -72,6 +86,7 @@ function bannerHTML() {
       Wir nutzen Cookies für Google Analytics. Läuft nur mit deiner Zustimmung.
       Mehr Infos in den <a href="/datenschutz/#cookies">Cookie-Einstellungen</a>.
     </p>
+    ${currentChoiceHTML(choice)}
     <div class="consent-actions">
       <button type="button" class="p-btn rip rip--pink" id="consent-decline">Ablehnen</button>
       <button type="button" class="p-btn rip rip--pink" id="consent-accept">Akzeptieren</button>
@@ -85,7 +100,7 @@ function hideBanner() {
 
 function showBanner() {
   hideBanner();
-  document.body.insertAdjacentHTML("beforeend", bannerHTML());
+  document.body.insertAdjacentHTML("beforeend", bannerHTML(getChoice()));
   document.getElementById("consent-accept")?.addEventListener("click", () => {
     setChoice("accepted");
     if (isConfigured) loadGtag();

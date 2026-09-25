@@ -627,6 +627,15 @@ a.comment-author:hover { text-decoration: underline; }
 .consent-banner p { margin: 0; line-height: 1.65; color: var(--text-dark); }
 .consent-banner a { color: #0f4c81; font-weight: bold; }
 :root[data-theme="dark"] .consent-banner a { color: #7fb2e5; }
+/* Plain status text, not a styled/highlighted state on either button below
+   -- see js/consent.js's comment on this: it's informational (what did I
+   already choose?), not a nudge toward either choice. Scoped as
+   .consent-banner .consent-status (two classes) rather than plain
+   .consent-status so it outranks the general .consent-banner p rule above
+   (one class + one type is still more specific than a bare single class)
+   without needing !important. */
+.consent-banner .consent-status { margin-top: 8px; font-size: 0.82rem; color: var(--text-muted); }
+.consent-status strong { color: var(--text-dark); }
 .consent-actions { display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; margin-top: 2px; }
 .consent-actions .p-btn { padding: 10px 22px; font-size: 0.92rem; }
 @media (max-width: 500px) {
