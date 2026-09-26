@@ -9,6 +9,7 @@ import { FourthwallAPI } from "./fourthwall-api.js";
 import { Cart } from "./cart.js";
 import { money } from "./currency.js";
 import { track } from "./track.js";
+import { initReveal } from "./reveal.js";
 
 const root = document.getElementById("product-root");
 
@@ -328,9 +329,11 @@ function renderProduct(product) {
   syncSelection();
 
   // Same generic .reveal fade-in / IntersectionObserver used site-wide
-  // (and by catalog.js's product grid) — imported after the markup exists
-  // since initReveal() reads the DOM once at import time.
-  import("/js/home.js").catch(() => {});
+  // (and by catalog.js's product grid) — see js/reveal.js. Called directly
+  // now rather than via a `import("/js/home.js")` side effect (which used
+  // to also drag in that page's own invite-copy/smooth-anchor wiring for no
+  // reason here).
+  initReveal(root);
 }
 
 async function init() {

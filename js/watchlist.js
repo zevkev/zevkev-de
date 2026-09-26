@@ -5,6 +5,7 @@
 // up here no matter which page it was starred on.
 import { auth, onAuthChange } from "./auth.js";
 import { getWatchlistIds, toggleWatchlistId, getProgress } from "./user-data.js";
+import { initReveal } from "./reveal.js";
 
 const gridEl = document.getElementById("wl-grid");
 const countEl = document.getElementById("wl-count");
@@ -150,6 +151,7 @@ function renderGrid() {
     gridEl.classList.add("vod-grid");
     gridEl.innerHTML = list.map((v) => cardHTML(v)).join("");
     attachHandlers();
+    initReveal(gridEl);
     return;
   }
 
@@ -169,6 +171,7 @@ function renderGrid() {
     ${unwatched.length ? `<h2 class="yt-section-title wl-group-title">Weiterschauen</h2><div class="vod-grid wl-subgrid">${unwatched.map((v) => cardHTML(v)).join("")}</div>` : ""}
     ${watched.length ? `<h2 class="yt-section-title wl-group-title">Angesehen</h2><div class="vod-grid wl-subgrid">${watched.map((v) => cardHTML(v)).join("")}</div>` : ""}`;
   attachHandlers();
+  initReveal(gridEl);
 }
 
 // Re-run (not just re-rendered) whenever the signed-in uid actually changes

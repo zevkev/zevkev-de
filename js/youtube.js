@@ -1,5 +1,6 @@
 import { observeImpressions } from "./track.js";
 import { getWatchlistIds, toggleWatchlistId } from "./user-data.js";
+import { initReveal } from "./reveal.js";
 
 // Loaded once in init() (await getWatchlistIds()) and kept in sync locally
 // after that by toggleWatchlist() below -- render functions read this
@@ -346,6 +347,7 @@ function renderSpotlight(mode, isSearching) {
   attachCardHandlers(spotlightEl);
   initShelf(spotlightEl.querySelector(".yt-shelf-wrap"));
   observeImpressions(".vod-card[data-video-id]", (el) => el.dataset.videoId, spotlightEl);
+  initReveal(spotlightEl);
 }
 
 // "Neueste" / "Meistgesehen" toggle for the currently active tab's own list.
@@ -403,6 +405,16 @@ function renderGrid(videos, mode) {
   gridEl.innerHTML = shown.map((v) => cardHTML(v, watchlist, mode === "shorts")).join("");
   attachCardHandlers(gridEl);
   observeImpressions(".vod-card[data-video-id]", (el) => el.dataset.videoId, gridEl);
+  // Real bug this fixed: these cards carried the .reveal class already, but
+  // nothing on this page ever wired up the IntersectionObserver that
+  // actually reveals them on scroll -- see js/reveal.js's own comment. They
+  // only ever looked fine because css/vods.css's .vod-card ALSO carried its
+  // own immediate (non-scroll-triggered) fade-in animation, independent of
+  // this class entirely, which faded every card in right after render
+  // regardless of scroll position -- the actual cause of "scrolling doesn't
+  // do anything" on this page. That redundant animation is gone now; this
+  // is the one real mechanism.
+  initReveal(gridEl);
 
   renderLoadMore(videos, mode, shown.length, ordered.length);
 }

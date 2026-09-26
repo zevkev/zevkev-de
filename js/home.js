@@ -1,24 +1,9 @@
-// Reveal-on-scroll for .reveal elements, and the Discord invite copy button.
-
-function initReveal() {
-  const items = document.querySelectorAll(".reveal");
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || !("IntersectionObserver" in window)) {
-    items.forEach((el) => el.classList.add("is-visible"));
-    return;
-  }
-  const io = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add("is-visible");
-          io.unobserve(entry.target);
-        }
-      });
-    },
-    { threshold: 0.15 }
-  );
-  items.forEach((el) => io.observe(el));
-}
+// Discord invite copy button + smooth-scroll anchors. The reveal-on-scroll
+// logic that used to live in this file directly is now js/reveal.js -- see
+// that file's own comment for why it moved out (this module was being
+// imported dynamically, purely as a side effect, by unrelated pages that
+// just wanted the reveal behavior).
+import { initReveal } from "./reveal.js";
 
 function initInviteCopy() {
   const btn = document.getElementById("discord-copy");

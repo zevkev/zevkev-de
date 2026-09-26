@@ -379,9 +379,16 @@
   display: flex;
   flex-direction: column;
   text-decoration: none;
-  animation: fadeUp 0.5s ease both;
   transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
+/* This used to also carry its own `animation: fadeUp 0.5s ease both;`,
+   completely independent of the .reveal class already on every card using
+   this selector (js/youtube.js, js/vods.js) -- firing immediately on
+   insertion regardless of scroll position, which is why scrolling never
+   visibly "did" anything on these pages: every card below the fold had
+   already faded in before it was ever seen. Removed now that
+   js/reveal.js's initReveal() is actually wired up on every page that
+   renders one of these cards (it wasn't before). */
 /* Hand-placed stagger, only meaningful in the wrapping YouTube grid — reset
    for .vod-row cards just below since a horizontal row has no "rows" to
    stagger between. */

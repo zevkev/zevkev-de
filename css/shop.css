@@ -84,9 +84,16 @@
   flex-direction: column;
   text-decoration: none;
   transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  animation: fadeUp 0.5s ease both;
   position: relative;
 }
+/* This used to also carry its own `animation: fadeUp 0.5s ease both;`,
+   completely independent of the .reveal class already on this same
+   element (js/catalog.js) -- firing immediately on insertion regardless of
+   scroll position, so every card below the fold had already faded in
+   before a visitor ever scrolled to it. Removed now that js/reveal.js
+   actually wires up the real scroll-triggered reveal for this page (it
+   didn't before, for cards rendered by a filter switch -- see that file's
+   comment); this card no longer needs its own separate animation. */
 /* No per-card vertical stagger here on purpose (there used to be an
    :nth-child(3n+2)/:nth-child(3n+3) offset for a "scattered pinboard" look)
    -- it assumed an exact 3-column row, which .product-grid's own

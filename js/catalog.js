@@ -1,6 +1,7 @@
 import { FourthwallAPI } from "./fourthwall-api.js";
 import { money } from "./currency.js";
 import { db } from "./auth.js";
+import { initReveal } from "./reveal.js";
 import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const grid = document.getElementById("product-grid");
@@ -129,7 +130,15 @@ function renderGrid(products) {
       if (slug) location.href = `/shop/${encodeURIComponent(slug)}`;
     });
   });
-  import("/js/home.js").catch(() => {});
+  // Real bug this fixed: importing js/home.js purely as a side effect (its
+  // own top-level initReveal() call) only ever ran once -- a filter switch
+  // re-rendering this grid with brand new .reveal cards got nothing, since
+  // the module was already cached and its top-level code doesn't re-run.
+  // Those cards would stay stuck at opacity:0 forever with no JS mechanism
+  // left to reveal them (see js/reveal.js's own comment on the CSS
+  // animation that used to paper over this). Calling the real function
+  // directly, every render, is what actually needs to happen here.
+  initReveal(grid);
 }
 
 function renderSkeleton() {

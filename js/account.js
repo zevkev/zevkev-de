@@ -3,6 +3,7 @@
 // own account here, not just kevlevin.zev@gmail.com (that's /privat/'s job).
 import { auth, onAuthChange, updateDisplayName, deleteAccount, signOutUser, authErrorMessage, AVATAR_COLORS, AVATAR_ICONS, parseAvatarPrefs, avatarContentHTML, updateAvatarPrefs } from "./auth.js";
 import { getWatchlistIds, toggleWatchlistId } from "./user-data.js";
+import { initReveal } from "./reveal.js";
 
 function escapeHTML(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -153,6 +154,7 @@ function renderWatchlist() {
       renderWatchlist();
     });
   });
+  initReveal(grid);
 }
 
 async function loadWatchlist() {

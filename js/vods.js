@@ -2,6 +2,7 @@ import { TWITCH_ENABLED } from "./config.js";
 import { consumeRedirect, getToken, startLogin, logout, getCurrentUser, resolveBroadcasterId, sendChatMessage, onAuthChange } from "./twitch-auth.js";
 import { observeImpressions, track } from "./track.js";
 import { getWatchlistIds, toggleWatchlistId } from "./user-data.js";
+import { initReveal } from "./reveal.js";
 
 const TWITCH_CHANNEL = "zevkev_";
 // Loaded once in init() and kept in sync locally after that -- see the same
@@ -715,6 +716,11 @@ function renderVods(videos, mode) {
   // below -- its real YouTube video URL (the href it already links to) is
   // the path value here.
   observeImpressions(".vod-card", (el) => el.getAttribute("href"), vodGrid);
+  // Real bug this fixed: see js/reveal.js's comment -- this page never
+  // wired up the scroll-triggered reveal for these cards at all, only ever
+  // looking fine because css/vods.css's .vod-card carried its own immediate
+  // (non-scroll-triggered) fade-in, independent of scroll position.
+  initReveal(vodGrid);
 
   renderVodLoadMore(videos, mode, shown.length, ordered.length);
 }
@@ -844,6 +850,7 @@ function paintTwitchRow(list) {
   // the right thing (including ctrl/cmd/middle-click opening a new tab).
   twitchVodRow.innerHTML = list.map((v) => twitchVodCardHTML(v)).join("");
   observeImpressions("[data-twitch-vod-id]", (el) => el.dataset.twitchVodId, twitchVodRow);
+  initReveal(twitchVodRow);
   updateTwitchVodShelfNav?.();
 }
 
@@ -864,6 +871,7 @@ function renderTwitchArchive(vods, featuredId) {
       const picks = shuffledSample(pool, Math.min(6, pool.length));
       twitchSpotlightRow.innerHTML = picks.map((v) => twitchVodCardHTML(v, "rip--accent")).join("");
       observeImpressions("[data-twitch-vod-id]", (el) => el.dataset.twitchVodId, twitchSpotlightRow);
+      initReveal(twitchSpotlightRow);
       twitchSpotlightWrap.style.display = "";
       updateTwitchSpotlightShelfNav?.();
     } else {
