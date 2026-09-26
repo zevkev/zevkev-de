@@ -191,7 +191,12 @@ async function changeQuantity(variantId, delta) {
     state.cart = await FourthwallAPI.updateCart(id, updated);
     render();
   } catch (err) {
+    // Real bug: this used to only log the failure -- a visitor clicking the
+    // qty stepper during a network blip saw the number just... not change,
+    // with nothing telling them it failed vs. was still loading. Same toast
+    // pattern addItem() already uses for exactly this reason.
     console.error("Change quantity failed:", err);
+    showToast("Menge konnte nicht geändert werden.");
   }
 }
 
@@ -203,7 +208,10 @@ async function removeItem(variantId) {
     state.cart = await FourthwallAPI.updateCart(id, items);
     render();
   } catch (err) {
+    // Same reasoning as changeQuantity()'s catch above: silent failure used
+    // to leave a clicked remove button looking like it did nothing.
     console.error("Remove item failed:", err);
+    showToast("Konnte nicht entfernt werden.");
   }
 }
 
