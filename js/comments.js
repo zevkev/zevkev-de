@@ -53,6 +53,25 @@ function escapeHTML(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }
 
+// Same .toast element/pattern as js/cart.js -- duplicated rather than
+// imported, same convention as this file's own icon functions (see e.g.
+// trashIcon() below). Used for delete/report/resend failures below, which
+// used to only log to the console: a visitor clicking "Löschen" or "Melden"
+// during a network blip saw the button just re-enable itself with zero
+// explanation of what happened.
+function showToast(text) {
+  let toast = document.querySelector(".toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.className = "toast";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = text;
+  toast.classList.add("is-visible");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => toast.classList.remove("is-visible"), 2400);
+}
+
 function formatTimestamp(ts) {
   if (!ts) return "gerade eben";
   try {
@@ -205,6 +224,7 @@ function wireCommentActions(root) {
         render();
       } catch (err) {
         console.error("Delete comment failed:", err);
+        showToast("Kommentar konnte nicht gelöscht werden.");
         btn.disabled = false;
       }
     });
@@ -226,6 +246,7 @@ function wireCommentActions(root) {
         trackEvent("comment_report", { event_category: "engagement", event_label: currentVideoId });
       } catch (err) {
         console.error("Report comment failed:", err);
+        showToast("Meldung konnte nicht gesendet werden.");
         btn.disabled = false;
       }
     });
@@ -421,12 +442,22 @@ async function renderFormArea(user) {
       }
     });
     area.querySelector("#comments-resend-btn")?.addEventListener("click", async (ev) => {
+      // Real bug: this used to set the button text to "Gesendet." (Sent.)
+      // immediately, before the request even started -- if it then failed,
+      // that text stayed put with the button permanently disabled, telling
+      // the visitor their email WAS sent (it wasn't) with no way to retry.
+      // Now it only claims success once resendVerificationEmail() actually
+      // resolves, and fully reverts on failure.
+      const original = ev.target.textContent;
       ev.target.disabled = true;
-      ev.target.textContent = "Gesendet.";
       try {
         await resendVerificationEmail();
+        ev.target.textContent = "Gesendet.";
       } catch (err) {
         console.error("Resend verification failed:", err);
+        showToast("E-Mail konnte nicht gesendet werden.");
+        ev.target.textContent = original;
+        ev.target.disabled = false;
       }
     });
     return;
