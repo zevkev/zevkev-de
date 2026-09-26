@@ -92,7 +92,19 @@ function wireForm() {
 
 // Already signed in (e.g. followed an old bookmark, or clicked back after
 // logging in elsewhere) -- just send them on instead of showing a form.
-onAuthChange((user) => {
+// Unsubscribes after its first fire so it only ever covers THAT case --
+// onAuthChange (onAuthStateChanged) also fires for the auth state change
+// caused by this page's own signup/signin submit handler above, and that
+// handler already navigates itself once its full await chain (including
+// signUpWithEmail's post-creation username reservation/displayName/avatar/
+// verification-email setup) actually finishes. Left as a live subscription,
+// this fired the instant createUserWithEmailAndPassword/signInWithPopup
+// resolved -- well before those later awaits inside signUpWithEmail --
+// and its own location.href tore the page down mid-setup, silently
+// skipping all of it. Confirmed live: a real signup left the account with
+// no reserved username and no displayName at all.
+const unsubscribeInitialAuthCheck = onAuthChange((user) => {
+  unsubscribeInitialAuthCheck();
   if (user) location.href = nextPath();
 });
 

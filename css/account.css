@@ -157,6 +157,62 @@
 }
 .account-wl-more:hover { transform: scale(1.02); }
 
+/* ---------- Profile customization (bio + social links + background) ----------
+   Same subtle-panel treatment as .account-avatar-picker above, on its own
+   full-width line below it for the same reason (not a 4th flex item in the
+   .account-profile row). */
+.account-customize {
+  width: 100%;
+  max-width: 640px;
+  margin: 22px auto 0;
+  padding: 22px 20px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 8px;
+}
+:root[data-theme="dark"] .account-customize { background: rgba(255, 255, 255, 0.05); }
+.account-customize-hint { margin: -4px 0 18px; font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; }
+.account-customize-hint a { color: var(--text-dark); font-weight: bold; }
+
+.account-customize label { display: block; font-size: 0.78rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px; }
+.account-customize textarea {
+  width: 100%; min-height: 70px; padding: 10px 12px; box-sizing: border-box;
+  background: var(--paper); color: var(--text-dark);
+  border: 2px solid var(--text-muted); border-radius: 4px;
+  font-family: inherit; font-size: 0.92rem; resize: vertical;
+  transition: border-color 0.2s ease;
+}
+.account-customize textarea:focus-visible { outline: none; border-color: var(--twitch-purple); box-shadow: 0 0 0 3px rgba(145, 70, 255, 0.2); }
+.account-bio-counter { margin: 4px 0 0; font-size: 0.76rem; color: var(--text-muted); text-align: right; }
+
+.account-social-grid { display: flex; flex-direction: column; gap: 10px; }
+.account-social-row { display: flex; align-items: center; gap: 10px; }
+.account-social-icon { display: flex; flex-shrink: 0; width: 18px; }
+.account-social-row input {
+  flex: 1; min-width: 0; width: 100%;
+  padding: 9px 12px;
+  background: var(--paper); color: var(--text-dark);
+  border: 2px solid var(--text-muted); border-radius: 4px;
+  font-family: inherit; font-size: 0.9rem;
+  transition: border-color 0.2s ease;
+}
+.account-social-row input:focus-visible { outline: none; border-color: var(--twitch-purple); box-shadow: 0 0 0 3px rgba(145, 70, 255, 0.2); }
+
+.account-bg-row { display: flex; flex-wrap: wrap; gap: 12px; padding: 4px 2px; }
+.account-bg-swatch {
+  width: 34px; height: 34px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.6);
+  display: flex; align-items: center; justify-content: center; color: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.account-bg-swatch:hover { transform: scale(1.1); }
+.account-bg-swatch.is-active { border-color: var(--text-dark); }
+.account-bg-swatch--default { border: 2px dashed rgba(0, 0, 0, 0.3); }
+:root[data-theme="dark"] .account-bg-swatch--default { border-color: rgba(255, 255, 255, 0.35); }
+
+.account-customize .auth-error, .account-customize .account-name-saved { margin: 14px 0 0; }
+.account-customize .btn-accent { margin-top: 14px; }
+
 .account-danger {
   width: 100%;
   max-width: 640px;

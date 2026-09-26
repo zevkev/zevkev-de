@@ -47,6 +47,7 @@
 <link rel="stylesheet" href="/css/vods.css">
 <link rel="stylesheet" href="/css/youtube.css">
 <link rel="stylesheet" href="/css/watch.css">
+<link rel="stylesheet" href="/css/profil.css">
 </head>
 <body>
 
@@ -70,6 +71,8 @@
     </div>
     <div class="comments-section rip" id="comments-root" style="display:none;"></div>
 
+    <div id="profil-root" class="profil-root" style="display:none;"></div>
+
   </div>
 </div>
 
@@ -88,6 +91,7 @@
   const parts = location.pathname.split("/").filter(Boolean);
   const looksLikeProductSlug = parts.length === 2 && parts[0] === "shop" && parts[1] !== "product";
   const looksLikeWatchPath = parts.length === 2 && (parts[0] === "video" || parts[0] === "vod");
+  const looksLikeUserProfile = parts.length === 2 && parts[0] === "user";
 
   if (looksLikeProductSlug) {
     const script = document.createElement("script");
@@ -109,6 +113,15 @@
     const script = document.createElement("script");
     script.type = "module";
     script.src = "/js/watch.js";
+    document.body.appendChild(script);
+  } else if (looksLikeUserProfile) {
+    document.getElementById("shop-back-link").style.display = "none";
+    document.getElementById("profil-root").style.display = "";
+    // profil.js's own getUsernameFromLocation() already reads the /user/<name>
+    // path shape directly (see that file) -- no query string needed here.
+    const script = document.createElement("script");
+    script.type = "module";
+    script.src = "/js/profil.js";
     document.body.appendChild(script);
   } else {
     // A truly unmatched path (typo, removed page, dead external link) --

@@ -239,7 +239,7 @@ function userRowHTML(u) {
   return `
   <div class="privat-user-row${u.banned ? " is-banned" : ""}">
     <div class="privat-user-info">
-      <a href="/profil/?u=${encodeURIComponent(u.displayName || "")}" target="_blank" rel="noopener">${escapeHTML(u.displayName || "(kein Name)")}</a>
+      <a href="/user/${encodeURIComponent(u.displayName || "")}/" target="_blank" rel="noopener">${escapeHTML(u.displayName || "(kein Name)")}</a>
       <span class="privat-user-email">${escapeHTML(u.email || u.id)}</span>
       ${u.banned ? `<span class="privat-user-badge">Gesperrt</span>` : ""}
     </div>

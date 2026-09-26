@@ -22,6 +22,7 @@ import {
 import { getFirestore, doc, setDoc, deleteDoc, runTransaction, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { FIREBASE_CONFIG, OWNER_EMAILS } from "./firebase-config.js";
 import { trackEvent } from "./track.js";
+import { SOCIAL_PLATFORMS, BACKGROUND_PRESETS, BIO_MAX_LENGTH } from "./profile-presets.js";
 
 const app = initializeApp(FIREBASE_CONFIG);
 export const auth = getAuth(app);
@@ -202,6 +203,26 @@ async function syncPublicProfile(extra = {}) {
   );
 }
 
+// Bio + social link buttons + background preset -- the customizable part of
+// a public profile beyond avatar/name (see js/profil.js for how these
+// render). Validated here (not just trusted from the caller) since this
+// writes straight to the public profiles/{uid} doc: an unrecognized socials
+// key or background preset would otherwise sit in Firestore forever,
+// rendering as nothing useful on the profile page but never cleaned up.
+export async function updateProfileCustomization(bio, socials, background) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Nicht angemeldet.");
+  const cleanBio = String(bio || "").trim().slice(0, BIO_MAX_LENGTH);
+  const cleanSocials = {};
+  for (const [key, value] of Object.entries(socials || {})) {
+    if (!SOCIAL_PLATFORMS[key]) continue; // drop anything not a recognized platform
+    const trimmed = String(value || "").trim();
+    if (trimmed) cleanSocials[key] = trimmed;
+  }
+  const cleanBackground = background && BACKGROUND_PRESETS[background] ? background : "";
+  await syncPublicProfile({ bio: cleanBio, socials: cleanSocials, background: cleanBackground });
+}
+
 
 // Shared avatar-circle CONTENT (just the inner markup -- icon or letter,
 // not the wrapping element/size/background) so the header chip and the
@@ -352,8 +373,15 @@ export async function deleteAccount() {
   const uid = user.uid;
   const ownComments = await getDocs(query(collection(db, "comments"), where("authorId", "==", uid))).catch(() => null);
   if (ownComments) await Promise.all(ownComments.docs.map((d) => deleteDoc(d.ref).catch(() => {})));
-  const normalized = normalizeUsername(user.displayName);
-  if (normalized) await deleteDoc(doc(db, "usernames", normalized)).catch(() => {});
+  // Looked up by uid (not user.displayName) on purpose -- displayName can be
+  // null for a legitimately signed-in user (confirmed live: an interrupted
+  // signup left exactly this state, see login.js's onAuthChange race fix),
+  // and a stale/empty displayName here used to silently skip releasing the
+  // real reservation, permanently blocking that name for anyone else even
+  // after this account was gone. Querying by uid finds it regardless of
+  // whatever displayName says.
+  const ownUsernames = await getDocs(query(collection(db, "usernames"), where("uid", "==", uid))).catch(() => null);
+  if (ownUsernames) await Promise.all(ownUsernames.docs.map((d) => deleteDoc(d.ref).catch(() => {})));
   await deleteDoc(doc(db, "users", uid)).catch(() => {});
   await deleteDoc(doc(db, "profiles", uid)).catch(() => {});
   await deleteUser(user);

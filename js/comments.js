@@ -158,7 +158,7 @@ function commentBodyHTML(c) {
       ${commentAvatarHTML(c)}
       ${
         c.authorName
-          ? `<a class="comment-author" href="/profil/?u=${encodeURIComponent(c.authorName)}">${escapeHTML(c.authorName)}</a>`
+          ? `<a class="comment-author" href="/user/${encodeURIComponent(c.authorName)}/">${escapeHTML(c.authorName)}</a>`
           : `<span class="comment-author">Anonym</span>`
       }
       ${c.authorIsOwner ? verifiedBadge() : ""}

@@ -6,6 +6,7 @@
 // "minimal Firestore reads" convention as the rest of the site.
 import { db } from "./auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { SOCIAL_PLATFORMS, BACKGROUND_PRESETS } from "./profile-presets.js";
 
 function escapeHTML(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -23,6 +24,30 @@ function notFoundHTML() {
   </div>`;
 }
 
+// Renders one link button per social handle the visitor actually set --
+// nothing for platforms left empty, and silently drops any Firestore key
+// that isn't a recognized platform (a stale/removed preset, or unexpected
+// data) rather than rendering a broken button for it.
+function socialButtonsHTML(socials) {
+  const entries = Object.entries(socials || {}).filter(([key, value]) => value && SOCIAL_PLATFORMS[key]);
+  if (!entries.length) return "";
+  const buttons = entries
+    .map(([key, value]) => {
+      const platform = SOCIAL_PLATFORMS[key];
+      const url = platform.urlFor(String(value));
+      const iconAttrs = platform.fill
+        ? `fill="currentColor" stroke="none"`
+        : `fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`;
+      return `
+      <a class="profil-link-btn rip" href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer" style="--btn-color:${platform.color}">
+        <span class="profil-link-icon"><svg viewBox="0 0 24 24" width="20" height="20" ${iconAttrs} aria-hidden="true">${platform.icon}</svg></span>
+        <span class="profil-link-label">${escapeHTML(platform.label)}</span>
+      </a>`;
+    })
+    .join("");
+  return `<div class="profil-links">${buttons}</div>`;
+}
+
 function profileHTML(username, profile) {
   const name = profile.displayName || username;
   const color = profile.avatarColor || "#4a7c9e";
@@ -30,10 +55,14 @@ function profileHTML(username, profile) {
   const content = icon
     ? `<svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">${AVATAR_ICON_SVGS[icon] || ""}</svg>`
     : escapeHTML((name || "?").trim().charAt(0).toUpperCase() || "?");
+  const bio = String(profile.bio || "").trim();
   return `
-  <div class="profil-card rip">
+  <div class="profil-card rip rip--b">
+    <div class="tape"></div>
     <div class="profil-avatar" style="background:${color}">${content}</div>
     <h1>${escapeHTML(name)}</h1>
+    ${bio ? `<p class="profil-bio">${escapeHTML(bio)}</p>` : ""}
+    ${socialButtonsHTML(profile.socials)}
   </div>`;
 }
 
@@ -102,10 +131,37 @@ const AVATAR_ICON_SVGS = {
   drama: '<path d="M10 11h.01"/><path d="M14 6h.01"/><path d="M18 6h.01"/><path d="M6.5 13.1h.01"/><path d="M22 5c0 9-4 12-6 12s-6-3-6-12c0-2 2-3 6-3s6 1 6 3"/><path d="M17.4 9.9c-.8.8-2 .8-2.8 0"/><path d="M10.1 7.1C9 7.2 7.7 7.7 6 8.6c-3.5 2-4.7 3.9-3.7 5.6 4.5 7.8 9.5 8.4 11.2 7.4.9-.5 1.9-2.1 1.9-4.7"/><path d="M9.1 16.5c.3-1.1 1.4-1.7 2.4-1.4"/>',
 };
 
+// Prefer the query string when present so the original /profil/?u=<name>
+// links (already shared/bookmarked before /user/<name>/ existed) keep
+// working unchanged -- same reasoning, and same pattern, as js/product.js's
+// own getSlugFromLocation().
+function getUsernameFromLocation() {
+  const qsUser = new URLSearchParams(window.location.search).get("u");
+  if (qsUser) return qsUser;
+  const parts = window.location.pathname.split("/").filter(Boolean);
+  if (parts.length === 2 && parts[0] === "user") {
+    return decodeURIComponent(parts[1]);
+  }
+  return null;
+}
+
+// Recolors the site's own cutting-mat background for just this page load,
+// leaving every grid/texture layer already painted on top of it (see
+// body's own background-image stack in style.css) untouched -- overriding
+// the --blue-mat custom property those layers are drawn over, rather than
+// replacing body's background outright, is what keeps them working. Falls
+// back to doing nothing (the page's normal default mat) for an unset or
+// unrecognized/legacy preset key, so a preset removed later can't strand
+// an existing profile on a blank background.
+function applyBackground(key) {
+  const preset = key && BACKGROUND_PRESETS[key];
+  if (preset) document.documentElement.style.setProperty("--blue-mat", preset.value);
+}
+
 async function init() {
   const root = document.getElementById("profil-root");
   if (!root) return;
-  const username = new URLSearchParams(window.location.search).get("u");
+  const username = getUsernameFromLocation();
   if (!username) {
     root.innerHTML = notFoundHTML();
     return;
@@ -124,7 +180,28 @@ async function init() {
       return;
     }
     const profile = profileSnap.data();
-    document.title = `${profile.displayName || username} | ZevKev`;
+    const displayName = profile.displayName || username;
+    document.title = `${displayName} | ZevKev`;
+    const bio = String(profile.bio || "").trim();
+    const desc = document.querySelector('meta[name="description"]');
+    if (desc && bio) desc.setAttribute("content", bio);
+    const ogTitle = document.querySelector('meta[property="og:title"]');
+    if (ogTitle) ogTitle.setAttribute("content", `${displayName} | ZevKev`);
+    const ogDesc = document.querySelector('meta[property="og:description"]');
+    if (ogDesc && bio) ogDesc.setAttribute("content", bio);
+    // Point the share URL at the clean /user/<name>/ form regardless of
+    // whether this actually loaded via that path or the older /profil/?u=
+    // one -- same reasoning/pattern as js/product.js's own canonicalUrl.
+    const canonicalUrl = `https://zevkev.de/user/${encodeURIComponent(username)}/`;
+    document.querySelector('meta[property="og:url"]')?.setAttribute("content", canonicalUrl);
+    let canonical = document.querySelector('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement("link");
+      canonical.rel = "canonical";
+      document.head.appendChild(canonical);
+    }
+    canonical.href = canonicalUrl;
+    applyBackground(profile.background);
     root.innerHTML = profileHTML(username, profile);
   } catch (err) {
     console.error("Loading profile failed:", err);

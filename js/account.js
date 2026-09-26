@@ -1,9 +1,11 @@
 // Account page (/account/): profile (avatar + rename), watchlist overview,
 // and account deletion. Owner-agnostic -- any signed-in visitor sees their
 // own account here, not just kevlevin.zev@gmail.com (that's /privat/'s job).
-import { auth, onAuthChange, updateDisplayName, deleteAccount, signOutUser, authErrorMessage, AVATAR_COLORS, AVATAR_ICONS, parseAvatarPrefs, avatarContentHTML, updateAvatarPrefs } from "./auth.js";
+import { auth, db, onAuthChange, updateDisplayName, deleteAccount, signOutUser, authErrorMessage, AVATAR_COLORS, AVATAR_ICONS, parseAvatarPrefs, avatarContentHTML, updateAvatarPrefs, updateProfileCustomization } from "./auth.js";
 import { getWatchlistIds, toggleWatchlistId } from "./user-data.js";
 import { initReveal } from "./reveal.js";
+import { SOCIAL_PLATFORMS, BACKGROUND_PRESETS, BIO_MAX_LENGTH } from "./profile-presets.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 function escapeHTML(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -78,7 +80,7 @@ function profileHTML(user) {
     <p class="account-email">${escapeHTML(user.email || "")}</p>
     <div class="account-info-actions">
       <button type="button" class="account-avatar-edit-btn" id="account-avatar-edit-btn">${editIcon()}Avatar anpassen</button>
-      <a class="account-avatar-edit-btn" href="/profil/?u=${encodeURIComponent(name)}" target="_blank" rel="noopener">${eyeIcon()}Öffentliches Profil ansehen</a>
+      <a class="account-avatar-edit-btn" href="/user/${encodeURIComponent(name)}/" target="_blank" rel="noopener">${eyeIcon()}Öffentliches Profil ansehen</a>
     </div>
   </div>
   <button type="button" class="account-logout" id="account-logout-btn" aria-label="Abmelden" title="Abmelden">${logoutIcon()}</button>`;
@@ -98,6 +100,116 @@ function avatarPickerHTML(user) {
   <div class="account-swatch-row">${swatches}</div>
   <p class="account-picker-label">Symbol</p>
   <div class="account-icon-row">${iconButtons}</div>`;
+}
+
+// ---------- Profile customization (bio + social buttons + background) ----------
+// Lives on the public profiles/{uid} doc (see auth.js's updateProfileCustomization),
+// not the Firebase Auth user object, so it needs its own read here -- avatar/
+// name above come for free from auth.currentUser, this doesn't.
+let currentBackground = "";
+
+function socialRowHTML(key, platform, value) {
+  const iconAttrs = platform.fill
+    ? `fill="currentColor" stroke="none"`
+    : `fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`;
+  return `
+  <div class="account-social-row">
+    <span class="account-social-icon" style="color:${platform.color}"><svg viewBox="0 0 24 24" width="18" height="18" ${iconAttrs} aria-hidden="true">${platform.icon}</svg></span>
+    <input type="text" data-social-key="${key}" value="${escapeHTML(value || "")}" placeholder="${escapeHTML(platform.placeholder)}" aria-label="${escapeHTML(platform.label)}">
+  </div>`;
+}
+
+function backgroundSwatchHTML(key, label, styleValue, active) {
+  return `<button type="button" class="account-bg-swatch${active ? " is-active" : ""}" data-bg="${key}" style="background:${styleValue}" aria-label="${escapeHTML(label)}" title="${escapeHTML(label)}">${active ? checkIcon() : ""}</button>`;
+}
+
+function customizeHTML(user, profile) {
+  const bio = profile?.bio || "";
+  const socials = profile?.socials || {};
+  const background = profile?.background || "";
+  const name = user.displayName || user.email?.split("@")[0] || "Account";
+  const socialRows = Object.entries(SOCIAL_PLATFORMS).map(([key, p]) => socialRowHTML(key, p, socials[key])).join("");
+  const bgSwatches =
+    backgroundSwatchHTML("", "Standard", "var(--blue-mat)", !background) +
+    Object.entries(BACKGROUND_PRESETS).map(([key, p]) => backgroundSwatchHTML(key, p.label, p.value, background === key)).join("");
+  return `
+  <h2 class="yt-section-title" style="margin-top:0;">Profil anpassen</h2>
+  <p class="account-customize-hint">So sehen andere dein <a href="/user/${encodeURIComponent(name)}/" target="_blank" rel="noopener">öffentliches Profil</a> — eine eigene Seite mit Bio, Links und Hintergrund, wie ein Linktree.</p>
+  <form id="account-customize-form">
+    <label for="account-bio-input">Bio</label>
+    <textarea id="account-bio-input" maxlength="${BIO_MAX_LENGTH}" placeholder="Erzähl etwas über dich...">${escapeHTML(bio)}</textarea>
+    <p class="account-bio-counter" id="account-bio-counter">${bio.length} / ${BIO_MAX_LENGTH}</p>
+
+    <p class="account-picker-label">Links</p>
+    <div class="account-social-grid">${socialRows}</div>
+
+    <p class="account-picker-label">Hintergrund</p>
+    <div class="account-bg-row" id="account-bg-row">${bgSwatches}</div>
+
+    <p class="auth-error" id="account-customize-error"></p>
+    <p class="account-name-saved" id="account-customize-saved">Gespeichert.</p>
+    <button type="submit" class="p-btn rip btn-accent">Speichern</button>
+  </form>`;
+}
+
+function wireCustomize(profile) {
+  currentBackground = profile?.background || "";
+  const form = document.getElementById("account-customize-form");
+  if (!form) return;
+  const bioInput = document.getElementById("account-bio-input");
+  const counter = document.getElementById("account-bio-counter");
+  bioInput?.addEventListener("input", () => {
+    counter.textContent = `${bioInput.value.length} / ${BIO_MAX_LENGTH}`;
+  });
+
+  document.getElementById("account-bg-row")?.querySelectorAll(".account-bg-swatch").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".account-bg-swatch").forEach((b) => {
+        b.classList.remove("is-active");
+        b.innerHTML = "";
+      });
+      btn.classList.add("is-active");
+      btn.innerHTML = checkIcon();
+      currentBackground = btn.dataset.bg;
+    });
+  });
+
+  form.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const errorEl = document.getElementById("account-customize-error");
+    const savedEl = document.getElementById("account-customize-saved");
+    const submitBtn = form.querySelector('button[type="submit"]');
+    errorEl.textContent = "";
+    savedEl.classList.remove("is-visible");
+    const socials = {};
+    form.querySelectorAll("[data-social-key]").forEach((input) => {
+      socials[input.dataset.socialKey] = input.value;
+    });
+    submitBtn.disabled = true;
+    try {
+      await updateProfileCustomization(bioInput.value, socials, currentBackground);
+      savedEl.classList.add("is-visible");
+      setTimeout(() => savedEl.classList.remove("is-visible"), 2500);
+    } catch (err) {
+      errorEl.textContent = authErrorMessage(err);
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+}
+
+async function loadCustomization(user) {
+  const el = document.getElementById("account-customize");
+  if (!el) return;
+  try {
+    const snap = await getDoc(doc(db, "profiles", user.uid));
+    const profile = snap.exists() ? snap.data() : null;
+    el.innerHTML = customizeHTML(user, profile);
+    wireCustomize(profile);
+  } catch (err) {
+    console.error("Loading profile customization failed:", err);
+    el.innerHTML = `<p class="comments-empty">Konnte nicht geladen werden.</p>`;
+  }
 }
 
 function dangerHTML() {
@@ -289,6 +401,7 @@ onAuthChange((user) => {
   if (loadedForUid !== user.uid) {
     loadedForUid = user.uid;
     loadWatchlist();
+    loadCustomization(user);
   }
 });
 
