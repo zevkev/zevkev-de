@@ -5,7 +5,6 @@
 // one-line GitHub web-UI edit once the backend is deployed (e.g. to
 // Render.com), no other code needs to change.
 //
-// Still the placeholder below until that deploy happens -- js/mspr.js
-// checks for this exact value and shows a clear "not configured yet"
-// message instead of trying (and failing) to reach a fake URL.
-export const MSPR_API_BASE = "https://your-app-name.onrender.com";
+// Deployed on Render.com's free Web Service tier, 2026-09-26. Confirmed
+// live via a direct /api/health check before this was wired in.
+export const MSPR_API_BASE = "https://mspr-downloader-api.onrender.com";
