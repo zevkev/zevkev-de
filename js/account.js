@@ -1,10 +1,29 @@
 // Account page (/account/): profile (avatar + rename), watchlist overview,
 // and account deletion. Owner-agnostic -- any signed-in visitor sees their
 // own account here, not just kevlevin.zev@gmail.com (that's /privat/'s job).
-import { auth, db, onAuthChange, updateDisplayName, deleteAccount, signOutUser, authErrorMessage, AVATAR_COLORS, AVATAR_ICONS, parseAvatarPrefs, avatarContentHTML, updateAvatarPrefs, updateProfileCustomization } from "./auth.js";
+import {
+  auth,
+  db,
+  onAuthChange,
+  updateDisplayName,
+  deleteAccount,
+  signOutUser,
+  authErrorMessage,
+  AVATAR_COLORS,
+  AVATAR_ICONS,
+  AVATAR_SHAPES,
+  AVATAR_ACCESSORIES,
+  parseAvatarPrefs,
+  avatarContentHTML,
+  avatarShapeClass,
+  avatarBadgeHTML,
+  updateAvatarPrefs,
+  updateProfileCustomization,
+} from "./auth.js";
 import { getWatchlistIds, toggleWatchlistId } from "./user-data.js";
 import { initReveal } from "./reveal.js";
-import { SOCIAL_PLATFORMS, BACKGROUND_PRESETS, BIO_MAX_LENGTH } from "./profile-presets.js";
+import { SOCIAL_PLATFORMS, BACKGROUND_PRESETS, BIO_MAX_LENGTH, resolveBackgroundValue } from "./profile-presets.js";
+import { applyUserTheme } from "./user-theme.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 function escapeHTML(str) {
@@ -65,8 +84,9 @@ function checkIcon() {
 function profileHTML(user) {
   const name = user.displayName || user.email?.split("@")[0] || "Account";
   const prefs = parseAvatarPrefs(user);
+  const style = prefs.ring ? `background:${prefs.color};--avatar-ring:${prefs.ring}` : `background:${prefs.color}`;
   return `
-  <div class="account-avatar-lg" id="account-avatar-lg" style="background:${prefs.color}">${avatarContentHTML(user, 34)}</div>
+  <div class="account-avatar-lg ${avatarShapeClass(user)}" id="account-avatar-lg" style="${style}">${avatarContentHTML(user, 34)}${avatarBadgeHTML(user)}</div>
   <div class="account-info">
     <form class="account-name-form" id="account-name-form">
       <label for="account-name-input">Username</label>
@@ -86,20 +106,95 @@ function profileHTML(user) {
   <button type="button" class="account-logout" id="account-logout-btn" aria-label="Abmelden" title="Abmelden">${logoutIcon()}</button>`;
 }
 
+// ---------- Avatar "Baukasten" editor (shape + colors + icon + accessory) ----------
+// Every pick applies immediately (same instant-save pattern this picker
+// already had for color/icon, just extended to the 4 new axes) rather than
+// staging a draft behind a separate "Speichern" -- simpler, and matches how
+// every other click here has always behaved. All 6 fields round-trip through
+// the Auth profile's own photoURL as plain text (see auth.js's
+// updateAvatarPrefs) -- zero Firebase Storage, zero extra Firestore reads.
+function avatarEditorPreviewHTML(user) {
+  const prefs = parseAvatarPrefs(user);
+  const style = prefs.ring ? `background:${prefs.color};--avatar-ring:${prefs.ring}` : `background:${prefs.color}`;
+  return `
+  <div class="avatar-editor-preview">
+    <div class="account-avatar-lg ${avatarShapeClass(user)}" style="${style}">${avatarContentHTML(user, 34)}${avatarBadgeHTML(user)}</div>
+  </div>`;
+}
+
 function avatarPickerHTML(user) {
   const prefs = parseAvatarPrefs(user);
+
+  const shapeButtons = Object.entries(AVATAR_SHAPES)
+    .map(
+      ([key, s]) =>
+        `<button type="button" class="account-shape-choice avatar-shape-${key}${prefs.shape === key ? " is-active" : ""}" data-shape="${key}" aria-label="${escapeHTML(s.label)}" title="${escapeHTML(s.label)}"></button>`
+    )
+    .join("");
+
   const swatches = AVATAR_COLORS.map(
     (c) => `<button type="button" class="account-swatch${c === prefs.color ? " is-active" : ""}" data-color="${c}" style="background:${c}" aria-label="Farbe ${c}">${c === prefs.color ? checkIcon() : ""}</button>`
   ).join("");
+
   const iconBtn = (key, svgInner, active) =>
     `<button type="button" class="account-icon-choice${active ? " is-active" : ""}" data-icon="${key}" aria-label="${key}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">${svgInner}</svg></button>`;
   const letterBtn = `<button type="button" class="account-icon-choice${!prefs.icon ? " is-active" : ""}" data-icon="" aria-label="Buchstabe">${escapeHTML((user.displayName || user.email || "?").trim().charAt(0).toUpperCase())}</button>`;
   const iconButtons = letterBtn + Object.entries(AVATAR_ICONS).map(([key, svg]) => iconBtn(key, svg, prefs.icon === key)).join("");
+
+  // "" (empty data-icon-color) means "no override" -- the icon just inherits
+  // the wrapper's own white text color, same default as before this field
+  // existed, so it's kept as a real reset option rather than a 27th color.
+  const iconColorOptions = ["", "#1a1a1a", ...AVATAR_COLORS];
+  const iconColorSwatches = iconColorOptions
+    .map((c) => {
+      const active = c ? prefs.iconColor === c : !prefs.iconColor;
+      return `<button type="button" class="account-swatch account-swatch--sm${active ? " is-active" : ""}" data-icon-color="${c}" style="background:${c || "#ffffff"}" aria-label="Symbolfarbe ${c || "Weiß"}">${active ? checkIcon() : ""}</button>`;
+    })
+    .join("");
+
+  const ringOptions = ["", "#ffffff", ...AVATAR_COLORS];
+  const ringSwatches = ringOptions
+    .map((c) => {
+      const active = c ? prefs.ring === c : !prefs.ring;
+      if (!c) return `<button type="button" class="account-swatch account-swatch--sm account-swatch--none${active ? " is-active" : ""}" data-ring="" aria-label="Kein Rahmen"></button>`;
+      return `<button type="button" class="account-swatch account-swatch--sm${active ? " is-active" : ""}" data-ring="${c}" style="background:${c}" aria-label="Rahmenfarbe ${c}">${active ? checkIcon() : ""}</button>`;
+    })
+    .join("");
+
+  const accessoryButtons =
+    `<button type="button" class="account-accessory-choice${!prefs.accessory ? " is-active" : ""}" data-accessory="" aria-label="Kein Abzeichen">Keins</button>` +
+    Object.entries(AVATAR_ACCESSORIES)
+      .map(
+        ([key, def]) => `
+      <button type="button" class="account-accessory-choice${prefs.accessory === key ? " is-active" : ""}" data-accessory="${key}" aria-label="${escapeHTML(def.label)}" title="${escapeHTML(def.label)}">
+        <span class="account-accessory-swatch" style="background:${def.color}"><svg viewBox="0 0 24 24" width="13" height="13" fill="#fff" stroke="none">${def.icon}</svg></span>
+      </button>`
+      )
+      .join("");
+
   return `
-  <p class="account-picker-label">Farbe</p>
-  <div class="account-swatch-row">${swatches}</div>
+  <p class="account-picker-label">Form</p>
+  <div class="account-shape-row">${shapeButtons}</div>
+
+  <p class="account-picker-label">Hintergrundfarbe</p>
+  <div class="account-swatch-row">
+    ${swatches}
+    <label class="account-custom-color" title="Eigene Farbe">
+      <input type="color" id="account-avatar-custom-color" value="${prefs.color}">
+    </label>
+  </div>
+
   <p class="account-picker-label">Symbol</p>
-  <div class="account-icon-row">${iconButtons}</div>`;
+  <div class="account-icon-row">${iconButtons}</div>
+
+  <p class="account-picker-label">Symbolfarbe</p>
+  <div class="account-swatch-row account-swatch-row--sm">${iconColorSwatches}</div>
+
+  <p class="account-picker-label">Rahmenfarbe</p>
+  <div class="account-swatch-row account-swatch-row--sm">${ringSwatches}</div>
+
+  <p class="account-picker-label">Abzeichen</p>
+  <div class="account-accessory-row">${accessoryButtons}</div>`;
 }
 
 // ---------- Profile customization (bio + social buttons + background) ----------
@@ -127,6 +222,11 @@ function customizeHTML(user, profile) {
   const bio = profile?.bio || "";
   const socials = profile?.socials || {};
   const background = profile?.background || "";
+  // A custom pick (raw #rrggbb from the color wheel below) never matches a
+  // preset key, so none of the fixed swatches light up for it -- that's
+  // correct, but the custom-color swatch itself still needs to visibly
+  // reflect it rather than sitting there as a blank, unexplained circle.
+  const customActive = !BACKGROUND_PRESETS[background] && !!background;
   const name = user.displayName || user.email?.split("@")[0] || "Account";
   const socialRows = Object.entries(SOCIAL_PLATFORMS).map(([key, p]) => socialRowHTML(key, p, socials[key])).join("");
   const bgSwatches =
@@ -144,12 +244,39 @@ function customizeHTML(user, profile) {
     <div class="account-social-grid">${socialRows}</div>
 
     <p class="account-picker-label">Hintergrund</p>
-    <div class="account-bg-row" id="account-bg-row">${bgSwatches}</div>
+    <p class="account-customize-hint">Färbt nicht nur dein Profil ein — solange du angemeldet bist, sieht die ganze Website für dich so aus (Home, Shop, überall).</p>
+    <div class="account-bg-row" id="account-bg-row">
+      ${bgSwatches}
+      <label class="account-custom-color account-bg-swatch${customActive ? " is-active" : ""}" title="Eigene Farbe" style="${customActive ? `background:${background}` : ""}">
+        <input type="color" id="account-bg-custom-color" value="${customActive ? background : "#234d70"}">
+        ${customActive ? checkIcon() : ""}
+      </label>
+    </div>
 
     <p class="auth-error" id="account-customize-error"></p>
     <p class="account-name-saved" id="account-customize-saved">Gespeichert.</p>
     <button type="submit" class="p-btn rip btn-accent">Speichern</button>
   </form>`;
+}
+
+// Re-derives every swatch's active/checkmark state from currentBackground
+// rather than the previous "clear every .account-bg-swatch's innerHTML,
+// then fill in the clicked one" approach -- that used to also wipe the
+// custom-color label's innerHTML on every click, which would have deleted
+// the real <input type="color"> living inside it (not just a checkmark).
+function refreshBgActiveStates() {
+  const isCustom = !!currentBackground && !BACKGROUND_PRESETS[currentBackground];
+  document.querySelectorAll("#account-bg-row .account-bg-swatch[data-bg]").forEach((b) => {
+    const active = b.dataset.bg === currentBackground;
+    b.classList.toggle("is-active", active);
+    b.innerHTML = active ? checkIcon() : "";
+  });
+  const customLabel = document.querySelector("#account-bg-row .account-custom-color");
+  if (!customLabel) return;
+  customLabel.classList.toggle("is-active", isCustom);
+  customLabel.style.background = isCustom ? currentBackground : "";
+  customLabel.querySelector("svg")?.remove();
+  if (isCustom) customLabel.insertAdjacentHTML("beforeend", checkIcon());
 }
 
 function wireCustomize(profile) {
@@ -162,16 +289,17 @@ function wireCustomize(profile) {
     counter.textContent = `${bioInput.value.length} / ${BIO_MAX_LENGTH}`;
   });
 
-  document.getElementById("account-bg-row")?.querySelectorAll(".account-bg-swatch").forEach((btn) => {
+  document.getElementById("account-bg-row")?.querySelectorAll(".account-bg-swatch[data-bg]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll(".account-bg-swatch").forEach((b) => {
-        b.classList.remove("is-active");
-        b.innerHTML = "";
-      });
-      btn.classList.add("is-active");
-      btn.innerHTML = checkIcon();
       currentBackground = btn.dataset.bg;
+      refreshBgActiveStates();
     });
+  });
+  // change (not input) -- same reasoning as the avatar editor's own custom
+  // color picker: avoid writing/re-rendering on every drag tick.
+  document.getElementById("account-bg-custom-color")?.addEventListener("change", (ev) => {
+    currentBackground = ev.target.value;
+    refreshBgActiveStates();
   });
 
   form.addEventListener("submit", async (ev) => {
@@ -188,6 +316,11 @@ function wireCustomize(profile) {
     submitBtn.disabled = true;
     try {
       await updateProfileCustomization(bioInput.value, socials, currentBackground);
+      // Felt immediately, sitewide, on this same tab -- js/user-theme.js's
+      // own background refresh only runs once per page LOAD, so without
+      // this the visitor wouldn't see their own just-saved color change
+      // until their next navigation.
+      applyUserTheme(currentBackground);
       savedEl.classList.add("is-visible");
       setTimeout(() => savedEl.classList.remove("is-visible"), 2500);
     } catch (err) {
@@ -323,33 +456,52 @@ function wireProfile(user) {
       picker.style.display = "none";
       return;
     }
-    picker.innerHTML = avatarPickerHTML(user);
+    picker.innerHTML = avatarEditorPreviewHTML(user) + avatarPickerHTML(user);
     picker.style.display = "";
-    wireAvatarPicker(user);
+    wireAvatarPicker();
   });
 }
 
-async function applyAvatarPrefs(color, iconKey) {
-  await updateAvatarPrefs(color, iconKey);
+// partial: any subset of {color, icon, shape, iconColor, accessory, ring} --
+// merged onto the current prefs so e.g. picking a new icon doesn't clobber
+// an already-chosen shape/ring/accessory.
+async function applyAvatarPrefs(partial) {
+  const current = parseAvatarPrefs(auth.currentUser);
+  await updateAvatarPrefs({ ...current, ...partial });
   // #account-avatar-picker is a sibling of #account-profile, not one of its
   // children, so renderProfile() (which only replaces #account-profile's
-  // own innerHTML) leaves the open panel alone -- just needs its swatch/
-  // icon highlight refreshed to match the newly-applied pick.
+  // own innerHTML) leaves the open panel alone -- just needs its own
+  // preview/swatch/icon highlights refreshed to match the newly-applied pick.
   renderProfile(auth.currentUser);
   const picker = document.getElementById("account-avatar-picker");
-  picker.innerHTML = avatarPickerHTML(auth.currentUser);
+  picker.innerHTML = avatarEditorPreviewHTML(auth.currentUser) + avatarPickerHTML(auth.currentUser);
   wireAvatarPicker(auth.currentUser);
   const { refreshAccountSlot } = await import("./auth-ui.js");
   refreshAccountSlot();
 }
 
-function wireAvatarPicker(user) {
-  const prefs = parseAvatarPrefs(user);
-  document.querySelectorAll("#account-avatar-picker .account-swatch").forEach((btn) => {
-    btn.addEventListener("click", () => applyAvatarPrefs(btn.dataset.color, prefs.icon));
+function wireAvatarPicker() {
+  document.querySelectorAll("#account-avatar-picker .account-shape-choice").forEach((btn) => {
+    btn.addEventListener("click", () => applyAvatarPrefs({ shape: btn.dataset.shape }));
   });
+  document.querySelectorAll("#account-avatar-picker .account-swatch[data-color]").forEach((btn) => {
+    btn.addEventListener("click", () => applyAvatarPrefs({ color: btn.dataset.color }));
+  });
+  // change (not input) -- input fires continuously while dragging the
+  // native color wheel, which would otherwise write to Firestore on every
+  // tick instead of once the visitor actually settles on a color.
+  document.getElementById("account-avatar-custom-color")?.addEventListener("change", (ev) => applyAvatarPrefs({ color: ev.target.value }));
   document.querySelectorAll("#account-avatar-picker .account-icon-choice").forEach((btn) => {
-    btn.addEventListener("click", () => applyAvatarPrefs(prefs.color, btn.dataset.icon || null));
+    btn.addEventListener("click", () => applyAvatarPrefs({ icon: btn.dataset.icon || null }));
+  });
+  document.querySelectorAll("#account-avatar-picker [data-icon-color]").forEach((btn) => {
+    btn.addEventListener("click", () => applyAvatarPrefs({ iconColor: btn.dataset.iconColor || null }));
+  });
+  document.querySelectorAll("#account-avatar-picker [data-ring]").forEach((btn) => {
+    btn.addEventListener("click", () => applyAvatarPrefs({ ring: btn.dataset.ring || null }));
+  });
+  document.querySelectorAll("#account-avatar-picker .account-accessory-choice").forEach((btn) => {
+    btn.addEventListener("click", () => applyAvatarPrefs({ accessory: btn.dataset.accessory || null }));
   });
 }
 

@@ -1,7 +1,7 @@
 // Login/signup modal + the header's logged-in/out state. Reuses the site's
 // existing .cart-backdrop/.qv-panel/.qv-close modal chrome (same pattern as
 // the YouTube/Twitch video modals) rather than inventing a new one.
-import { auth, onAuthChange, signUpWithEmail, signInWithEmail, signInWithGoogle, signOutUser, resetPassword, authErrorMessage, parseAvatarPrefs, avatarContentHTML } from "./auth.js";
+import { auth, onAuthChange, signUpWithEmail, signInWithEmail, signInWithGoogle, signOutUser, resetPassword, authErrorMessage, parseAvatarPrefs, avatarContentHTML, avatarShapeClass } from "./auth.js";
 
 function personIcon() {
   return `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>`;
@@ -26,7 +26,7 @@ function accountSlotHTML(user) {
     return `<a class="account-button" href="/login/?next=${next}" aria-label="Anmelden">${personIcon()}</a>`;
   }
   const name = user.displayName || user.email?.split("@")[0] || "Account";
-  return `<a class="account-avatar" href="/account/" style="background:${parseAvatarPrefs(user).color}" aria-label="Mein Konto (${escapeHTML(name)})" title="${escapeHTML(name)}">${avatarContentHTML(user, 18)}</a>`;
+  return `<a class="account-avatar ${avatarShapeClass(user)}" href="/account/" style="background:${parseAvatarPrefs(user).color}" aria-label="Mein Konto (${escapeHTML(name)})" title="${escapeHTML(name)}">${avatarContentHTML(user, 18)}</a>`;
 }
 
 // The persistent header-actions bar (#account-slot above) is already
@@ -42,7 +42,7 @@ function navAccountSlotHTML(user) {
   const name = user.displayName || user.email?.split("@")[0] || "Account";
   return `
   <a href="/account/" class="nav-account-line">
-    <span class="nav-account-avatar" style="background:${parseAvatarPrefs(user).color}">${avatarContentHTML(user, 14)}</span>
+    <span class="nav-account-avatar ${avatarShapeClass(user)}" style="background:${parseAvatarPrefs(user).color}">${avatarContentHTML(user, 14)}</span>
     Angemeldet als ${escapeHTML(name)}
   </a>
   <button type="button" class="nav-account-logout" id="nav-account-logout">Abmelden</button>`;

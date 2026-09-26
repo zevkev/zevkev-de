@@ -32,7 +32,6 @@
 .account-avatar-lg {
   width: 76px;
   height: 76px;
-  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -40,9 +39,10 @@
   font-family: "Bebas Neue", sans-serif;
   font-size: 2.1rem;
   letter-spacing: 0.5px;
-  border: 4px solid #fff;
+  border: 4px solid var(--avatar-ring, #fff);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   flex-shrink: 0;
+  position: relative;
 }
 
 .account-info { flex: 1 1 0%; min-width: 0; max-width: 100%; }
@@ -132,6 +132,79 @@
 :root[data-theme="dark"] .account-icon-choice { border-color: rgba(255, 255, 255, 0.16); }
 .account-icon-choice:hover { transform: scale(1.1); }
 .account-icon-choice.is-active { border-color: var(--twitch-purple); border-width: 2px; }
+
+/* Live preview at the top of the editor -- re-rendered on every single pick
+   (see account.js's applyAvatarPrefs), so a visitor sees the exact combined
+   result immediately rather than having to mentally combine 6 separate
+   pickers below it. */
+.avatar-editor-preview { display: flex; justify-content: center; padding: 4px 2px 22px; }
+.avatar-editor-preview .account-avatar-lg { width: 84px; height: 84px; font-size: 2.3rem; }
+
+.account-shape-row { display: flex; gap: 14px; padding: 4px 2px; }
+.account-shape-choice {
+  width: 40px; height: 40px;
+  background: var(--paper); border: 2px solid rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.2s ease;
+}
+:root[data-theme="dark"] .account-shape-choice { border-color: rgba(255, 255, 255, 0.2); }
+.account-shape-choice:hover { transform: scale(1.1); }
+.account-shape-choice.is-active { border-color: var(--twitch-purple); }
+
+/* Smaller variant for the icon-color/ring rows, which have plenty of
+   options (white/black + the full swatch palette) but don't need the
+   36px-hand-target size the primary background-color row gets. */
+.account-swatch--sm { width: 26px; height: 26px; }
+.account-swatch--sm svg { width: 11px; height: 11px; }
+.account-swatch--none {
+  background: var(--paper) !important;
+  position: relative;
+}
+.account-swatch--none::before, .account-swatch--none::after {
+  content: ""; position: absolute; left: 4px; right: 4px; top: 50%; height: 2px;
+  background: var(--text-muted); transform: rotate(45deg);
+}
+.account-swatch--none.is-active { border-color: var(--text-dark); }
+
+/* The native color wheel input is invisible and fills its wrapping label,
+   which is itself styled exactly like a plain .account-swatch/.account-bg-
+   swatch circle -- so it just reads as "one more swatch" (a rainbow-ish
+   default background via conic-gradient hints "pick anything") until a
+   custom color is actually chosen and applied, matching account.js's own
+   is-active handling for it (see refreshBgActiveStates). */
+.account-custom-color {
+  width: 34px; height: 34px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; color: #fff;
+  position: relative;
+  cursor: pointer;
+  background: conic-gradient(from 0deg, #e07856, #c9a227, #4f9d6e, #4a7c9e, #6a4c93, #a13d63, #e07856);
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.account-custom-color:hover { transform: scale(1.1); }
+.account-custom-color.is-active { border-color: var(--text-dark); }
+.account-custom-color input[type="color"] {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; border: none; padding: 0; cursor: pointer;
+}
+
+.account-accessory-row { display: flex; flex-wrap: wrap; gap: 10px; padding: 4px 2px; }
+.account-accessory-choice {
+  display: flex; align-items: center; justify-content: center;
+  height: 38px; padding: 0 12px;
+  background: var(--paper); border: 2px solid rgba(0, 0, 0, 0.12); color: var(--text-dark);
+  border-radius: 19px;
+  font-size: 0.8rem; font-weight: bold;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.2s ease;
+}
+:root[data-theme="dark"] .account-accessory-choice { border-color: rgba(255, 255, 255, 0.16); }
+.account-accessory-choice:hover { transform: scale(1.05); }
+.account-accessory-choice.is-active { border-color: var(--twitch-purple); border-width: 2px; }
+.account-accessory-swatch {
+  width: 22px; height: 22px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
 
 /* #account-wl-grid reuses .vod-grid (vods.css) as-is at desktop widths, but
    that class's minmax(280px, 1fr) track minimum is genuinely too tight for
