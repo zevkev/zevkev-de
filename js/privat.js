@@ -50,6 +50,24 @@ function trashIcon() {
   return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>`;
 }
 
+// Same .toast element/pattern as js/cart.js/js/comments.js -- duplicated
+// rather than imported, same convention as this file's own icon functions.
+// Used below for every moderation action whose catch block used to only
+// log to the console with zero indication to the (one) person using this
+// panel that anything went wrong.
+function showToast(text) {
+  let toast = document.querySelector(".toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.className = "toast";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = text;
+  toast.classList.add("is-visible");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => toast.classList.remove("is-visible"), 2400);
+}
+
 // videoId is stored as "video:<id>" or "vod:<id>" (see js/watch.js's
 // mountComments call) -- split back apart into a real link to that page.
 function videoLinkHTML(videoId) {
@@ -163,6 +181,7 @@ function wireActions() {
         render();
       } catch (err) {
         console.error("Delete comment failed:", err);
+        showToast("Kommentar konnte nicht gelöscht werden.");
         btn.disabled = false;
       }
     });
@@ -178,6 +197,7 @@ function wireActions() {
         render();
       } catch (err) {
         console.error("Dismiss report failed:", err);
+        showToast("Meldung konnte nicht verworfen werden.");
         btn.disabled = false;
       }
     });
@@ -249,6 +269,7 @@ function renderUsers() {
         renderUsers();
       } catch (err) {
         console.error("Toggling ban failed:", err);
+        showToast("Sperre konnte nicht geändert werden.");
         btn.disabled = false;
       }
     });
@@ -266,6 +287,7 @@ function renderUsers() {
         renderUsers();
       } catch (err) {
         console.error("Deleting user data failed:", err);
+        showToast("Nutzerdaten konnten nicht gelöscht werden.");
         btn.disabled = false;
       }
     });
@@ -313,17 +335,32 @@ function renderWords() {
     : `<p class="comments-empty">Keine gesperrten Wörter.</p>`;
   el.querySelectorAll("[data-remove-word]").forEach((btn) => {
     btn.addEventListener("click", async () => {
-      bannedWords = bannedWords.filter((w) => w !== btn.dataset.removeWord);
+      const word = btn.dataset.removeWord;
+      const previous = bannedWords;
+      bannedWords = bannedWords.filter((w) => w !== word);
       renderWords();
-      await saveWords();
+      try {
+        await saveWords();
+      } catch (err) {
+        // Real bug: the word was already removed from the local list and
+        // re-rendered above (optimistic update) *before* this save was even
+        // attempted -- a failure used to just log to the console, leaving
+        // the admin looking at a word list that no longer matched what was
+        // actually saved in Firestore (the word would still be silently
+        // censored/allowed server-side, contradicting what the UI showed).
+        // Revert to the exact pre-edit list rather than re-deriving it, in
+        // case something else changed bannedWords in the meantime.
+        console.error("Saving banned words failed:", err);
+        bannedWords = previous;
+        renderWords();
+        showToast("Wort konnte nicht entfernt werden.");
+      }
     });
   });
 }
 
 async function saveWords() {
-  await setDoc(doc(db, "settings", "moderation"), { bannedWords }, { merge: true }).catch((err) =>
-    console.error("Saving banned words failed:", err)
-  );
+  await setDoc(doc(db, "settings", "moderation"), { bannedWords }, { merge: true });
 }
 
 async function loadWords() {
@@ -332,7 +369,12 @@ async function loadWords() {
     bannedWords = snap.exists() ? snap.data().bannedWords || [] : [];
     renderWords();
   } catch (err) {
+    // Matches the inline-message pattern the comments/users/campaigns tabs
+    // already use for their own load failures -- this one just silently
+    // logged before, leaving the tab looking empty with no explanation.
     console.error("Loading banned words failed:", err);
+    const el = document.getElementById("privat-words");
+    if (el) el.innerHTML = `<p class="comments-empty">Konnte nicht geladen werden.</p>`;
   }
 }
 
@@ -345,7 +387,15 @@ function wireWordForm() {
     if (!word || bannedWords.includes(word)) return;
     bannedWords.push(word);
     renderWords();
-    await saveWords();
+    try {
+      await saveWords();
+    } catch (err) {
+      // Same reversion reasoning as the remove-word handler above.
+      console.error("Saving banned words failed:", err);
+      bannedWords = bannedWords.filter((w) => w !== word);
+      renderWords();
+      showToast("Wort konnte nicht hinzugefügt werden.");
+    }
   });
 }
 
@@ -444,6 +494,7 @@ function renderCampaigns() {
         renderCampaigns();
       } catch (err) {
         console.error("Ending campaign failed:", err);
+        showToast("Aktion konnte nicht beendet werden.");
         btn.disabled = false;
       }
     });
@@ -490,6 +541,7 @@ function wireCampaignForm() {
       ev.target.reset();
     } catch (err) {
       console.error("Creating campaign failed:", err);
+      showToast("Aktion konnte nicht veröffentlicht werden.");
     } finally {
       submitBtn.disabled = false;
     }
