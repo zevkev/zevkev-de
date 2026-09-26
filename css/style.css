@@ -863,6 +863,79 @@ a.comment-author:hover { text-decoration: underline; }
 }
 .notfound-state h2 { margin-top: 0; }
 
+/* ---------- 404 page's own card (404.html) ----------
+   A dedicated style, not a reuse of .notfound-state above -- that class's
+   bare-white-text-on-the-dark-mat treatment is right for the smaller inline
+   gates it's shared with (account/privat login gates, profil.js's own
+   not-found message), which all sit inside an already-decorated page. This
+   is the entire page with nothing else around it, so it gets the same
+   .rip torn-paper card + tape accent every other standalone page (legal
+   pages, the account page) already uses, with light-paper-appropriate dark
+   text instead of white. */
+.notfound-card {
+  width: 95%;
+  max-width: 480px;
+  margin: 60px auto;
+  padding: 48px 36px 40px;
+  text-align: center;
+  box-sizing: border-box;
+}
+.notfound-card .notfound-icon {
+  width: 84px;
+  height: 84px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: var(--paper-accent);
+  border: 3px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-red);
+  transform: rotate(-6deg);
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.notfound-card .notfound-icon svg { width: 38px; height: 38px; }
+.notfound-card:hover .notfound-icon { transform: rotate(6deg) scale(1.05); }
+.notfound-card .notfound-number {
+  font-family: "Bebas Neue", "Futura", sans-serif;
+  font-size: clamp(3.5rem, 14vw, 5.5rem);
+  line-height: 1;
+  letter-spacing: 2px;
+  color: var(--text-dark);
+  opacity: 0.82;
+  margin: 0 0 2px;
+}
+.notfound-card h2 { margin: 0 0 10px; font-size: 1.5rem; color: var(--text-dark); }
+.notfound-card p { color: var(--text-dark); line-height: 1.6; margin: 0 0 24px; }
+.notfound-card .btn-accent { margin-bottom: 18px; }
+/* Plain links, not a second row of .p-btn.rip pills -- nesting a .rip
+   torn-card inside this card's own .rip would paint both with the exact
+   same --paper background, rendering the inner one invisible (the project's
+   own established anti-pattern; see e.g. the shop hero's campaign banner
+   using a plain tinted panel instead of a nested .rip for the same reason).
+   A lighter secondary row reads correctly as "or try one of these" next to
+   the primary accent CTA above anyway, rather than competing with it. */
+.notfound-links {
+  display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+  align-items: center;
+}
+.notfound-links a {
+  color: var(--text-muted);
+  font-weight: bold;
+  font-size: 0.9rem;
+  text-decoration: none;
+  padding: 4px 2px;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.notfound-links a:hover, .notfound-links a:focus-visible { color: var(--text-dark); border-color: var(--accent-red); }
+.notfound-links a:not(:last-child) { border-right: 1px solid rgba(0, 0, 0, 0.15); padding-right: 10px; }
+:root[data-theme="dark"] .notfound-links a:not(:last-child) { border-right-color: rgba(255, 255, 255, 0.15); }
+@media (max-width: 480px) {
+  .notfound-card { padding: 40px 24px 32px; margin: 36px auto; }
+}
+
 .site-footer {
   width: 100%;
   margin-top: 0;

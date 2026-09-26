@@ -117,8 +117,20 @@
     document.getElementById("shop-back-link").style.display = "none";
     const root = document.getElementById("product-root");
     if (root) {
+      // A dedicated card, not a reuse of the plain .empty-state/.notfound-state
+      // treatment shared with the account/privat login gates and profil.js's
+      // own not-found message -- those sit inline within an already-decorated
+      // page, so bare white text on the dark mat reads fine there. This is a
+      // whole standalone page with nothing else around it, and used to just
+      // float that same bare text in a sea of empty dark mat with a single
+      // way forward -- reads as noticeably plainer than every other page on
+      // the site, which is presumably what "looks bad" referred to. Wrapped
+      // in the same .rip torn-paper card + tape accent the legal pages use,
+      // with a few quick links below the primary CTA so a visitor who
+      // followed a dead link has more than one path back into the site.
       root.innerHTML = `
-        <div class="empty-state notfound-state">
+        <div class="notfound-card rip rip--b">
+          <div class="tape"></div>
           <div class="notfound-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M14.5 9.5l-2 5-5 2 2-5 5-2z"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg>
           </div>
@@ -126,6 +138,11 @@
           <h2>Seite nicht gefunden</h2>
           <p>Diese Seite gibt es nicht (mehr). Vielleicht ist der Link falsch oder veraltet.</p>
           <a href="/" class="p-btn rip btn-accent">Zur Startseite</a>
+          <div class="notfound-links">
+            <a href="/shop/">Shop</a>
+            <a href="/youtube/">YouTube</a>
+            <a href="/vods/">Mehr</a>
+          </div>
         </div>`;
     }
   }
