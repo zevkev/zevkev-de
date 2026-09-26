@@ -125,3 +125,61 @@
 .privat-campaign-dates { font-size: 0.78rem; color: var(--text-muted); }
 .privat-campaign-status { align-self: flex-start; font-size: 0.75rem; font-weight: bold; color: var(--text-muted); }
 .privat-campaign-status.is-live { color: var(--accent-green); }
+
+/* ---------- MSPR tab ---------- */
+.mspr-url-form { max-width: 640px; }
+.mspr-subsection-title { margin-top: 32px; }
+
+.mspr-status {
+  font-size: 0.72rem; font-weight: bold; padding: 3px 10px; border-radius: 10px;
+  background: rgba(0, 0, 0, 0.08); color: var(--text-muted); vertical-align: middle;
+}
+:root[data-theme="dark"] .mspr-status { background: rgba(255, 255, 255, 0.1); }
+.mspr-status-ok { background: var(--accent-green); color: #fff; }
+.mspr-status-waking { background: #d99a2b; color: #fff; }
+.mspr-status-off { background: var(--accent-red); color: #fff; }
+
+.mspr-video-card {
+  display: flex; gap: 14px; align-items: flex-start;
+  padding: 14px 0; border-bottom: 2px dashed rgba(0, 0, 0, 0.1);
+}
+:root[data-theme="dark"] .mspr-video-card { border-bottom-color: rgba(255, 255, 255, 0.12); }
+.mspr-video-thumb { width: 160px; max-width: 40vw; border-radius: 4px; flex-shrink: 0; }
+.mspr-video-meta { display: flex; flex-direction: column; gap: 4px; color: var(--text-dark); }
+.mspr-video-meta strong { font-size: 1rem; }
+.mspr-video-meta span { font-size: 0.82rem; color: var(--text-muted); }
+.mspr-live-badge { color: var(--accent-red); font-weight: bold; font-size: 0.78rem; }
+
+.mspr-download-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px;
+}
+.mspr-format-tabs { display: flex; gap: 4px; }
+.mspr-format-tab {
+  padding: 8px 16px; border: none; border-radius: 16px;
+  background: rgba(0, 0, 0, 0.06); color: var(--text-dark); font-weight: bold; font-size: 0.85rem;
+}
+:root[data-theme="dark"] .mspr-format-tab { background: rgba(255, 255, 255, 0.08); }
+.mspr-format-tab.is-active { background: var(--twitch-purple); color: #fff; }
+#mspr-quality {
+  padding: 9px 12px; border: 2px solid var(--text-muted); border-radius: 4px;
+  background: var(--paper); color: var(--text-dark); font-family: inherit;
+}
+.mspr-download-note { font-size: 0.8rem; color: var(--text-muted); margin: 8px 0 0; }
+
+.mspr-thumb-grid { display: flex; flex-wrap: wrap; gap: 16px; }
+.mspr-thumb-item {
+  display: flex; flex-direction: column; gap: 8px; align-items: center;
+  width: 160px;
+}
+.mspr-thumb-item img {
+  width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 4px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.mspr-embed-box { display: flex; flex-direction: column; gap: 10px; max-width: 640px; }
+.mspr-embed-box textarea {
+  width: 100%; padding: 10px 12px; border: 2px solid var(--text-muted); border-radius: 4px;
+  background: var(--paper); color: var(--text-dark); font-family: monospace; font-size: 0.8rem;
+  resize: vertical;
+}
+.mspr-embed-box button { align-self: flex-start; }

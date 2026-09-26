@@ -58,6 +58,7 @@
         <button type="button" class="privat-tab" data-tab="words">Wörter</button>
         <button type="button" class="privat-tab" data-tab="settings">Einstellungen</button>
         <button type="button" class="privat-tab" data-tab="campaigns">Aktionen</button>
+        <button type="button" class="privat-tab" data-tab="mspr">MSPR</button>
       </div>
 
       <div class="yt-library privat-panel" data-panel="moderation">
@@ -101,6 +102,24 @@
         </form>
         <div id="privat-campaigns"><p class="comments-empty">Lade…</p></div>
       </div>
+
+      <div class="yt-library privat-panel" data-panel="mspr" hidden>
+        <h2 class="yt-section-title">MSPR Tools <span id="mspr-status"></span></h2>
+        <p class="privat-hint">Persönliche YouTube-Tools. Der Downloader läuft über einen separaten, kostenlosen Server -- der schläft nach 15 Minuten Inaktivität ein, der erste Abruf danach kann bis zu einer Minute dauern. Thumbnail-Downloader und Embed-Code brauchen keinen Server.</p>
+
+        <form id="mspr-form" class="privat-inline-form mspr-url-form">
+          <input type="text" id="mspr-url" placeholder="YouTube-Link oder Video-ID einfügen" required>
+          <button type="submit" class="p-btn rip btn-accent">Laden</button>
+        </form>
+
+        <div id="mspr-result"></div>
+
+        <h3 class="yt-section-title mspr-subsection-title">Thumbnails</h3>
+        <div id="mspr-thumbs"></div>
+
+        <h3 class="yt-section-title mspr-subsection-title">Embed-Code</h3>
+        <div id="mspr-embed"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -113,5 +132,6 @@
   mountLayout();
 </script>
 <script type="module" src="/js/privat.js"></script>
+<script type="module" src="/js/mspr.js"></script>
 </body>
 </html>
