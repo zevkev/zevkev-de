@@ -29,6 +29,21 @@ import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase
 function escapeHTML(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }
+// Duplicated from js/cart.js on purpose -- small utilities like this are
+// kept per-file in this codebase rather than imported, see that file's own
+// copy for the reasoning.
+function showToast(text) {
+  let toast = document.querySelector(".toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.className = "toast";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = text;
+  toast.classList.add("is-visible");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => toast.classList.remove("is-visible"), 4000);
+}
 function lockIcon() {
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>`;
 }
@@ -431,9 +446,17 @@ function wireProfile(user) {
     }
     submitBtn.disabled = true;
     try {
-      await updateDisplayName(value);
+      const reservedName = await updateDisplayName(value);
       savedEl.classList.add("is-visible");
       setTimeout(() => savedEl.classList.remove("is-visible"), 2500);
+      // updateDisplayName (auth.js) silently swaps in a random clean name
+      // instead of one containing a banned word, rather than rejecting the
+      // rename outright -- the input already shows the actual result below
+      // via renderProfile(), but that alone doesn't explain WHY it differs
+      // from what was just typed.
+      if (reservedName !== value) {
+        showToast(`Der Name enthielt nicht erlaubte Wörter — du heißt jetzt "${reservedName}".`);
+      }
       // Re-render the avatar letter/header slot too, in case the first
       // letter changed -- same "listener won't fire again for a profile-
       // field-only change" reasoning as auth-ui.js's own refreshAccountSlot.
@@ -529,6 +552,18 @@ function wireDanger() {
 }
 
 let loadedForUid = null;
+
+// See js/login.js's own comment on why this arrives as a query param --
+// signup already redirected here before there was a page to show a message
+// on. Shown once, then stripped from the URL via replaceState so a refresh
+// (or sharing/bookmarking this URL) doesn't keep re-showing it.
+const randomizedName = new URLSearchParams(location.search).get("renamed");
+if (randomizedName) {
+  showToast(`Dein Username enthielt nicht erlaubte Wörter — du heißt jetzt "${randomizedName}". Änderbar jederzeit hier.`);
+  const url = new URL(location.href);
+  url.searchParams.delete("renamed");
+  history.replaceState({}, "", url);
+}
 
 onAuthChange((user) => {
   const gate = document.getElementById("account-gate");

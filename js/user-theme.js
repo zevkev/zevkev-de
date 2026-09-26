@@ -58,6 +58,18 @@ function writeCache(value) {
 
 apply(readCache());
 
+// Set once applyUserTheme() (below) has been called on this page -- guards
+// against a real race: the background refresh's own Firestore read (a
+// network round trip) can still be in flight when the visitor saves a NEW
+// background on /account/ and this page reflects it instantly via
+// applyUserTheme(). If that read then resolves with what was still the OLD
+// value at the moment it was sent, it would otherwise overwrite the
+// visitor's own fresh change with stale data a moment after they saved it.
+// Once applyUserTheme() has run, local state is strictly newer than
+// whatever that in-flight read started with, so the refresh below defers
+// to it instead of "correcting" it backwards.
+let appliedLocally = false;
+
 // Called directly by js/account.js right after a successful profile-
 // customization save, so the visitor's OWN change reflects instantly on
 // every page they go to next without waiting on the background refresh
@@ -66,6 +78,7 @@ export function applyUserTheme(value) {
   const resolved = resolveBackgroundValue(value) || "";
   apply(resolved || null);
   writeCache(resolved);
+  appliedLocally = true;
 }
 
 // Background refresh of that cache -- dynamic imports so this stays non-
@@ -82,7 +95,7 @@ import("./auth.js")
       // Clears any stale cache/override left over from a previous signed-in
       // visit on this browser instead of leaving it stuck on someone's old
       // accent forever after they log out.
-      if (readCache()) {
+      if (readCache() && !appliedLocally) {
         apply(null);
         writeCache("");
       }
@@ -90,6 +103,7 @@ import("./auth.js")
     }
     const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js");
     const snap = await getDoc(doc(db, "profiles", user.uid));
+    if (appliedLocally) return; // a fresher local save already won, see above
     const resolved = resolveBackgroundValue(snap.exists() ? snap.data().background : "") || "";
     if (resolved !== readCache()) {
       apply(resolved || null);

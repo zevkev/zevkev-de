@@ -51,9 +51,25 @@ function wireForm() {
     }
     submitBtn.disabled = true;
     try {
-      if (mode === "signup") await signUpWithEmail(username, email, password);
-      else await signInWithEmail(email, password);
-      location.href = nextPath();
+      let next = nextPath();
+      if (mode === "signup") {
+        const user = await signUpWithEmail(username, email, password);
+        // reserveUsername (see auth.js) silently swaps in a random clean
+        // name instead of the requested one when it contains a banned
+        // word, rather than just rejecting the signup -- user.displayName
+        // reflects whatever actually got reserved. Flagged to the visitor
+        // via a query param (not a var this page's own render sees, since
+        // it's about to navigate away) so /account/ can show a one-time
+        // explanation instead of silently landing them on a different
+        // name than what they just typed.
+        if (user.displayName && user.displayName !== username) {
+          const sep = next.includes("?") ? "&" : "?";
+          next += `${sep}renamed=${encodeURIComponent(user.displayName)}`;
+        }
+      } else {
+        await signInWithEmail(email, password);
+      }
+      location.href = next;
     } catch (err) {
       errorEl.textContent = authErrorMessage(err);
       submitBtn.disabled = false;

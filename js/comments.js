@@ -7,6 +7,7 @@
 import { auth, db, isOwner, canPost, onAuthChange, resendVerificationEmail, refreshUser, parseAvatarPrefs, avatarColorFor, AVATAR_ICONS } from "./auth.js";
 import { isBanned } from "./user-data.js";
 import { trackEvent } from "./track.js";
+import { censor as censorText } from "./moderation.js";
 import {
   collection,
   query,
@@ -25,28 +26,16 @@ import {
 const MAX_LENGTH = 500;
 const LINK_PATTERN = /(https?:\/\/|www\.)/i;
 
-// Starting list -- not exhaustive, just common German/English profanity.
-// Extend directly in this file (plain GitHub web-UI edit, no secret/redeploy
-// needed) if more words should be caught. Word-boundary matched, case
-// insensitive; censors to "first letter + asterisks" (e.g. "b****").
-const BAD_WORDS = [
-  "bastard", "arschloch", "hurensohn", "wichser", "fotze", "nutte", "schlampe",
-  "scheisse", "scheiße", "hure", "missgeburt", "spast", "spasti",
-  "fuck", "fucking", "shit", "bitch", "asshole", "cunt", "whore", "slut", "faggot", "nigger",
-];
-// Extra words added live via /privat/'s "Wörter" tab (settings/moderation
-// doc) on top of the baseline list above -- fetched once per page mount
-// (see mountComments), same "minimal reads" convention as the rest of this
-// file. Falls back to just the baseline list if the read fails/is empty,
-// never blocks comments from loading over this.
+// BAD_WORDS/censor() now live in js/moderation.js (shared with js/auth.js's
+// own username profanity check). Extra words added live via /privat/'s
+// "Wörter" tab (settings/moderation doc) on top of that baseline list --
+// fetched once per page mount (see mountComments), same "minimal reads"
+// convention as the rest of this file. Falls back to just the baseline
+// list if the read fails/is empty, never blocks comments from loading over
+// this.
 let extraBannedWords = [];
 function censor(text) {
-  let out = text;
-  for (const word of [...BAD_WORDS, ...extraBannedWords]) {
-    const re = new RegExp(`\\b${word}\\w*`, "gi");
-    out = out.replace(re, (m) => m[0] + "*".repeat(Math.max(1, m.length - 1)));
-  }
-  return out;
+  return censorText(text, extraBannedWords);
 }
 
 function escapeHTML(str) {

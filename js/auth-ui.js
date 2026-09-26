@@ -128,8 +128,19 @@ function wireModal() {
     submitBtn.disabled = true;
     try {
       if (mode === "signup") {
-        await signUpWithEmail(username, email, password);
+        const user = await signUpWithEmail(username, email, password);
         refreshAccountSlot();
+        // See js/login.js's own comment on the same check -- reserveUsername
+        // (auth.js) can silently swap in a random clean name when the
+        // requested one contains a banned word. This modal doesn't navigate
+        // away, so (unlike login.js, which has to round-trip it through a
+        // query param) it can just show the explanation directly -- briefly,
+        // before closing, instead of closing over it immediately.
+        if (user.displayName && user.displayName !== username) {
+          modal.querySelector("#auth-success").textContent = `Dein Username enthielt nicht erlaubte Wörter — du heißt jetzt "${user.displayName}". Änderbar jederzeit im Konto.`;
+          setTimeout(closeModal, 2600);
+          return;
+        }
       } else {
         await signInWithEmail(email, password);
       }

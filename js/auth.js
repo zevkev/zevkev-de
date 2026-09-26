@@ -19,9 +19,10 @@ import {
   sendPasswordResetEmail,
   deleteUser,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, deleteDoc, runTransaction, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, runTransaction, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { FIREBASE_CONFIG, OWNER_EMAILS } from "./firebase-config.js";
 import { trackEvent } from "./track.js";
+import { censor, containsBannedWord } from "./moderation.js";
 import {
   AVATAR_COLORS,
   avatarColorFor,
@@ -170,7 +171,8 @@ async function syncPublicProfile(extra = {}) {
 export async function updateProfileCustomization(bio, socials, background) {
   const user = auth.currentUser;
   if (!user) throw new Error("Nicht angemeldet.");
-  const cleanBio = String(bio || "").trim().slice(0, BIO_MAX_LENGTH);
+  const extra = await fetchExtraBannedWords();
+  const cleanBio = censor(String(bio || "").trim().slice(0, BIO_MAX_LENGTH), extra);
   const cleanSocials = {};
   for (const [key, value] of Object.entries(socials || {})) {
     if (!SOCIAL_PLATFORMS[key]) continue; // drop anything not a recognized platform
@@ -242,41 +244,103 @@ function normalizeUsername(name) {
   return String(name || "").trim().toLowerCase();
 }
 
+// settings/moderation.bannedWords -- the same live, /privat/-editable list
+// js/comments.js already fetches for censoring comment text (see that
+// file's own comment). Cached for this page's lifetime: reserveUsername
+// only runs on an actual signup/rename, not per page load, so re-fetching
+// on a second attempt in the same session (e.g. retrying a taken name)
+// would just be a wasted read of a list that hasn't changed.
+let cachedExtraBannedWords = null;
+async function fetchExtraBannedWords() {
+  if (cachedExtraBannedWords) return cachedExtraBannedWords;
+  try {
+    const snap = await getDoc(doc(db, "settings", "moderation"));
+    cachedExtraBannedWords = snap.exists() && Array.isArray(snap.data().bannedWords) ? snap.data().bannedWords : [];
+  } catch {
+    cachedExtraBannedWords = [];
+  }
+  return cachedExtraBannedWords;
+}
+
+// Plain, always-inoffensive placeholder names -- adjective+animal+4 digits,
+// ~900k combinations, so a collision on the random pick itself (see the
+// retry loop below) is rare but still handled rather than assumed away.
+const RANDOM_ADJECTIVES = ["Bunte", "Wilde", "Mutige", "Freche", "Stille", "Schnelle", "Coole", "Helle", "Kluge", "Freie", "Flotte", "Geheime"];
+const RANDOM_ANIMALS = ["Falke", "Igel", "Drache", "Panda", "Wolf", "Fuchs", "Luchs", "Adler", "Biber", "Otter", "Rabe", "Koala"];
+function randomUsername() {
+  const adj = RANDOM_ADJECTIVES[Math.floor(Math.random() * RANDOM_ADJECTIVES.length)];
+  const animal = RANDOM_ANIMALS[Math.floor(Math.random() * RANDOM_ANIMALS.length)];
+  const num = Math.floor(1000 + Math.random() * 9000);
+  return `${adj}${animal}${num}`;
+}
+
 // Throws with a message meant to be shown directly (see authErrorMessage's
 // sibling usage in auth-ui.js) if the name is invalid or already taken by a
-// different account. No-ops (resolves normally) if it's already this same
-// account's own reserved name, so re-submitting the unchanged name in the
-// account page's rename form isn't an error.
+// different account. No-ops, returning the name unchanged, if it's already
+// this same account's own reserved name, so re-submitting the unchanged
+// name in the account page's rename form isn't an error. Returns the name
+// actually reserved -- NOT always the same as rawName: if it contains a
+// word from the banned-words list (baseline + the live /privat/ list), a
+// random clean name is substituted instead of just rejecting the request
+// outright, and every caller (signUpWithEmail/updateDisplayName/Google
+// sign-in) uses this return value for the Auth profile's displayName
+// rather than assuming rawName was what actually got reserved.
 async function reserveUsername(uid, rawName, previousNormalized) {
-  const normalized = normalizeUsername(rawName);
-  if (normalized.length < 2 || normalized.length > 24) {
-    throw new Error("Der Username muss zwischen 2 und 24 Zeichen lang sein.");
-  }
-  if (normalized === previousNormalized) return; // unchanged, nothing to reserve
-  const ref = doc(db, "usernames", normalized);
-  await runTransaction(db, async (tx) => {
-    const snap = await tx.get(ref);
-    if (snap.exists() && snap.data().uid !== uid) {
-      throw new Error("TAKEN");
+  const requested = String(rawName || "").trim();
+  const extra = await fetchExtraBannedWords();
+  const isRandom = containsBannedWord(requested, extra);
+  let candidate = isRandom ? randomUsername() : requested;
+
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const normalized = normalizeUsername(candidate);
+    if (!isRandom && (normalized.length < 2 || normalized.length > 24)) {
+      throw new Error("Der Username muss zwischen 2 und 24 Zeichen lang sein.");
     }
-    tx.set(ref, { uid });
-  }).catch((err) => {
-    if (err.message === "TAKEN") throw new Error("Dieser Username ist schon vergeben.");
-    throw err;
-  });
-  if (previousNormalized) {
-    await deleteDoc(doc(db, "usernames", previousNormalized)).catch(() => {});
+    if (normalized === previousNormalized) return candidate; // unchanged, nothing to reserve
+    const ref = doc(db, "usernames", normalized);
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        if (snap.exists() && snap.data().uid !== uid) {
+          throw new Error("TAKEN");
+        }
+        tx.set(ref, { uid });
+      });
+      if (previousNormalized) {
+        await deleteDoc(doc(db, "usernames", previousNormalized)).catch(() => {});
+      }
+      return candidate;
+    } catch (err) {
+      if (err.message !== "TAKEN") throw err;
+      if (!isRandom) throw new Error("Dieser Username ist schon vergeben.");
+      candidate = randomUsername(); // random pick collided -- roll again
+    }
   }
+  throw new Error("Es konnte kein freier Username gefunden werden. Bitte versuch es erneut.");
 }
 
 // Best-effort, never blocks sign-in -- used right after a brand-new Google
 // account's first sign-in to reserve the display name Google already gave
-// them. If that name happens to collide with an existing account's own
-// chosen username, the Google sign-in still succeeds (a login can't
-// reasonably fail over a name collision); they just won't have it reserved
-// and can pick a different one on the account page any time.
-function tryReserveUsername(uid, rawName) {
-  reserveUsername(uid, rawName, null).catch((err) => console.warn("Username reservation skipped:", err.message));
+// them. Unlike the old fire-and-forget version, this is awaited and, if
+// reserveUsername swapped in a random name (profanity in the Google
+// profile's own display name), also overwrites the Auth profile's
+// displayName to match -- Google sign-in sets displayName directly from
+// the Google account already, so syncPublicProfile() (called right after
+// this at both call sites) would otherwise keep echoing the original
+// profane name even though a clean one got reserved underneath it. If
+// reservation fails for an unrelated reason (rare: name collision with an
+// existing account, quota), the visitor still signs in successfully; they
+// just won't have a reserved username and can pick one on the account page.
+async function tryReserveUsername(user) {
+  if (!user.displayName) return;
+  try {
+    const reserved = await reserveUsername(user.uid, user.displayName, null);
+    if (reserved !== user.displayName) {
+      await updateProfile(user, { displayName: reserved });
+    }
+  } catch (err) {
+    console.warn("Username reservation skipped:", err.message);
+  }
 }
 
 // A signed-in-but-unverified email/password account can't comment (enforced
@@ -315,8 +379,9 @@ const unsubscribeAuthReady = onAuthStateChanged(auth, () => {
 
 export async function signUpWithEmail(username, email, password) {
   const cred = await createUserWithEmailAndPassword(auth, email, password);
+  let reservedName;
   try {
-    await reserveUsername(cred.user.uid, username, null);
+    reservedName = await reserveUsername(cred.user.uid, username, null);
   } catch (err) {
     // The auth account itself already exists at this point -- rather than
     // leave an orphaned account with no reserved name (and a confusing
@@ -329,8 +394,11 @@ export async function signUpWithEmail(username, email, password) {
   // unset until a manual /account/ visit -- avatarColorFor's live fallback
   // already gives every account a color for free, but never an icon, so two
   // brand-new accounts could otherwise both show up as a plain "K" circle.
+  // displayName uses reservedName (not the raw username param) -- they
+  // differ when the requested name contained a banned word and
+  // reserveUsername substituted a random clean one instead.
   const hex = avatarColorFor(cred.user.uid).replace("#", "");
-  await updateProfile(cred.user, { displayName: username, photoURL: `avatar:color=${hex}&icon=${avatarIconFor(cred.user.uid)}` });
+  await updateProfile(cred.user, { displayName: reservedName, photoURL: `avatar:color=${hex}&icon=${avatarIconFor(cred.user.uid)}` });
   await syncPublicProfile();
   // Fire-and-forget -- a failure here (rare: quota/network) shouldn't block
   // account creation itself. The comments UI offers its own "send again"
@@ -343,13 +411,19 @@ export async function signUpWithEmail(username, email, password) {
 // Renames the signed-in user's own display name, enforcing site-wide
 // uniqueness (see reserveUsername) before touching the Auth profile field
 // itself -- if the name's taken, the profile is left untouched.
+// Returns the name actually applied -- see reserveUsername's own comment on
+// why that can differ from newName (a banned word in the requested name
+// gets a random clean name substituted instead of just an error), so the
+// account page's rename form can tell the visitor when that happened
+// instead of silently showing a different name than what they typed.
 export async function updateDisplayName(newName) {
   const user = auth.currentUser;
   if (!user) throw new Error("Nicht angemeldet.");
   const trimmed = String(newName || "").trim();
-  await reserveUsername(user.uid, trimmed, normalizeUsername(user.displayName));
-  await updateProfile(user, { displayName: trimmed });
+  const reservedName = await reserveUsername(user.uid, trimmed, normalizeUsername(user.displayName));
+  await updateProfile(user, { displayName: reservedName });
   await syncPublicProfile();
+  return reservedName;
 }
 
 // Permanently deletes the signed-in user's account: every comment they
@@ -453,7 +527,7 @@ export async function signInWithGoogle() {
     const isNewUser = !!getAdditionalUserInfo(cred)?.isNewUser;
     trackEvent(isNewUser ? "sign_up" : "login", { method: "google" });
     if (isNewUser) {
-      if (cred.user.displayName) tryReserveUsername(cred.user.uid, cred.user.displayName);
+      await tryReserveUsername(cred.user);
       // Overwrites Google's own real profile-photo URL with our own encoded
       // avatar prefs -- parseAvatarPrefs only ever recognizes its own
       // avatar:color=... format anyway (see its regex), so leaving Google's
@@ -484,7 +558,7 @@ export function consumeGoogleRedirect() {
         const isNewUser = !!getAdditionalUserInfo(cred)?.isNewUser;
         trackEvent(isNewUser ? "sign_up" : "login", { method: "google" });
         if (isNewUser) {
-          if (cred.user.displayName) tryReserveUsername(cred.user.uid, cred.user.displayName);
+          await tryReserveUsername(cred.user);
           const hex = avatarColorFor(cred.user.uid).replace("#", "");
           await updateProfile(cred.user, { photoURL: `avatar:color=${hex}&icon=${avatarIconFor(cred.user.uid)}` }).catch(() => {});
           await syncPublicProfile();
