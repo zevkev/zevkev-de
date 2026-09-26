@@ -389,11 +389,17 @@
    already faded in before it was ever seen. Removed now that
    js/reveal.js's initReveal() is actually wired up on every page that
    renders one of these cards (it wasn't before). */
-/* Hand-placed stagger, only meaningful in the wrapping YouTube grid — reset
-   for .vod-row cards just below since a horizontal row has no "rows" to
-   stagger between. */
-.vod-card:nth-child(3n + 2) { margin-top: 20px; }
-.vod-card:nth-child(3n + 3) { margin-top: -8px; }
+/* Real bug: this used to carry a hand-placed :nth-child(3n+2)/(3n+3)
+   vertical stagger for a "scattered pinboard" look, exactly like
+   css/shop.css's .product-card once did (see the comment left in its place
+   there). Same root cause: it assumed an exact 3-column row, which the
+   wrapping grid's own auto-fill/minmax track sizing (css/youtube.css's
+   .yt-main-grid, this file's own #vod-grid) doesn't guarantee -- 2, 4, or
+   5 columns at other viewport widths cycles the 3-phase offset out of sync
+   with the real row boundaries, visibly misaligning cards within the same
+   row instead of reading as a deliberate scatter. Removed for the same
+   reason shop.css's version was: a calm, evenly aligned grid reads as
+   consistent at every width instead. */
 .vod-card:hover, .vod-card:focus-visible { transform: rotate(0deg) scale(1.02) translateY(-4px) !important; }
 .vod-card:hover::before, .vod-card:focus-visible::before { box-shadow: var(--shadow-hover); }
 .vod-card:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
