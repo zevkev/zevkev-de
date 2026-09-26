@@ -116,6 +116,17 @@ export const AVATAR_ICONS = {
   mountain: '<path d="M3 20 9 8l4 6 3-4 5 10z" stroke-linejoin="round"/>',
   balloon: '<path d="M12 3a6 6 0 0 1 6 6c0 4-3 7-5 8l1 2h-4l1-2c-2-1-5-4-5-8a6 6 0 0 1 6-6z" stroke-linejoin="round"/><path d="M12 19v2"/>',
   clover: '<path d="M12 12c-2-3-6-3-6 0s4 3 6 0zM12 12c2-3 6-3 6 0s-4 3-6 0zM12 12c-3-2-3-6 0-6s3 4 0 6zM12 12c3 2 3 6 0 6s-3-4 0-6z" stroke-linejoin="round"/><path d="M12 12v9"/>',
+  // 5 more (2026-09-27), specifically rollercoaster/theme-park designs --
+  // "ferris" and "coaster" (a track silhouette) already existed, but
+  // requested "especially rollercoaster designs" by name, so these lean
+  // fully into that: an actual loop, a coaster cart, a drop tower, a
+  // carousel and a swing ride, rounding out a real theme-park set instead
+  // of the two that happened to already exist.
+  looping: '<circle cx="12" cy="10" r="5"/><path d="M2 19c3-7 5-9 7-9M22 19c-3-7-5-9-7-9" stroke-linecap="round"/>',
+  coastercart: '<path d="M4 15h16l-2 5H6z" stroke-linejoin="round"/><path d="M6 15V9a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v6"/><circle cx="8" cy="20.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="20.5" r="1.3" fill="currentColor" stroke="none"/>',
+  droptower: '<path d="M12 2v20" stroke-linecap="round"/><rect x="8.5" y="9" width="7" height="4.5" rx="1"/><path d="M5 22h14" stroke-linecap="round"/>',
+  carousel: '<path d="M12 2 5.5 8h13z" stroke-linejoin="round"/><path d="M12 8v11" stroke-linecap="round"/><path d="M8 13v4M16 13v4" stroke-linecap="round"/><path d="M6 19h12" stroke-linecap="round"/>',
+  swingride: '<path d="M12 2v3" stroke-linecap="round"/><path d="M6 5h12l-4 5H10z" stroke-linejoin="round"/><path d="M7 10l-2 9M17 10l2 9M11 10l-1 9M13 10l1 9" stroke-linecap="round"/>',
 };
 
 // The avatar's outer silhouette -- purely a CSS concern (each key maps to a
@@ -146,7 +157,42 @@ export const AVATAR_ACCESSORIES = {
   bolt: { label: "Blitz", color: "#e0b429", icon: AVATAR_ICONS.zap },
   headphones: { label: "Kopfhörer", color: "#5b8ba0", icon: AVATAR_ICONS.headset },
   dot: { label: "Punkt", color: "#4a7c9e", icon: '<circle cx="12" cy="12" r="8"/>' },
+  // 6 more (2026-09-27) -- same "reuse an already-verified AVATAR_ICONS path"
+  // rule as the original 6 above, so nothing here is new, unverified SVG
+  // geometry.
+  trophy: { label: "Pokal", color: "#c9932e", icon: AVATAR_ICONS.trophy },
+  gem: { label: "Edelstein", color: "#3f9c8f", icon: AVATAR_ICONS.gem },
+  target: { label: "Zielscheibe", color: "#c0392b", icon: AVATAR_ICONS.target },
+  shield: { label: "Schild", color: "#4a7c9e", icon: AVATAR_ICONS.shield },
+  rocket: { label: "Rakete", color: "#6b7fd7", icon: AVATAR_ICONS.rocket },
+  coastercart: { label: "Achterbahn", color: "#c0392b", icon: AVATAR_ICONS.coastercart },
 };
+
+// Admin-only avatars: real photos instead of the Baukasten icon builder --
+// gated to OWNER_EMAILS (see js/auth.js's isOwner/updateAvatarPhoto), not a
+// choice available in the regular picker at all. Hosted images, same bucket
+// the site's own favicon/logo already comes from -- no Firebase Storage
+// needed for these 3 fixed photos, same "zero extra storage cost" reasoning
+// as the rest of the avatar system.
+export const ADMIN_AVATAR_PHOTOS = {
+  zevkev: { label: "ZevKev", url: "https://zevkev.github.io/Medienspeicher/Bilder/ZevKev.png" },
+  jamon: { label: "Jamon", url: "https://zevkev.github.io/Medienspeicher/Bilder/Jamon.jpg" },
+  bello: { label: "Belloflo", url: "https://zevkev.github.io/Medienspeicher/Bilder/bello.jpg" },
+};
+
+// Admin-only badge -- same fixed-color/verbatim-path convention as the
+// regular accessories above, but rendered as its own distinct visual
+// (a ring, not a filled circle, so it reads as "verified/official" rather
+// than "just another badge color") and only ever offered to isOwner()
+// accounts in the picker UI (see account.js). Uses the same .avatar-badge
+// overlay slot as a regular accessory -- an admin picks either a regular
+// accessory OR this one, not both, exactly like the regular picker's own
+// mutually-exclusive "Keins"/accessory choice.
+export const ADMIN_BADGE = { label: "Team-Abzeichen", color: "#1a1a1a", icon: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4" fill="#fff" stroke="none"/>' };
+// Reserved accessory key for ADMIN_BADGE -- kept as a named constant (not a
+// repeated "__admin" string literal) so auth.js/account.js can't drift out
+// of sync on the exact value.
+export const ADMIN_BADGE_KEY = "__admin";
 
 // Icon paths for youtube/instagram/tiktok/discord/twitch are copied
 // verbatim from js/layout.js's own ICONS (the already-correct, already-

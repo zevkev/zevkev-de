@@ -4,7 +4,22 @@
 // updates its own local copy optimistically after every post/edit/delete/
 // report instead of re-querying, so a full comment thread costs exactly one
 // read no matter how much someone does on the page.
-import { auth, db, isOwner, canPost, onAuthChange, resendVerificationEmail, refreshUser, parseAvatarPrefs, avatarColorFor, AVATAR_ICONS } from "./auth.js";
+import {
+  auth,
+  db,
+  isOwner,
+  canPost,
+  onAuthChange,
+  resendVerificationEmail,
+  refreshUser,
+  parseAvatarPrefs,
+  avatarColorFor,
+  AVATAR_ICONS,
+  AVATAR_SHAPES,
+  AVATAR_ACCESSORIES,
+  ADMIN_BADGE,
+  ADMIN_BADGE_KEY,
+} from "./auth.js";
 import { isBanned } from "./user-data.js";
 import { trackEvent } from "./track.js";
 import { censor as censorText } from "./moderation.js";
@@ -132,13 +147,30 @@ function actionsHTML(c, isReply) {
 // fall back to the same uid-hash color every other unset-avatar visitor
 // gets, so they still render a sensible circle instead of a missing/blank
 // one -- never a Firestore lookup, see postComment's own comment on why.
+// Same reasoning extends to the newer authorAvatarShape/Accessory/Ring/Photo
+// fields: comments posted before this existed just don't have them, so
+// every one of these falls back independently (plain circle, no badge, no
+// ring, no photo) rather than needing a backfill.
 function commentAvatarHTML(c) {
   const color = c.authorAvatarColor || avatarColorFor(c.authorId || "");
+  const shapeClass = `avatar-shape-${c.authorAvatarShape && AVATAR_SHAPES[c.authorAvatarShape] ? c.authorAvatarShape : "circle"}`;
+  const ringStyle = c.authorAvatarRing ? `;--avatar-ring:${c.authorAvatarRing}` : "";
   const iconPath = c.authorAvatarIcon && AVATAR_ICONS[c.authorAvatarIcon];
-  const inner = iconPath
-    ? `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">${iconPath}</svg>`
-    : escapeHTML((c.authorName || "?").trim().charAt(0).toUpperCase() || "?");
-  return `<span class="comment-avatar" style="background:${color}">${inner}</span>`;
+  const inner = c.authorAvatarPhoto
+    ? `<img class="avatar-photo ${shapeClass}" src="${escapeHTML(c.authorAvatarPhoto)}" alt="">`
+    : iconPath
+      ? `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">${iconPath}</svg>`
+      : escapeHTML((c.authorName || "?").trim().charAt(0).toUpperCase() || "?");
+  const badgeDef = c.authorAvatarAccessory === ADMIN_BADGE_KEY ? ADMIN_BADGE : c.authorAvatarAccessory && AVATAR_ACCESSORIES[c.authorAvatarAccessory];
+  const badge = badgeDef
+    ? `<span class="avatar-badge avatar-badge--sm" style="background:${badgeDef.color}" aria-hidden="true"><svg viewBox="0 0 24 24" width="7" height="7" fill="#fff" stroke="none">${badgeDef.icon}</svg></span>`
+    : "";
+  const avatar = `<span class="comment-avatar ${shapeClass}" style="background:${color}${ringStyle}">${inner}${badge}</span>`;
+  // The whole avatar is now a link to the commenter's public profile, not
+  // just the name text next to it -- matches "you can click a profile, see
+  // their custom icon" (the name link right below already existed; this is
+  // the same href, just also on the avatar itself).
+  return c.authorName ? `<a href="/user/${encodeURIComponent(c.authorName)}/" class="comment-avatar-link" aria-label="${escapeHTML(c.authorName)}s Profil ansehen">${avatar}</a>` : avatar;
 }
 
 function commentBodyHTML(c) {
@@ -355,13 +387,28 @@ async function postComment(text, parentId) {
     // reflects the name at posting time, not any later rename.
     const prefs = parseAvatarPrefs(user);
     const authorIsOwner = isOwner(user);
+    const authorName = user.displayName || user.email?.split("@")[0] || "Anonym";
+    // Every avatar axis copied onto the comment at post time now, not just
+    // color/icon -- shape/accessory/ring/photo used to be silently dropped
+    // here, so a comment could never show a commenter's full avatar even
+    // once the account page grew shape/badge/ring/photo support, since
+    // nothing captured them at the one point a comment can (see this
+    // function's own existing comment on why: no live lookup of another
+    // visitor's Auth profile is possible from the client).
+    const avatarFields = {
+      authorAvatarColor: prefs.color,
+      authorAvatarIcon: prefs.icon,
+      authorAvatarShape: prefs.shape,
+      authorAvatarAccessory: prefs.accessory,
+      authorAvatarRing: prefs.ring,
+      authorAvatarPhoto: prefs.photo,
+    };
     const ref = await addDoc(collection(db, "comments"), {
       videoId: currentVideoId,
       parentId: parentId || null,
       authorId: user.uid,
-      authorName: user.displayName || user.email?.split("@")[0] || "Anonym",
-      authorAvatarColor: prefs.color,
-      authorAvatarIcon: prefs.icon,
+      authorName,
+      ...avatarFields,
       authorIsOwner,
       text: finalText,
       createdAt: serverTimestamp(),
@@ -371,9 +418,8 @@ async function postComment(text, parentId) {
       videoId: currentVideoId,
       parentId: parentId || null,
       authorId: user.uid,
-      authorName: user.displayName || user.email?.split("@")[0] || "Anonym",
-      authorAvatarColor: prefs.color,
-      authorAvatarIcon: prefs.icon,
+      authorName,
+      ...avatarFields,
       authorIsOwner,
       text: finalText,
       createdAt: Date.now(),

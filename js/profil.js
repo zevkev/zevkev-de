@@ -6,7 +6,7 @@
 // "minimal Firestore reads" convention as the rest of the site.
 import { db } from "./auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { SOCIAL_PLATFORMS, BACKGROUND_PRESETS, AVATAR_ICONS, AVATAR_SHAPES, AVATAR_ACCESSORIES } from "./profile-presets.js";
+import { SOCIAL_PLATFORMS, BACKGROUND_PRESETS, AVATAR_ICONS, AVATAR_SHAPES, AVATAR_ACCESSORIES, ADMIN_BADGE, ADMIN_BADGE_KEY } from "./profile-presets.js";
 
 function escapeHTML(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -54,7 +54,7 @@ function socialButtonsHTML(socials) {
 // object; the two are kept in sync by hand -- both are one-liners reading
 // the same AVATAR_ACCESSORIES map).
 function avatarBadgeHTML(profile) {
-  const def = profile.avatarAccessory && AVATAR_ACCESSORIES[profile.avatarAccessory];
+  const def = profile.avatarAccessory === ADMIN_BADGE_KEY ? ADMIN_BADGE : profile.avatarAccessory && AVATAR_ACCESSORIES[profile.avatarAccessory];
   if (!def) return "";
   return `<span class="avatar-badge" style="background:${def.color}" aria-hidden="true"><svg viewBox="0 0 24 24" width="12" height="12" fill="#fff" stroke="none">${def.icon}</svg></span>`;
 }
@@ -64,11 +64,16 @@ function profileHTML(username, profile) {
   const color = profile.avatarColor || "#4a7c9e";
   const icon = profile.avatarIcon;
   const iconStyle = profile.avatarIconColor ? ` style="color:${profile.avatarIconColor}"` : "";
-  const content =
-    icon && AVATAR_ICONS[icon]
+  const shapeClass = `avatar-shape-${profile.avatarShape && AVATAR_SHAPES[profile.avatarShape] ? profile.avatarShape : "circle"}`;
+  // Admin-only real photo (see ADMIN_AVATAR_PHOTOS/updateAvatarPhoto in
+  // auth.js) -- same "own clip class on the <img> itself" reasoning as
+  // js/auth.js's avatarContentHTML, this page just can't import that
+  // function directly (no Firebase Auth dependency here on purpose).
+  const content = profile.avatarPhoto
+    ? `<img class="avatar-photo ${shapeClass}" src="${escapeHTML(profile.avatarPhoto)}" alt="">`
+    : icon && AVATAR_ICONS[icon]
       ? `<svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"${iconStyle}>${AVATAR_ICONS[icon]}</svg>`
       : escapeHTML((name || "?").trim().charAt(0).toUpperCase() || "?");
-  const shapeClass = `avatar-shape-${profile.avatarShape && AVATAR_SHAPES[profile.avatarShape] ? profile.avatarShape : "circle"}`;
   const avatarStyle = profile.avatarRing ? `background:${color};--avatar-ring:${profile.avatarRing}` : `background:${color}`;
   const bio = String(profile.bio || "").trim();
   return `

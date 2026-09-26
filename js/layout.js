@@ -174,20 +174,15 @@ async function mountOwnerNav() {
 export async function mountLayout() {
   const path = window.location.pathname;
   const isShop = path.startsWith("/shop");
-  // Login only matters where it actually does something (comments, saved
-  // watchlist, resume position) -- YouTube, Mehr/VODs, Watchlist and the
-  // individual video/VOD/live pages. Everywhere else (home, shop, legal
-  // pages) it'd just be a button that does nothing relevant, so it's left
-  // out of the header entirely there rather than shown and unused.
-  const showAccount =
-    path.startsWith("/youtube") ||
-    path.startsWith("/vods") ||
-    path.startsWith("/watchlist") ||
-    path.startsWith("/watch") || // covers both /watch/?id=... and the clean /video|vod/<id>/ forms
-    path.startsWith("/video/") ||
-    path.startsWith("/vod/") ||
-    path.startsWith("/live") ||
-    path.startsWith("/account");
+  // Used to only show on pages where login "did something" (comments,
+  // watchlist, resume position) -- home/shop/legal pages were left out on
+  // the theory that a login chip there would just sit unused. Explicit
+  // request since: login should be reachable everywhere, not gated by a
+  // per-page allowlist -- and now that /user/<name>/ is a real destination
+  // (comments link to it, admins get real photos/badges there), "sign in"
+  // is relevant from any page, not just the ones with a save/comment
+  // feature directly on them.
+  const showAccount = true;
 
   track("page_view", path);
 

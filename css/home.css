@@ -10,23 +10,36 @@ html.twitch-disabled body.home { background-color: var(--zone-discord); }
    ABOVE the zones (z-index 3 vs 2) so it wouldn't be hidden by their opaque
    background colors -- but that also put it above every real page element
    (hero card, buttons, Discord section, ...), which read as the texture
-   "overlapping" the content instead of sitting behind it. It's baked
-   directly into each zone's own background-image instead now: a background
-   always paints below that element's own children no matter what z-index
-   anything else has, so this can't ever re-overlap content again. Each
-   zone's texture layers use background-attachment: fixed (viewport-anchored)
-   while each zone's own color/gradient stays the default `scroll`
-   (local to that zone) -- that's what keeps the pattern continuous across
-   zone boundaries without a visible seam, the same problem the old shared
-   ::before layer was solving. */
-.zone {
-  width: 100%; padding: 74px 20px 64px; box-sizing: border-box; position: relative; overflow: hidden; z-index: 2;
+   "overlapping" the content instead of sitting behind it. Baked directly
+   into each zone's own background-image for a while after that (each zone's
+   texture layers on background-attachment: fixed, own color/gradient on the
+   default `scroll`) -- correct, but reported as janky/heavy on scroll:
+   background-attachment:fixed on a normally-scrolling element forces the
+   browser to recompute that background's position on every scroll frame,
+   and this page had THREE such layers repeated on EVERY zone.
+   Now a single body.home::before, itself position:fixed (so it never moves
+   and never needs per-frame recomputation at all -- a fixed ELEMENT's
+   background is just a static composited layer, cheaper than
+   background-attachment:fixed on a scrolling one), at z-index:0 -- BELOW
+   .zone's z-index:2 this time, unlike the original bug, so it still can't
+   ever overlap content. One texture instance for the whole page instead of
+   three per zone is what actually fixes the scroll cost; the visual result
+   (continuous, seamless across zone boundaries) is identical either way. */
+body.home::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
   background-image:
     repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0, rgba(255,255,255,.05) 1px, transparent 1px, transparent 160px),
     repeating-linear-gradient(-45deg, rgba(255,255,255,.05) 0, rgba(255,255,255,.05) 1px, transparent 1px, transparent 160px),
     radial-gradient(rgba(255,255,255,.15) 1.4px, transparent 1.5px);
   background-size: auto, auto, 26px 26px;
-  background-attachment: fixed, fixed, fixed;
+}
+
+.zone {
+  width: 100%; padding: 74px 20px 64px; box-sizing: border-box; position: relative; overflow: hidden; z-index: 2;
 }
 
 .zone--hero {
@@ -35,23 +48,11 @@ html.twitch-disabled body.home { background-color: var(--zone-discord); }
 }
 
 .zone--discord {
-  background-image:
-    repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0, rgba(255,255,255,.05) 1px, transparent 1px, transparent 160px),
-    repeating-linear-gradient(-45deg, rgba(255,255,255,.05) 0, rgba(255,255,255,.05) 1px, transparent 1px, transparent 160px),
-    radial-gradient(rgba(255,255,255,.15) 1.4px, transparent 1.5px),
-    linear-gradient(to bottom, var(--zone-hero) 0, var(--zone-discord) 140px, var(--zone-discord) calc(100% - 140px), var(--zone-twitch) 100%);
-  background-size: auto, auto, 26px 26px, auto;
-  background-attachment: fixed, fixed, fixed, scroll;
+  background-image: linear-gradient(to bottom, var(--zone-hero) 0, var(--zone-discord) 140px, var(--zone-discord) calc(100% - 140px), var(--zone-twitch) 100%);
 }
 html.twitch-disabled .zone--discord {
   padding-bottom: 100px;
-  background-image:
-    repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0, rgba(255,255,255,.05) 1px, transparent 1px, transparent 160px),
-    repeating-linear-gradient(-45deg, rgba(255,255,255,.05) 0, rgba(255,255,255,.05) 1px, transparent 1px, transparent 160px),
-    radial-gradient(rgba(255,255,255,.15) 1.4px, transparent 1.5px),
-    linear-gradient(to bottom, var(--zone-hero) 0, var(--zone-discord) 140px);
-  background-size: auto, auto, 26px 26px, auto;
-  background-attachment: fixed, fixed, fixed, scroll;
+  background-image: linear-gradient(to bottom, var(--zone-hero) 0, var(--zone-discord) 140px);
 }
 
 /* .zone--discord already fades into --zone-twitch by its own bottom edge;

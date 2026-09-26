@@ -475,24 +475,35 @@ h1, h2, .display-font {
   border: 2px solid rgba(255,255,255,.4);
   box-shadow: 0 2px 6px rgba(0,0,0,.25);
   flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
   transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 .account-avatar:hover { transform: scale(1.08); }
 .account-avatar:focus-visible { outline: 2px solid var(--accent-red); outline-offset: 3px; }
 
-/* Avatar "Baukasten" -- shared shape classes for every avatar render site
-   EXCEPT .comment-avatar (15-24px comment avatars deliberately stay plain
-   circles, color+icon only -- see js/comments.js's own commentAvatarHTML,
-   which never reads shape/accessory). Every wrapper that DOES support a
-   shape (.account-avatar, .nav-account-avatar, .account-avatar-lg,
-   .profil-avatar, the editor's own live preview) has had its own hardcoded
-   border-radius:50% removed so one of these three classes -- always applied
-   by js/auth.js's avatarShapeClass() -- is what actually shapes it now.
-   Kept here (not scattered per-context) so all three shapes look identical
-   everywhere they're used. */
+/* Avatar "Baukasten" -- shared shape classes for every avatar render site,
+   including .comment-avatar (see below -- comments used to deliberately
+   stay plain color+icon circles, but now show the full shape/ring/badge/
+   photo combo too, same as every other avatar context, per explicit
+   request). Every wrapper that supports a shape (.account-avatar,
+   .nav-account-avatar, .account-avatar-lg, .profil-avatar, .comment-avatar,
+   the editor's own live preview) has had its own hardcoded border-radius:50%
+   removed so one of these three classes -- always applied by js/auth.js's
+   avatarShapeClass() -- is what actually shapes it now. Kept here (not
+   scattered per-context) so all three shapes look identical everywhere
+   they're used. */
 .avatar-shape-circle { border-radius: 50%; }
 .avatar-shape-square { border-radius: 22%; }
 .avatar-shape-hex { border-radius: 0; clip-path: polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0% 50%); }
+
+/* Admin-only real-photo avatars (see js/auth.js's avatarContentHTML/
+   updateAvatarPhoto) -- fills the same fixed-size wrapper every icon/letter
+   avatar already uses, cropped via object-fit rather than relying on the
+   source images sharing one aspect ratio. Carries its own avatar-shape-*
+   class (see avatarContentHTML's own comment on why, not just relying on
+   the wrapper's). */
+.avatar-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 
 /* Small accessory badge, positioned over the avatar's bottom-right corner --
    ONLY used on "big" avatar contexts (js/auth.js's avatarBadgeHTML is never
@@ -583,11 +594,26 @@ h1, h2, .display-font {
    surface, so it needs to stay legible against itself in both themes the
    same reason .account-avatar/.watchlist-toggle's icon already do. */
 .comment-avatar {
-  width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+  width: 24px; height: 24px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-family: "Bebas Neue", sans-serif; font-size: 0.8rem;
+  border: 2px solid var(--avatar-ring, transparent);
+  position: relative;
+  /* No overflow:hidden -- .avatar-badge is deliberately positioned a couple
+     pixels outside this box (see its own rule) and would get clipped by it;
+     the icon/letter content never overflows, and the photo variant clips
+     itself via its own avatar-shape-* class on the <img> directly (see
+     avatarContentHTML's comment), so nothing here actually needs it. */
 }
 .comment--reply .comment-avatar { width: 20px; height: 20px; font-size: 0.7rem; }
+.comment-avatar-link { display: inline-flex; line-height: 0; transition: transform 0.15s ease; }
+.comment-avatar-link:hover { transform: scale(1.08); }
+/* Small badge variant for the 20-24px comment avatar -- .avatar-badge itself
+   is sized for the much bigger 76-88px account/profile avatars, and would
+   swallow half a comment avatar at that size. Same overlay mechanism
+   (absolute, bottom-right corner), just scaled down. */
+.avatar-badge--sm { width: 12px; height: 12px; right: -3px; bottom: -3px; border-width: 1.5px; }
+.avatar-badge--sm svg { width: 7px; height: 7px; }
 .comment-author { font-weight: bold; font-size: 0.92rem; color: var(--text-dark); text-decoration: none; }
 a.comment-author:hover { text-decoration: underline; }
 /* Pulled tight against .comment-author via negative margin -- .comment-head's
@@ -1061,6 +1087,7 @@ a.comment-author:hover { text-decoration: underline; }
     width: 22px; height: 22px; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center; color: #fff;
     font-family: "Bebas Neue", sans-serif; font-size: 0.75rem;
+    position: relative; overflow: hidden;
   }
   .nav-account-logout {
     display: block; margin: 0 auto; padding: 4px 20px; border: none; background: none;

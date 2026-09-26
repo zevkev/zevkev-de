@@ -19,4 +19,4 @@ export const FIREBASE_CONFIG = {
 // constant just lets the UI decide whether to show delete buttons/the
 // verified crown without a wasted round-trip the rules would reject
 // anyway. Keep this array in sync with jamonhd-de's identical copy.
-export const OWNER_EMAILS = ["kevlevin.zev@gmail.com", "jasontummes@gmail.com"];
+export const OWNER_EMAILS = ["kevlevin.zev@gmail.com", "jamonhd.business@gmail.com"];

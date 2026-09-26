@@ -4,6 +4,7 @@
 import {
   auth,
   db,
+  isOwner,
   onAuthChange,
   updateDisplayName,
   deleteAccount,
@@ -13,11 +14,15 @@ import {
   AVATAR_ICONS,
   AVATAR_SHAPES,
   AVATAR_ACCESSORIES,
+  ADMIN_AVATAR_PHOTOS,
+  ADMIN_BADGE,
+  ADMIN_BADGE_KEY,
   parseAvatarPrefs,
   avatarContentHTML,
   avatarShapeClass,
   avatarBadgeHTML,
   updateAvatarPrefs,
+  updateAvatarPhoto,
   updateProfileCustomization,
 } from "./auth.js";
 import { getWatchlistIds, toggleWatchlistId } from "./user-data.js";
@@ -114,8 +119,8 @@ function profileHTML(user) {
     </form>
     <p class="account-email">${escapeHTML(user.email || "")}</p>
     <div class="account-info-actions">
-      <button type="button" class="account-avatar-edit-btn" id="account-avatar-edit-btn">${editIcon()}Avatar anpassen</button>
-      <a class="account-avatar-edit-btn" href="/user/${encodeURIComponent(name)}/" target="_blank" rel="noopener">${eyeIcon()}Öffentliches Profil ansehen</a>
+      <button type="button" class="p-btn rip btn-accent account-avatar-edit-btn" id="account-avatar-edit-btn">${editIcon()}Avatar anpassen</button>
+      <a class="account-view-profile-link" href="/user/${encodeURIComponent(name)}/" target="_blank" rel="noopener">${eyeIcon()}Öffentliches Profil ansehen</a>
     </div>
   </div>
   <button type="button" class="account-logout" id="account-logout-btn" aria-label="Abmelden" title="Abmelden">${logoutIcon()}</button>`;
@@ -176,6 +181,13 @@ function avatarPickerHTML(user) {
     })
     .join("");
 
+  const isAdmin = isOwner(user);
+  const adminBadgeButton = isAdmin
+    ? `
+      <button type="button" class="account-accessory-choice account-accessory-choice--admin${prefs.accessory === ADMIN_BADGE_KEY ? " is-active" : ""}" data-accessory="${ADMIN_BADGE_KEY}" aria-label="${escapeHTML(ADMIN_BADGE.label)}" title="${escapeHTML(ADMIN_BADGE.label)}">
+        <span class="account-accessory-swatch" style="background:${ADMIN_BADGE.color}"><svg viewBox="0 0 24 24" width="13" height="13" fill="#fff" stroke="none">${ADMIN_BADGE.icon}</svg></span>
+      </button>`
+    : "";
   const accessoryButtons =
     `<button type="button" class="account-accessory-choice${!prefs.accessory ? " is-active" : ""}" data-accessory="" aria-label="Kein Abzeichen">Keins</button>` +
     Object.entries(AVATAR_ACCESSORIES)
@@ -185,7 +197,25 @@ function avatarPickerHTML(user) {
         <span class="account-accessory-swatch" style="background:${def.color}"><svg viewBox="0 0 24 24" width="13" height="13" fill="#fff" stroke="none">${def.icon}</svg></span>
       </button>`
       )
-      .join("");
+      .join("") + adminBadgeButton;
+
+  // Admin-only: real photos instead of the icon builder -- see
+  // ADMIN_AVATAR_PHOTOS/updateAvatarPhoto in auth.js for why this is gated
+  // to isOwner() rather than shown to every visitor.
+  const photoSection = isAdmin
+    ? `
+  <p class="account-picker-label">Foto (nur Team)</p>
+  <div class="account-photo-row">
+    ${Object.entries(ADMIN_AVATAR_PHOTOS)
+      .map(
+        ([key, p]) => `
+      <button type="button" class="account-photo-choice${prefs.photo === p.url ? " is-active" : ""}" data-photo="${key}" aria-label="${escapeHTML(p.label)}" title="${escapeHTML(p.label)}">
+        <img src="${p.url}" alt="${escapeHTML(p.label)}">
+      </button>`
+      )
+      .join("")}
+  </div>`
+    : "";
 
   return `
   <p class="account-picker-label">Form</p>
@@ -209,7 +239,8 @@ function avatarPickerHTML(user) {
   <div class="account-swatch-row account-swatch-row--sm">${ringSwatches}</div>
 
   <p class="account-picker-label">Abzeichen</p>
-  <div class="account-accessory-row">${accessoryButtons}</div>`;
+  <div class="account-accessory-row">${accessoryButtons}</div>
+  ${photoSection}`;
 }
 
 // ---------- Profile customization (bio + social buttons + background) ----------
@@ -488,43 +519,84 @@ function wireProfile(user) {
 // partial: any subset of {color, icon, shape, iconColor, accessory, ring} --
 // merged onto the current prefs so e.g. picking a new icon doesn't clobber
 // an already-chosen shape/ring/accessory.
-async function applyAvatarPrefs(partial) {
-  const current = parseAvatarPrefs(auth.currentUser);
-  await updateAvatarPrefs({ ...current, ...partial });
-  // #account-avatar-picker is a sibling of #account-profile, not one of its
-  // children, so renderProfile() (which only replaces #account-profile's
-  // own innerHTML) leaves the open panel alone -- just needs its own
-  // preview/swatch/icon highlights refreshed to match the newly-applied pick.
-  renderProfile(auth.currentUser);
-  const picker = document.getElementById("account-avatar-picker");
-  picker.innerHTML = avatarEditorPreviewHTML(auth.currentUser) + avatarPickerHTML(auth.currentUser);
-  wireAvatarPicker(auth.currentUser);
-  const { refreshAccountSlot } = await import("./auth-ui.js");
-  refreshAccountSlot();
+//
+// Real bug fixed here: this used to have no try/catch at all, unlike every
+// other write in this file (name form, customize form, delete account all
+// already had one) -- if updateAvatarPrefs() ever rejected (a stale/expired
+// token, a transient Firestore error, anything), the click just silently did
+// nothing: no toast, no reverted button state, the picker didn't even
+// re-render, so it looked exactly like "this button doesn't work" with zero
+// way to tell why. Every picker field funnels through this one function, so
+// this wasn't specific to any one axis (shape/color/icon/accessory/ring) --
+// whichever pick happened to hit a real error would look equally broken.
+async function applyAvatarPrefs(partial, btn) {
+  if (btn) btn.disabled = true;
+  try {
+    const current = parseAvatarPrefs(auth.currentUser);
+    await updateAvatarPrefs({ ...current, ...partial });
+    // #account-avatar-picker is a sibling of #account-profile, not one of its
+    // children, so renderProfile() (which only replaces #account-profile's
+    // own innerHTML) leaves the open panel alone -- just needs its own
+    // preview/swatch/icon highlights refreshed to match the newly-applied pick.
+    renderProfile(auth.currentUser);
+    const picker = document.getElementById("account-avatar-picker");
+    picker.innerHTML = avatarEditorPreviewHTML(auth.currentUser) + avatarPickerHTML(auth.currentUser);
+    wireAvatarPicker(auth.currentUser);
+    const { refreshAccountSlot } = await import("./auth-ui.js");
+    refreshAccountSlot();
+  } catch (err) {
+    console.error("Saving avatar failed:", err);
+    showToast(authErrorMessage(err));
+    if (btn) btn.disabled = false;
+  }
+}
+
+// Mirrors applyAvatarPrefs's shape/error-handling exactly, just calling
+// updateAvatarPhoto instead -- kept as a separate function rather than
+// folding into applyAvatarPrefs since a photo pick isn't a partial merge
+// onto the existing Baukasten prefs, it replaces photoURL outright.
+async function applyAvatarPhoto(photoKey, btn) {
+  if (btn) btn.disabled = true;
+  try {
+    await updateAvatarPhoto(photoKey);
+    renderProfile(auth.currentUser);
+    const picker = document.getElementById("account-avatar-picker");
+    picker.innerHTML = avatarEditorPreviewHTML(auth.currentUser) + avatarPickerHTML(auth.currentUser);
+    wireAvatarPicker(auth.currentUser);
+    const { refreshAccountSlot } = await import("./auth-ui.js");
+    refreshAccountSlot();
+  } catch (err) {
+    console.error("Saving avatar photo failed:", err);
+    showToast(authErrorMessage(err));
+    if (btn) btn.disabled = false;
+  }
 }
 
 function wireAvatarPicker() {
+  document.querySelectorAll("#account-avatar-picker .account-photo-choice").forEach((btn) => {
+    btn.addEventListener("click", () => applyAvatarPhoto(btn.dataset.photo, btn));
+  });
   document.querySelectorAll("#account-avatar-picker .account-shape-choice").forEach((btn) => {
-    btn.addEventListener("click", () => applyAvatarPrefs({ shape: btn.dataset.shape }));
+    btn.addEventListener("click", () => applyAvatarPrefs({ shape: btn.dataset.shape }, btn));
   });
   document.querySelectorAll("#account-avatar-picker .account-swatch[data-color]").forEach((btn) => {
-    btn.addEventListener("click", () => applyAvatarPrefs({ color: btn.dataset.color }));
+    btn.addEventListener("click", () => applyAvatarPrefs({ color: btn.dataset.color }, btn));
   });
   // change (not input) -- input fires continuously while dragging the
   // native color wheel, which would otherwise write to Firestore on every
   // tick instead of once the visitor actually settles on a color.
   document.getElementById("account-avatar-custom-color")?.addEventListener("change", (ev) => applyAvatarPrefs({ color: ev.target.value }));
   document.querySelectorAll("#account-avatar-picker .account-icon-choice").forEach((btn) => {
-    btn.addEventListener("click", () => applyAvatarPrefs({ icon: btn.dataset.icon || null }));
+    btn.addEventListener("click", () => applyAvatarPrefs({ icon: btn.dataset.icon || null }, btn));
   });
   document.querySelectorAll("#account-avatar-picker [data-icon-color]").forEach((btn) => {
-    btn.addEventListener("click", () => applyAvatarPrefs({ iconColor: btn.dataset.iconColor || null }));
+    btn.addEventListener("click", () => applyAvatarPrefs({ iconColor: btn.dataset.iconColor || null }, btn));
   });
   document.querySelectorAll("#account-avatar-picker [data-ring]").forEach((btn) => {
-    btn.addEventListener("click", () => applyAvatarPrefs({ ring: btn.dataset.ring || null }));
+    btn.addEventListener("click", () => applyAvatarPrefs({ ring: btn.dataset.ring || null }, btn));
   });
   document.querySelectorAll("#account-avatar-picker .account-accessory-choice").forEach((btn) => {
-    btn.addEventListener("click", () => applyAvatarPrefs({ accessory: btn.dataset.accessory || null }));
+    btn.addEventListener("click", () => applyAvatarPrefs({ accessory: btn.dataset.accessory || null }, btn));
   });
 }
 

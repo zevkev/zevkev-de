@@ -30,6 +30,9 @@ import {
   AVATAR_ICONS,
   AVATAR_SHAPES,
   AVATAR_ACCESSORIES,
+  ADMIN_AVATAR_PHOTOS,
+  ADMIN_BADGE,
+  ADMIN_BADGE_KEY,
   SOCIAL_PLATFORMS,
   BIO_MAX_LENGTH,
   resolveBackgroundValue,
@@ -39,7 +42,7 @@ import {
 // unchanged -- the actual data now lives in profile-presets.js (see that
 // file's own header comment) so js/profil.js can share it too without
 // pulling in this whole Firebase-initializing module.
-export { AVATAR_COLORS, avatarColorFor, AVATAR_ICONS, AVATAR_SHAPES, AVATAR_ACCESSORIES };
+export { AVATAR_COLORS, avatarColorFor, AVATAR_ICONS, AVATAR_SHAPES, AVATAR_ACCESSORIES, ADMIN_AVATAR_PHOTOS, ADMIN_BADGE };
 
 const app = initializeApp(FIREBASE_CONFIG);
 export const auth = getAuth(app);
@@ -77,9 +80,20 @@ export function isOwner(user) {
 function isHex6(v) {
   return typeof v === "string" && /^[0-9a-fA-F]{6}$/.test(v);
 }
+// A plain http(s) URL (not the "avatar:..." encoded string) means an admin
+// picked one of ADMIN_AVATAR_PHOTOS -- see updateAvatarPhoto below. Checked
+// first, before the "avatar:" prefix check, since a real image URL never
+// starts with that prefix.
+function isAccessoryValid(key, user) {
+  if (key === ADMIN_BADGE_KEY) return isOwner(user);
+  return !!(key && AVATAR_ACCESSORIES[key]);
+}
 function parseAvatarPrefs(user) {
   const raw = user?.photoURL || "";
-  const fallback = { color: avatarColorFor(user?.uid || ""), icon: null, shape: "circle", iconColor: null, accessory: null, ring: null };
+  const fallback = { color: avatarColorFor(user?.uid || ""), icon: null, shape: "circle", iconColor: null, accessory: null, ring: null, photo: null };
+  if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    return { ...fallback, photo: raw };
+  }
   if (!raw.startsWith("avatar:")) return fallback;
   const params = new URLSearchParams(raw.slice(7));
   const colorRaw = params.get("color");
@@ -93,8 +107,9 @@ function parseAvatarPrefs(user) {
     icon: iconKey && AVATAR_ICONS[iconKey] ? iconKey : null,
     shape: shapeKey && AVATAR_SHAPES[shapeKey] ? shapeKey : "circle",
     iconColor: isHex6(iconColorRaw) ? `#${iconColorRaw}` : null,
-    accessory: accessoryKey && AVATAR_ACCESSORIES[accessoryKey] ? accessoryKey : null,
+    accessory: isAccessoryValid(accessoryKey, user) ? accessoryKey : null,
     ring: isHex6(ringRaw) ? `#${ringRaw}` : null,
+    photo: null,
   };
 }
 export { parseAvatarPrefs };
@@ -115,10 +130,32 @@ export async function updateAvatarPrefs(prefs) {
   if (prefs.shape && AVATAR_SHAPES[prefs.shape] && prefs.shape !== "circle") params.set("shape", prefs.shape);
   const iconColorHex = String(prefs.iconColor || "").replace("#", "");
   if (isHex6(iconColorHex)) params.set("iconColor", iconColorHex);
-  if (prefs.accessory && AVATAR_ACCESSORIES[prefs.accessory]) params.set("accessory", prefs.accessory);
+  if (isAccessoryValid(prefs.accessory, user)) params.set("accessory", prefs.accessory);
   const ringHex = String(prefs.ring || "").replace("#", "");
   if (isHex6(ringHex)) params.set("ring", ringHex);
+  // Writing this always overwrites any admin photo previously set (see
+  // updateAvatarPhoto below) -- picking any regular Baukasten option is how
+  // an admin switches back off a photo, no separate "reset" action needed.
   await updateProfile(user, { photoURL: `avatar:${params.toString()}` });
+  await syncPublicProfile();
+}
+
+// Admin-only: swaps in one of the 3 fixed real-photo avatars instead of the
+// Baukasten icon builder -- see ADMIN_AVATAR_PHOTOS/profile-presets.js for
+// why these specific 3 and why no Storage upload is involved. Gated to
+// isOwner() client-side (matching every other admin-only UI affordance on
+// this site, e.g. /privat/'s own gate) -- Firebase Auth profile fields have
+// no Firestore-rules equivalent to enforce this server-side the way
+// comments/usernames are, so this is the same class of protection as the
+// crown badge itself: keeps a non-admin from finding this in the UI, not a
+// hard security boundary against someone calling the function directly.
+export async function updateAvatarPhoto(photoKey) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Nicht angemeldet.");
+  if (!isOwner(user)) throw new Error("Nur für Admins.");
+  const photo = ADMIN_AVATAR_PHOTOS[photoKey];
+  if (!photo) throw new Error("Unbekanntes Foto.");
+  await updateProfile(user, { photoURL: photo.url });
   await syncPublicProfile();
 }
 
@@ -146,6 +183,7 @@ async function syncPublicProfile(extra = {}) {
       avatarIconColor: prefs.iconColor,
       avatarAccessory: prefs.accessory,
       avatarRing: prefs.ring,
+      avatarPhoto: prefs.photo,
       ...extra,
     },
     { merge: true }
@@ -191,7 +229,15 @@ export async function updateProfileCustomization(bio, socials, background) {
 // (otherwise it inherits the wrapper's own `color`, i.e. white, same as
 // before this field existed -- fully backward compatible).
 export function avatarContentHTML(user, iconSize = 20) {
-  const { icon, iconColor } = parseAvatarPrefs(user);
+  const { icon, iconColor, photo, shape } = parseAvatarPrefs(user);
+  if (photo) {
+    // Same clip-path/border-radius class the wrapper itself carries (see
+    // avatarShapeClass) applied directly to the <img> too -- the wrapper has
+    // no overflow:hidden (that would also clip .avatar-badge, which is
+    // deliberately positioned a couple pixels outside the box), so the image
+    // needs its own matching clip rather than relying on the wrapper's.
+    return `<img class="avatar-photo avatar-shape-${shape}" src="${photo}" alt="">`;
+  }
   if (icon && AVATAR_ICONS[icon]) {
     const style = iconColor ? ` style="color:${iconColor}"` : "";
     return `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"${style}>${AVATAR_ICONS[icon]}</svg>`;
@@ -229,7 +275,7 @@ export function avatarStyleAttr(user) {
 // correctly -- see .avatar-badge in style.css.
 export function avatarBadgeHTML(user) {
   const { accessory } = parseAvatarPrefs(user);
-  const def = accessory && AVATAR_ACCESSORIES[accessory];
+  const def = accessory === ADMIN_BADGE_KEY ? ADMIN_BADGE : accessory && AVATAR_ACCESSORIES[accessory];
   if (!def) return "";
   return `<span class="avatar-badge" style="background:${def.color}" aria-hidden="true"><svg viewBox="0 0 24 24" width="12" height="12" fill="#fff" stroke="none">${def.icon}</svg></span>`;
 }
