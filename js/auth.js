@@ -42,7 +42,7 @@ import {
 // unchanged -- the actual data now lives in profile-presets.js (see that
 // file's own header comment) so js/profil.js can share it too without
 // pulling in this whole Firebase-initializing module.
-export { AVATAR_COLORS, avatarColorFor, AVATAR_ICONS, AVATAR_SHAPES, AVATAR_ACCESSORIES, ADMIN_AVATAR_PHOTOS, ADMIN_BADGE };
+export { AVATAR_COLORS, avatarColorFor, AVATAR_ICONS, AVATAR_SHAPES, AVATAR_ACCESSORIES, ADMIN_AVATAR_PHOTOS, ADMIN_BADGE, ADMIN_BADGE_KEY };
 
 const app = initializeApp(FIREBASE_CONFIG);
 export const auth = getAuth(app);
