@@ -2,7 +2,15 @@ name: Refresh VOD feed & Twitch live status
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    # Was */5 -- checked the actual run history in the Actions tab and found
+    # GitHub was only firing it every 6-8 hours in practice regardless (a
+    # documented GitHub behavior: very-short-interval cron schedules get
+    # heavily throttled/skipped on lower-traffic repos, no matter what the
+    # cron expression says). 30 minutes is far more likely to actually be
+    # honored close to on-schedule -- confirm by checking real run timestamps
+    # in Actions after this has been live a while, not just trusting the
+    # declared interval.
+    - cron: "*/30 * * * *"
   workflow_dispatch:
 
 permissions:
