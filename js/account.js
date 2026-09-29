@@ -106,7 +106,10 @@ function profileHTML(user) {
   const prefs = parseAvatarPrefs(user);
   const style = prefs.ring ? `background:${prefs.color};--avatar-ring:${prefs.ring}` : `background:${prefs.color}`;
   return `
-  <div class="account-avatar-lg ${avatarShapeClass(user)}" id="account-avatar-lg" style="${style}">${avatarContentHTML(user, 34)}${avatarBadgeHTML(user)}</div>
+  <div class="avatar-badge-wrap">
+    <div class="account-avatar-lg ${avatarShapeClass(user)}" id="account-avatar-lg" style="${style}">${avatarContentHTML(user, 34)}</div>
+    ${avatarBadgeHTML(user)}
+  </div>
   <div class="account-info">
     <form class="account-name-form" id="account-name-form">
       <label for="account-name-input">Username</label>
@@ -138,7 +141,10 @@ function avatarEditorPreviewHTML(user) {
   const style = prefs.ring ? `background:${prefs.color};--avatar-ring:${prefs.ring}` : `background:${prefs.color}`;
   return `
   <div class="avatar-editor-preview">
-    <div class="account-avatar-lg ${avatarShapeClass(user)}" style="${style}">${avatarContentHTML(user, 34)}${avatarBadgeHTML(user)}</div>
+    <div class="avatar-badge-wrap">
+      <div class="account-avatar-lg ${avatarShapeClass(user)}" style="${style}">${avatarContentHTML(user, 34)}</div>
+      ${avatarBadgeHTML(user)}
+    </div>
   </div>`;
 }
 

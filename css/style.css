@@ -497,6 +497,20 @@ h1, h2, .display-font {
 .avatar-shape-square { border-radius: 22%; }
 .avatar-shape-hex { border-radius: 0; clip-path: polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0% 50%); }
 
+/* Real bug, found from a live screenshot: the hex shape's clip-path was
+   cutting off .avatar-badge almost entirely, leaving just a sliver visible
+   at the corner. border-radius (circle/square) only affects an element's
+   OWN background/border paint -- it doesn't clip children at all unless
+   overflow:hidden is also set. clip-path (hex) is different: it clips the
+   element's ENTIRE rendering, including children, unconditionally -- so a
+   badge positioned to hang slightly outside the box (see .avatar-badge's
+   own negative right/bottom below) got silently clipped away by the
+   parent's own hex silhouette, something circle/square never did. Fix:
+   the badge is now a SIBLING of the shaped element, both wrapped in this
+   plain, unclipped positioning anchor, instead of a child INSIDE the
+   shaped (and on hex, clipped) element. */
+.avatar-badge-wrap { position: relative; display: inline-flex; flex-shrink: 0; }
+
 /* Admin-only real-photo avatars (see js/auth.js's avatarContentHTML/
    updateAvatarPhoto) -- fills the same fixed-size wrapper every icon/letter
    avatar already uses, cropped via object-fit rather than relying on the
@@ -506,10 +520,13 @@ h1, h2, .display-font {
 .avatar-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 
 /* Small accessory badge, positioned over the avatar's bottom-right corner --
-   ONLY used on "big" avatar contexts (js/auth.js's avatarBadgeHTML is never
-   called for the header chip/dropdown/comments, see that function's own
-   comment), so this only needs sizing for those larger wrappers. The parent
-   avatar element needs position:relative, set per-context below. */
+   never used for the tiny 14-22px header chip/nav dropdown (not enough
+   room for a legible badge there), but DOES render for comments now (at a
+   smaller size, see .avatar-badge--sm) as well as the big account/profile
+   contexts. Always a sibling of the shaped avatar element inside a shared
+   .avatar-badge-wrap (see that class's own comment for why -- not a child
+   of the shaped element itself, which would get clipped away on the hex
+   shape). */
 .avatar-badge {
   position: absolute;
   right: -2px;

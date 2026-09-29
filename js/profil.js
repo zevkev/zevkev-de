@@ -79,7 +79,10 @@ function profileHTML(username, profile) {
   return `
   <div class="profil-card rip rip--b">
     <div class="tape"></div>
-    <div class="profil-avatar ${shapeClass}" style="${avatarStyle}">${content}${avatarBadgeHTML(profile)}</div>
+    <div class="avatar-badge-wrap">
+      <div class="profil-avatar ${shapeClass}" style="${avatarStyle}">${content}</div>
+      ${avatarBadgeHTML(profile)}
+    </div>
     <h1>${escapeHTML(name)}</h1>
     ${bio ? `<p class="profil-bio">${escapeHTML(bio)}</p>` : ""}
     ${socialButtonsHTML(profile.socials)}

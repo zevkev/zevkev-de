@@ -165,7 +165,12 @@ function commentAvatarHTML(c) {
   const badge = badgeDef
     ? `<span class="avatar-badge avatar-badge--sm" style="background:${badgeDef.color}" aria-hidden="true"><svg viewBox="0 0 24 24" width="7" height="7" fill="#fff" stroke="none">${badgeDef.icon}</svg></span>`
     : "";
-  const avatar = `<span class="comment-avatar ${shapeClass}" style="background:${color}${ringStyle}">${inner}${badge}</span>`;
+  // avatar-badge-wrap (not the badge nested straight inside .comment-avatar)
+  // for the same reason every other avatar context uses it -- see that
+  // class's own comment in style.css: clip-path (the hex shape) clips ALL
+  // descendant rendering, badge included, unlike border-radius (circle/
+  // square), which was cutting the badge off almost entirely for hex.
+  const avatar = `<span class="avatar-badge-wrap"><span class="comment-avatar ${shapeClass}" style="background:${color}${ringStyle}">${inner}</span>${badge}</span>`;
   // The whole avatar is now a link to the commenter's public profile, not
   // just the name text next to it -- matches "you can click a profile, see
   // their custom icon" (the name link right below already existed; this is
