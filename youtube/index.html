@@ -2,110 +2,143 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>YouTube | ZevKev</title>
 <meta name="description" content="Alle Videos von ZevKev auf YouTube. Videos und Entertainment aus dem Alltag, immer aktuell.">
-
+<link rel="canonical" href="https://zevkev.de/youtube/">
 <link rel="icon" type="image/png" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
 <link rel="apple-touch-icon" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#234d70">
+<link rel="preload" href="/assets/fonts/jost-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/bebas-neue-latin-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preconnect" href="https://i.ytimg.com">
+<link rel="stylesheet" href="/assets/css/app.css">
+<script src="/js/boot.js"></script>
 
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="ZevKev">
+<meta property="og:locale" content="de_DE">
 <meta property="og:title" content="YouTube | ZevKev">
 <meta property="og:description" content="Alle Videos von ZevKev auf YouTube.">
 <meta property="og:image" content="https://zevkev.github.io/Medienspeicher/Bilder/ZevKev.png">
-<link rel="canonical" href="https://zevkev.de/youtube/">
 <meta property="og:url" content="https://zevkev.de/youtube/">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="YouTube | ZevKev">
+<meta name="twitter:description" content="Alle Videos von ZevKev auf YouTube.">
 <meta name="twitter:image" content="https://zevkev.github.io/Medienspeicher/Bilder/ZevKev.png">
-
-<link rel="stylesheet" href="/css/style.css">
-<link rel="stylesheet" href="/css/shop.css">
-<link rel="stylesheet" href="/css/vods.css">
-<link rel="stylesheet" href="/css/youtube.css">
+<noscript><style>.yt-needs-js { display: none !important; }</style></noscript>
 </head>
-<body class="yt-page">
-
-<script type="module" src="/js/theme.js"></script>
-<script type="module" src="/js/user-theme.js"></script>
-<script type="module" src="/js/consent.js"></script>
-
+<body>
 <div id="site-header"></div>
 
-<!-- Full-bleed hero: sits outside .page-body on purpose so it isn't pushed
-     down by that class's header-clearing padding-top -- it starts at the
-     very top of the page (y=0) and the fixed site nav floats transparently
-     on top of it instead of above it (see body.yt-page rules in
-     css/youtube.css). js/youtube.js fills #yt-hero-media/#yt-hero-content
-     once the feed loads; #yt-hero-sentinel marks where the hero ends so the
-     nav can switch back to its normal solid look once it's scrolled past. -->
-<div class="yt-hero-full" id="yt-hero-full">
-  <div class="yt-hero-media" id="yt-hero-media">
-    <div class="skeleton-card yt-hero-skeleton"></div>
-  </div>
-  <div class="yt-hero-scrim" aria-hidden="true"></div>
-  <div class="yt-hero-content" id="yt-hero-content">
-    <div class="skeleton-line yt-hero-skel yt-hero-skel--badge"></div>
-    <div class="skeleton-line yt-hero-skel yt-hero-skel--title"></div>
-    <div class="skeleton-line yt-hero-skel yt-hero-skel--meta"></div>
-  </div>
-</div>
-<div id="yt-hero-sentinel" aria-hidden="true"></div>
+<main id="main" class="page">
+  <div class="container-page">
 
-<div class="page-body">
-  <div class="container" style="display:flex; flex-direction:column; align-items:center;">
+    <!-- Hero: channel intro next to the newest regular video (js/youtube.js
+         fills #yt-feature and #yt-stats once main-videos.json is loaded). -->
+    <section class="grid items-center gap-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-14" aria-labelledby="yt-title">
+      <div class="text-center lg:text-left">
+        <a class="badge badge-on-mat h-8 gap-2 px-3.5 text-[0.8rem] transition-colors hover:bg-black/50" href="https://www.youtube.com/@ZevKev" data-track-click="youtube-handle">
+          <svg class="size-4 text-yt" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+          @ZevKev
+        </a>
+        <h1 id="yt-title" class="mat-title mt-5 text-[clamp(3rem,11vw,5.25rem)] leading-[0.95]">ZevKev auf <span class="label-chip mt-1 [--chip-bg:var(--color-yt)]">YouTube</span></h1>
+        <p class="mat-text mx-auto mt-6 max-w-md text-lg leading-relaxed lg:mx-0">Freizeitparks, Vlogs und Gaming. Hier findest du jedes Video und jedes Short vom Kanal, das neueste immer ganz oben.</p>
 
-    <!-- The hero above carries the visible page heading (the latest video's
-         own title); this keeps a stable, non-video-dependent <h1> for
-         accessibility/SEO without a second big heading competing with it
-         visually. -->
-    <h1 class="visually-hidden">ZevKev auf YouTube – Videos und Shorts</h1>
+        <ul id="yt-stats" class="yt-stats yt-needs-js mt-8 flex justify-center lg:justify-start" aria-label="Der Kanal in Zahlen">
+          <li><span class="skeleton block h-10 w-12"></span><span class="skeleton mt-2 block h-3 w-14"></span></li>
+          <li><span class="skeleton block h-10 w-14"></span><span class="skeleton mt-2 block h-3 w-14"></span></li>
+          <li><span class="skeleton block h-10 w-24"></span><span class="skeleton mt-2 block h-3 w-16"></span></li>
+        </ul>
 
-    <div class="yt-library">
-      <div class="scissor-line" aria-hidden="true"></div>
-
-      <div class="yt-library-head">
-        <h2 class="yt-section-title">Mehr von ZevKev</h2>
-        <div class="filter-bar" id="yt-filter-bar">
-          <span class="yt-pill-skeleton"></span>
-          <span class="yt-pill-skeleton"></span>
+        <div class="mt-9 flex flex-wrap justify-center gap-3 lg:justify-start">
+          <a class="btn btn-yt btn-lg" href="https://www.youtube.com/@ZevKev?sub_confirmation=1" data-track-click="youtube-subscribe">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+            Abonnieren
+          </a>
+          <a class="btn btn-lg" href="https://www.youtube.com/@ZevKev" data-track-click="youtube-channel">
+            Zum Kanal
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>
+          </a>
         </div>
       </div>
 
-      <div class="yt-search-row">
-        <div class="yt-search-box">
-          <svg class="yt-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-          <input type="search" id="yt-search-input" class="yt-search-input" placeholder="Videos durchsuchen…" aria-label="Videos durchsuchen">
-          <button type="button" id="yt-search-clear" class="yt-search-clear" aria-label="Suche zurücksetzen" hidden>&times;</button>
+      <div id="yt-feature" class="yt-needs-js mx-auto w-full max-w-2xl focus:outline-none lg:max-w-none" tabindex="-1" aria-busy="true">
+        <div class="paper paper-b yt-feature" aria-hidden="true">
+          <div class="tape"></div>
+          <div class="tape left-auto right-8 rotate-[8deg]"></div>
+          <div class="yt-skel aspect-video"></div>
+          <div class="yt-feature-body">
+            <div class="yt-skel h-6 w-56 max-w-full rounded-full"></div>
+            <div class="yt-skel mt-4 h-9 w-11/12"></div>
+            <div class="yt-skel mt-2 h-9 w-2/3"></div>
+            <div class="yt-skel mt-6 h-11 w-56 max-w-full rounded-xl"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Library: Videos / Shorts tabs, sort, grid, "Mehr laden". -->
+    <section id="yt-library" class="mt-20 sm:mt-24" aria-labelledby="yt-lib-title">
+      <div class="mb-10 flex items-center gap-3 text-white/45" aria-hidden="true">
+        <svg class="size-6 shrink-0 -rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12"/></svg>
+        <span class="flex-1 border-t-2 border-dashed border-white/25"></span>
+      </div>
+      <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+        <div class="text-center lg:text-left">
+          <h2 id="yt-lib-title" class="mat-title">Alles vom Kanal</h2>
+          <p class="mat-text mt-2 text-sm">Videos und Shorts schön getrennt. Shorts sind alles unter zwei Minuten.</p>
+        </div>
+        <div class="yt-needs-js flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
+          <div id="yt-tabs" class="seg flex w-full flex-nowrap sm:w-auto" role="tablist" aria-label="Uploads">
+            <button type="button" class="seg-item flex-1 justify-center sm:flex-none" role="tab" id="yt-tab-videos" data-mode="videos" aria-selected="true" aria-controls="yt-panel" data-track-click="youtube-tab-videos">
+              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M10 9.2v5.6l4.6-2.8z" fill="currentColor"/></svg>
+              Videos <span class="seg-count" data-count="videos"></span>
+            </button>
+            <button type="button" class="seg-item flex-1 justify-center sm:flex-none" role="tab" id="yt-tab-shorts" data-mode="shorts" aria-selected="false" aria-controls="yt-panel" tabindex="-1" data-track-click="youtube-tab-shorts">
+              <svg class="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+              Shorts <span class="seg-count" data-count="shorts"></span>
+            </button>
+          </div>
+          <div id="yt-sort" class="seg flex w-full flex-nowrap sm:w-auto" role="group" aria-label="Sortierung">
+            <span class="flex items-center pl-2 pr-1 text-white/55" aria-hidden="true">
+              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M6 12h12M10 18h4"/></svg>
+            </span>
+            <button type="button" class="seg-item flex-1 justify-center sm:flex-none" data-sort="new" aria-pressed="true" data-track-click="youtube-sort-new">Neueste</button>
+            <button type="button" class="seg-item flex-1 justify-center sm:flex-none" data-sort="views" aria-pressed="false" data-track-click="youtube-sort-views">Meistgesehen</button>
+          </div>
         </div>
       </div>
 
-      <div id="yt-spotlight"></div>
-
-      <div class="vod-section-head" id="yt-sort-bar"></div>
-
-      <div class="yt-main-grid" id="yt-grid">
-        <div class="skeleton-card"></div>
-        <div class="skeleton-card"></div>
-        <div class="skeleton-card"></div>
-        <div class="skeleton-card"></div>
+      <div id="yt-panel" class="mt-9" role="tabpanel" aria-labelledby="yt-tab-videos">
+        <ul id="yt-grid" class="yt-grid yt-needs-js grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+          <li class="paper video-card" aria-hidden="true"><div class="yt-skel aspect-video"></div><div class="yt-skel h-4 w-11/12"></div><div class="yt-skel h-4 w-3/5"></div><div class="yt-skel h-3 w-2/5"></div></li>
+          <li class="paper paper-b video-card" aria-hidden="true"><div class="yt-skel aspect-video"></div><div class="yt-skel h-4 w-11/12"></div><div class="yt-skel h-4 w-3/5"></div><div class="yt-skel h-3 w-2/5"></div></li>
+          <li class="paper paper-c video-card" aria-hidden="true"><div class="yt-skel aspect-video"></div><div class="yt-skel h-4 w-11/12"></div><div class="yt-skel h-4 w-3/5"></div><div class="yt-skel h-3 w-2/5"></div></li>
+          <li class="paper video-card" aria-hidden="true"><div class="yt-skel aspect-video"></div><div class="yt-skel h-4 w-11/12"></div><div class="yt-skel h-4 w-3/5"></div><div class="yt-skel h-3 w-2/5"></div></li>
+          <li class="paper paper-b video-card" aria-hidden="true"><div class="yt-skel aspect-video"></div><div class="yt-skel h-4 w-11/12"></div><div class="yt-skel h-4 w-3/5"></div><div class="yt-skel h-3 w-2/5"></div></li>
+          <li class="paper paper-c video-card" aria-hidden="true"><div class="yt-skel aspect-video"></div><div class="yt-skel h-4 w-11/12"></div><div class="yt-skel h-4 w-3/5"></div><div class="yt-skel h-3 w-2/5"></div></li>
+        </ul>
+        <noscript>
+          <p class="paper mx-auto max-w-lg p-8 text-center">Ohne JavaScript kann die Videoliste leider nicht geladen werden. <a class="link" href="https://www.youtube.com/@ZevKev">Hier geht es direkt zum Kanal.</a></p>
+        </noscript>
       </div>
 
-      <div class="yt-load-more-row" id="yt-load-more"></div>
-    </div>
+      <div class="mt-12 flex flex-col items-center gap-3">
+        <button type="button" id="yt-more" class="btn btn-lg" data-track-click="youtube-load-more" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          Mehr laden
+        </button>
+        <p id="yt-progress" class="mat-text text-sm" hidden></p>
+      </div>
+      <p id="yt-status" class="sr-only" aria-live="polite"></p>
+    </section>
 
   </div>
-</div>
+</main>
 
 <div id="site-footer"></div>
-
-<script type="module" src="/js/flags.js"></script>
-<script type="module">
-  import { mountLayout } from "/js/layout.js";
-  mountLayout();
-</script>
+<script type="module" src="/js/layout.js"></script>
 <script type="module" src="/js/youtube.js"></script>
 </body>
 </html>

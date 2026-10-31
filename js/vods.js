@@ -1,966 +1,573 @@
-import { TWITCH_ENABLED } from "./config.js";
-import { consumeRedirect, getToken, startLogin, logout, getCurrentUser, resolveBroadcasterId, sendChatMessage, onAuthChange } from "./twitch-auth.js";
-import { observeImpressions, track } from "./track.js";
-import { getWatchlistIds, toggleWatchlistId } from "./user-data.js";
-import { initReveal } from "./reveal.js";
+// Mehr / ZevKev+ page (/vods/).
+//
+// Hero, first match wins: Twitch live player (Twitch on and live), newest
+// Twitch VOD (Twitch on), newest ZevKev+ video. Below it the Twitch archive
+// (Twitch on only) and the ZevKev+ YouTube channel. Every card and button is
+// a plain link to Twitch or YouTube in the same tab. The only thing that
+// plays on this site is the embedded Twitch live player.
+//
+// With Twitch off (twitch.txt) the page is "ZevKev+": no Twitch data is
+// fetched and nothing Twitch related is rendered.
+import { twitchEnabled } from "/js/twitch.js";
+import { observeImpressions } from "/js/track.js";
+import { initReveal } from "/js/reveal.js";
+import { brandIcon } from "/js/layout.js";
+import { cleanText } from "/js/text.js";
 
 const TWITCH_CHANNEL = "zevkev_";
-// Loaded once in init() and kept in sync locally after that -- see the same
-// pattern (and the reasoning for it) in js/youtube.js.
-let watchlistCache = new Set();
+const TWITCH_CHANNEL_URL = `https://www.twitch.tv/${TWITCH_CHANNEL}`;
+const PLUS_CHANNEL_URL = "https://www.youtube.com/channel/UCTTbSiyRUop-hMeZGIJD_QA";
+const DATA = {
+  live: "/assets/data/live-status.json",
+  twitch: "/assets/data/twitch-vods.json",
+  plus: "/assets/data/videos.json",
+};
+const PAGE_SIZE = 12;
+// live-status.json comes from a GitHub Actions cron that GitHub sometimes
+// runs hours late, so only a really old status is ignored. That keeps a dead
+// workflow from leaving a "live" hero up forever.
+const LIVE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+const TEARS = ["", "paper-b", "paper-c"];
 
-const heroPlayer = document.getElementById("vod-hero-player");
-const chatCol = document.getElementById("chat-col");
-const vodGrid = document.getElementById("vod-grid");
-const sectionHead = document.getElementById("vod-section-head");
-const vodSortBar = document.getElementById("vod-sort-bar");
-const vodLoadMore = document.getElementById("vod-load-more");
-const twitchSpotlightWrap = document.getElementById("twitch-spotlight-wrap");
-const twitchSpotlightRow = document.getElementById("twitch-spotlight-row");
-const twitchArchiveHead = document.getElementById("twitch-archive-head");
-const twitchVodRow = document.getElementById("twitch-vod-row");
+const byId = (id) => document.getElementById(id);
+const els = {
+  hero: byId("vods-hero"),
+  streamsGrid: byId("streams-grid"),
+  plusGrid: byId("plus-grid"),
+  plusSort: byId("plus-sort"),
+  plusMore: byId("plus-more"),
+  plusChannel: byId("plus-channel"),
+};
 
-// Same "reveal a page at a time" pattern as js/youtube.js's own PAGE_SIZE/
-// visibleCount (see that file's comment) -- reset to PAGE_SIZE on every
-// Alle/Watchlist tab switch and every sort change, bumped by PAGE_SIZE on
-// "load more". This feed (assets/data/videos.json, the ZevKev+ VOD
-// channel's own uploads -- a much smaller/simpler list than youtube.js's
-// main-videos.json) has no view-count field at all, unlike the main
-// channel feed, so the sort here is Neueste/Älteste (date), not
-// Neueste/Meistgesehen -- there's no honest "most viewed" to offer without
-// data this feed doesn't carry.
-const VOD_PAGE_SIZE = 24;
-let vodVisibleCount = VOD_PAGE_SIZE;
-let vodSortMode = "new";
+// The cached Twitch state from js/boot.js is usually right, so the tab title
+// is correct from the start. init() confirms it once twitch.txt is read.
+if (document.documentElement.classList.contains("twitch-off")) document.title = "ZevKev+ | ZevKev";
 
-// Current title-search text for the YouTube-VOD-channel grid below, plus
-// which of its own Alle/Watchlist tabs is active -- same pattern as
-// js/youtube.js's searchQuery/activeMode (see that file's comment). Not
-// reset on tab switch, so a search stays applied when flipping between
-// "Alle Videos" and "Meine Watchlist".
-let vodSearchQuery = "";
-let vodActiveMode = "all";
-const vodSearchInput = document.getElementById("vod-search-input");
-const vodSearchClear = document.getElementById("vod-search-clear");
+// ---------- Icons ----------
+const STROKE_ICONS = {
+  chat: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  calendar: '<rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+  eye: '<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/>',
+  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  gamepad: '<rect x="2" y="7" width="20" height="11" rx="4"/><path d="M7 10.5v4M5 12.5h4M16 11h.01M19 13.5h.01"/>',
+  refresh: '<path d="M21 12a9 9 0 1 1-2.64-6.36L21 8"/><path d="M21 3v5h-5"/>',
+  history: '<path d="M3 4v6h6"/><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6.5L3 10"/><path d="M12 8v4l3 2"/>',
+  alert: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/>',
+  video: '<rect x="2.5" y="5" width="14" height="14" rx="2"/><path d="m16.5 10 5-3v10l-5-3"/>',
+};
 
-// Same technique as js/youtube.js's own initHeroScrollObserver (not shared
-// code -- each page's hero has a different sentinel id/scrolled class, kept
-// separate on purpose per css/youtube.css's own file-header note about not
-// leaking that page's polish onto this one). The nav (mounted by
-// js/layout.js into #site-header, untouched here) floats as a transparent
-// bar directly over the hero -- see the .vods-page rules in css/vods.css --
-// and only gains its normal solid paper background once the hero has
-// actually scrolled past it. #vod-hero-sentinel sits right at that
-// boundary; watching it (rather than a raw scroll-position number) stays
-// correct even if the hero's own height changes across breakpoints (e.g.
-// the 980px layout switch to a stacked player+chat column).
-function initHeroScrollObserver() {
-  const sentinel = document.getElementById("vod-hero-sentinel");
-  if (!sentinel) return;
-  if (!("IntersectionObserver" in window)) {
-    document.body.classList.add("vods-scrolled");
-    return;
+function icon(name) {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${STROKE_ICONS[name]}</svg>`;
+}
+
+const PLAY_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>';
+
+// ---------- Helpers ----------
+function escapeHTML(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+
+function httpsUrl(value) {
+  return typeof value === "string" && /^https:\/\/[^\s"'<>]+$/.test(value) ? value : "";
+}
+
+function toDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function timeOf(value) {
+  return toDate(value)?.getTime() ?? 0;
+}
+
+const NUMBER = new Intl.NumberFormat("de-DE");
+const DATE_LONG = new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long", year: "numeric" });
+const DATE_SHORT = new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "short", year: "numeric" });
+const TIME = new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit" });
+
+function dateHTML(value, { long = false, withTime = false } = {}) {
+  const date = toDate(value);
+  if (!date) return "";
+  let text = (long ? DATE_LONG : DATE_SHORT).format(date);
+  if (withTime) text += `, ${TIME.format(date)} Uhr`;
+  return `<time datetime="${escapeHTML(date.toISOString())}">${escapeHTML(text)}</time>`;
+}
+
+function viewsText(n) {
+  return `${NUMBER.format(n)} ${n === 1 ? "Aufruf" : "Aufrufe"}`;
+}
+
+// Twitch durations look like "3h24m10s" (zero parts left out).
+function parseTwitchDuration(raw) {
+  const match = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/.exec(String(raw ?? "").trim());
+  if (!match) return 0;
+  return Number(match[1] || 0) * 3600 + Number(match[2] || 0) * 60 + Number(match[3] || 0);
+}
+
+function clockText(seconds) {
+  if (!seconds) return "";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  const pad = (n) => String(n).padStart(2, "0");
+  return h ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+}
+
+function sinceText(startedAt) {
+  const start = timeOf(startedAt);
+  if (!start) return "";
+  const minutes = Math.max(0, Math.floor((Date.now() - start) / 60000));
+  if (minutes < 1) return "gerade gestartet";
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (!h) return `seit ${m} Min.`;
+  return m ? `seit ${h} Std. ${m} Min.` : `seit ${h} Std.`;
+}
+
+// First paragraph of a YouTube description, without the link blocks below
+// the "-----" separators.
+function excerpt(description) {
+  if (typeof description !== "string") return "";
+  const lines = [];
+  for (const raw of description.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (/^[-_=*~]{3,}/.test(line)) break;
+    if (line) lines.push(line);
   }
-  const headerH = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--header-h"), 10) || 72;
-  const io = new IntersectionObserver(
-    ([entry]) => document.body.classList.toggle("vods-scrolled", !entry.isIntersecting),
-    { rootMargin: `-${headerH}px 0px 0px 0px`, threshold: 0 }
-  );
-  io.observe(sentinel);
+  return cleanText(lines.join(" ").replace(/https?:\/\/\S+/g, ""));
 }
 
-function starIcon(filled) {
-  return `<svg viewBox="0 0 24 24" width="18" height="18" fill="${filled ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.8"><path d="M12 3.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z" stroke-linejoin="round"/></svg>`;
-}
-// Same markup/icons as js/youtube.js's own cardHTML/renderLoadMore -- the
-// .yt-play-overlay/.yt-play-circle/.yt-load-more-btn classes they target
-// are unscoped in css/youtube.css (safe anywhere per that file's own
-// header comment) precisely so this page's cards can reuse them too.
-function playIcon(size = 20) {
-  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>`;
-}
-function chevronDownIcon(size = 14) {
-  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`;
-}
-
-// Small source-brand glyphs for the status badge, so "offline, showing a
-// Twitch VOD" and "offline, showing the YouTube fallback" read apart at a
-// glance instead of only through text. Same paths already used elsewhere on
-// the site (Twitch login button, YouTube subscribe button).
-function twitchIcon() {
-  return `<svg class="status-badge-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/></svg>`;
-}
-function youtubeIcon() {
-  return `<svg class="status-badge-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`;
-}
-
-// Small stroke-style meta icons (views/duration/date/game) for the hero's
-// stat row and the Twitch archive cards — same visual language as youtube.js's
-// eye icon, redefined locally rather than imported, matching this codebase's
-// existing convention of each page script owning its own small icon set
-// instead of a shared module.
-function eyeIcon() {
-  return `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
-}
-function clockIcon() {
-  return `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>`;
-}
-function calendarIcon() {
-  return `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>`;
-}
-function gameIcon() {
-  return `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="11" rx="4"/><path d="M7 10.5v4M5 12.5h4M16 11h.01M19 13h.01"/></svg>`;
-}
-// Empty-archive icon (clock-with-history-arc) for "nothing recorded here
-// yet" states -- reuses youtube.css's .yt-empty-icon utility (already
-// loaded on this page) rather than a bespoke class, same muted/60%-opacity
-// treatment as that page's own empty states.
-function emptyArchiveIcon() {
-  return `<svg class="yt-empty-icon" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4v6h6"/><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6.5L3 10"/><path d="M12 8v4l3 2"/></svg>`;
-}
-
-function escapeHTML(str) {
-  return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-}
-
-function parentParams() {
-  const hosts = new Set([location.hostname, "zevkev.de", "www.zevkev.de", "localhost", "127.0.0.1"]);
-  return [...hosts].map((h) => `parent=${encodeURIComponent(h)}`).join("&");
-}
-
-// Same host allow-list as parentParams() above, just shaped as a plain array
-// -- Twitch's embed JS SDK takes `parent` as an array of hostnames on its
-// constructor options object, not a URL query string. Kept as its own
-// function (not derived from parentParams()) so touching the iframe-URL path
-// used by the still-untouched chat embed can never accidentally affect the
-// SDK path, or vice versa.
-function parentHosts() {
-  return [...new Set([location.hostname, "zevkev.de", "www.zevkev.de", "localhost", "127.0.0.1"])];
-}
-
-// ---------- Watch-time analytics ----------
-// Both platforms' official JS player APIs (loaded lazily below, once per
-// page, the first time a player actually needs them) expose real
-// play/pause/ended events -- this turns those into periodic heartbeats while
-// a video is actively playing, not just one call at the end, so a visitor
-// closing the tab without a clean pause/unload event doesn't lose the
-// segment. Each tracker resets its own elapsed-time counter right after
-// sending a heartbeat so totals summed on the dashboard don't double count.
-const HEARTBEAT_MS = 30000;
-
-function createWatchTimeTracker(path) {
-  let intervalId = null;
-  let segmentStart = null;
-
-  function flush() {
-    if (segmentStart == null) return;
-    const elapsed = (Date.now() - segmentStart) / 1000;
-    segmentStart = Date.now();
-    if (elapsed > 0.5) track("watch_time", path, elapsed);
+// ---------- Data ----------
+async function loadJSON(url) {
+  try {
+    const res = await fetch(url, { cache: "no-cache" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`${url} konnte nicht geladen werden:`, err);
+    return null;
   }
-
-  function start() {
-    if (intervalId != null) return; // already accumulating
-    segmentStart = Date.now();
-    intervalId = setInterval(flush, HEARTBEAT_MS);
-  }
-
-  function stop() {
-    if (intervalId != null) {
-      clearInterval(intervalId);
-      intervalId = null;
-    }
-    flush(); // final heartbeat for whatever accumulated since the last tick
-    segmentStart = null;
-  }
-
-  function onVisibilityChange() {
-    if (document.hidden) flush();
-  }
-  document.addEventListener("visibilitychange", onVisibilityChange);
-
-  function destroy() {
-    stop();
-    document.removeEventListener("visibilitychange", onVisibilityChange);
-  }
-
-  return { start, stop, destroy };
 }
 
-// YouTube IFrame Player API: loaded lazily (no static <script> tag, so a page
-// load that never shows a YouTube-sourced player doesn't pay for it). The
-// API's own script calls a *global* window.onYouTubeIframeAPIReady callback
-// once ready (this is the API's documented contract) -- wrapped in a promise
-// here so callers can just await it. Chains onto any pre-existing callback
-// rather than clobbering it.
-let youtubeAPIPromise = null;
-function ensureYouTubeAPI() {
-  if (window.YT && window.YT.Player) return Promise.resolve(window.YT);
-  if (youtubeAPIPromise) return youtubeAPIPromise;
-  youtubeAPIPromise = new Promise((resolve) => {
-    const prev = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => {
-      prev?.();
-      resolve(window.YT);
-    };
-    const tag = document.createElement("script");
-    tag.src = "https://www.youtube.com/iframe_api";
-    document.head.appendChild(tag);
-  });
-  return youtubeAPIPromise;
+// The Helix API hands out thumbnail templates (".../thumb0-%{width}x%{height}.jpg").
+// scripts/fetch-twitch-status.mjs already fills in 440x248, this covers raw ones.
+function twitchThumb(url) {
+  return httpsUrl(url).replace(/%\{width\}/g, "640").replace(/%\{height\}/g, "360");
 }
 
-// Twitch's official embed JS SDK, loaded lazily the same way.
-let twitchSDKPromise = null;
-function ensureTwitchSDK() {
-  if (window.Twitch && window.Twitch.Player) return Promise.resolve(window.Twitch);
-  if (twitchSDKPromise) return twitchSDKPromise;
-  twitchSDKPromise = new Promise((resolve) => {
-    const tag = document.createElement("script");
-    tag.src = "https://player.twitch.tv/js/embed/v1.js";
-    tag.onload = () => resolve(window.Twitch);
-    document.head.appendChild(tag);
-  });
-  return twitchSDKPromise;
+// Bigger version of a sized Twitch thumbnail for the hero. The CDN renders
+// any size from the same path; the hero falls back to the original if not.
+function twitchThumbLarge(url) {
+  return url.replace(/-\d+x\d+(\.(?:jpe?g|png|webp))$/i, "-1280x720$1");
 }
 
-function onYTStateChange(YT, tracker) {
-  return (event) => {
-    if (event.data === YT.PlayerState.PLAYING) tracker.start();
-    else if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED || event.data === YT.PlayerState.BUFFERING) tracker.stop();
+function normalizeTwitchVods(data) {
+  if (!data || !Array.isArray(data.videos)) return null;
+  const seen = new Set();
+  return data.videos
+    .filter((v) => v && /^\d+$/.test(String(v.id)) && !seen.has(String(v.id)) && seen.add(String(v.id)))
+    .map((v) => ({
+      id: String(v.id),
+      title: cleanText(v.title) || "Twitch Stream",
+      publishedAt: v.publishedAt,
+      thumbnail: twitchThumb(v.thumbnail),
+      seconds: parseTwitchDuration(v.duration),
+      views: Number.isFinite(v.viewCount) ? v.viewCount : null,
+      url: `https://www.twitch.tv/videos/${v.id}`,
+    }))
+    .sort((a, b) => timeOf(b.publishedAt) - timeOf(a.publishedAt));
+}
+
+function normalizePlusVideos(data) {
+  if (!data || !Array.isArray(data.videos)) return null;
+  const seen = new Set();
+  return data.videos
+    .filter((v) => v && /^[\w-]{11}$/.test(String(v.id)) && !seen.has(String(v.id)) && seen.add(String(v.id)))
+    .map((v) => ({
+      id: String(v.id),
+      title: cleanText(v.title) || "Video",
+      publishedAt: v.publishedAt,
+      thumbnail: httpsUrl(v.thumbnail) || `https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`,
+      description: v.description,
+      url: `https://www.youtube.com/watch?v=${v.id}`,
+    }))
+    .sort((a, b) => timeOf(b.publishedAt) - timeOf(a.publishedAt));
+}
+
+function plusChannelUrl(data) {
+  const url = httpsUrl(data?.channelUrl || data?.channel?.url);
+  if (/^https:\/\/www\.youtube\.com\/./.test(url)) return url;
+  const id = data?.channelId || data?.channel?.id;
+  if (typeof id === "string" && /^UC[\w-]{22}$/.test(id)) return `https://www.youtube.com/channel/${id}`;
+  return PLUS_CHANNEL_URL;
+}
+
+function liveStream(status) {
+  if (!status || status.live !== true) return null;
+  const checkedAt = timeOf(status.checkedAt);
+  if (checkedAt && Date.now() - checkedAt > LIVE_MAX_AGE_MS) return null;
+  return {
+    title: cleanText(status.title),
+    game: cleanText(status.game),
+    startedAt: toDate(status.startedAt) ? status.startedAt : null,
+    viewers: Number.isFinite(status.viewerCount) ? status.viewerCount : null,
   };
 }
 
-function attachTwitchTracking(player, Twitch, tracker) {
-  player.addEventListener(Twitch.Player.PLAY, () => tracker.start());
-  player.addEventListener(Twitch.Player.PAUSE, () => tracker.stop());
-  player.addEventListener(Twitch.Player.ENDED, () => tracker.stop());
+// ---------- Hero ----------
+function stageHTML(inner, { live = false } = {}) {
+  // The live stage paints its shadow on a separate layer (see vods.css), so
+  // the player iframe never sits inside a CSS filter.
+  return `
+  <div class="paper vods-stage${live ? " vods-stage--live" : ""}">
+    ${live ? '<div class="vods-stage-shadow" aria-hidden="true"></div>' : ""}
+    <div class="tape" aria-hidden="true"></div>
+    <div class="vods-stage-grid">${inner}</div>
+  </div>`;
 }
 
-function getWatchlist() {
-  return watchlistCache;
-}
-async function toggleWatchlist(id) {
-  watchlistCache = await toggleWatchlistId(id);
-  return watchlistCache;
-}
-
-function formatDate(iso) {
-  if (!iso) return "";
-  try {
-    return new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "long", year: "numeric" }).format(new Date(iso));
-  } catch {
-    return "";
-  }
+function heroTitleHTML(text) {
+  // Long titles get a smaller size; past four lines the CSS clamps them and
+  // the full text stays available as a tooltip.
+  const long = text.length > 64;
+  return `<h2 id="vods-hero-title" class="vods-hero-title${long ? ` vods-hero-title--long" title="${escapeHTML(text)}` : ""}">${escapeHTML(text)}</h2>`;
 }
 
-// Twitch's publishedAt (like the YouTube feeds') carries real clock time, not
-// just a date — gronkh.tv-style archive cards show both, so this pulls the
-// same richer stamp wherever the source data actually supports it.
-function formatDateTime(iso) {
-  if (!iso) return "";
-  try {
-    const d = new Date(iso);
-    const date = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "long", year: "numeric" }).format(d);
-    const time = new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit" }).format(d);
-    return `${date} &middot; ${time} Uhr`;
-  } catch {
-    return "";
-  }
+function metaHTML(items) {
+  const list = items.filter((item) => item && item[1]);
+  if (!list.length) return "";
+  return `<ul class="vods-meta">${list.map(([name, html]) => `<li>${icon(name)}<span>${html}</span></li>`).join("")}</ul>`;
 }
 
-function formatViews(n) {
-  if (n == null || Number.isNaN(n)) return "";
-  try {
-    return new Intl.NumberFormat("de-DE").format(n);
-  } catch {
-    return String(n);
-  }
+function mediaHTML({ href, tone, src, fallback, duration, track }) {
+  const img = src
+    ? `<img src="${escapeHTML(src)}"${fallback && fallback !== src ? ` data-fallback="${escapeHTML(fallback)}"` : ""} alt="" fetchpriority="high" decoding="async">`
+    : `<span class="vods-thumb-fallback">${brandIcon(tone === "yt" ? "youtube" : "twitch")}</span>`;
+  return `
+    <a class="vods-media vods-media--${tone}" href="${escapeHTML(href)}" tabindex="-1" aria-hidden="true" data-track-click="${track}">
+      ${img}
+      <span class="vods-play">${PLAY_ICON}</span>
+      ${duration ? `<span class="video-duration">${duration}</span>` : ""}
+    </a>`;
 }
 
-// Twitch's Helix API returns VOD duration as a compact string like "3h24m10s"
-// (hours/minutes omitted when zero), never as raw seconds — parsed here into
-// the H:MM:SS long-form real streams need, or M:SS for anything under an hour.
-function formatTwitchDuration(raw) {
-  if (!raw) return "";
-  const m = String(raw).match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/);
-  if (!m) return "";
-  const h = Number(m[1] || 0);
-  const mi = Number(m[2] || 0);
-  const s = Number(m[3] || 0);
-  if (!h && !mi && !s) return "";
-  const mm = String(mi).padStart(2, "0");
-  const ss = String(s).padStart(2, "0");
-  return h > 0 ? `${h}:${mm}:${ss}` : `${mi}:${ss}`;
+function offlineNoteHTML() {
+  return `
+    <div class="vods-note">
+      <p class="vods-note-text">
+        <span class="vods-note-status"><span class="vods-note-dot" aria-hidden="true"></span>Gerade offline</span>
+        Folg mir auf Twitch, dann verpasst du den nächsten Stream nicht.
+      </p>
+      <a class="btn btn-sm" href="${TWITCH_CHANNEL_URL}" data-track-click="vods-twitch-follow">${brandIcon("twitch", "vods-ico-twitch")}Auf Twitch folgen</a>
+    </div>`;
 }
 
-// Elapsed time since a live stream's startedAt, ticked locally from data
-// already fetched once at page load — no extra polling/network calls added.
-function formatElapsedSince(iso) {
-  if (!iso) return "";
-  const start = new Date(iso).getTime();
-  if (Number.isNaN(start)) return "";
-  const totalSec = Math.max(0, Math.floor((Date.now() - start) / 1000));
-  const h = Math.floor(totalSec / 3600);
-  const mi = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  const mm = String(mi).padStart(2, "0");
-  const ss = String(s).padStart(2, "0");
-  return h > 0 ? `${h}:${mm}:${ss}` : `${mi}:${ss}`;
+function liveHeroHTML(stream) {
+  const src = `https://player.twitch.tv/?channel=${TWITCH_CHANNEL}&parent=${encodeURIComponent(location.hostname)}&muted=false`;
+  const since = sinceText(stream.startedAt);
+  return stageHTML(
+    `
+    <div class="vods-player">
+      <iframe src="${escapeHTML(src)}" title="Twitch Livestream von ZevKev" allow="autoplay; picture-in-picture" allowfullscreen></iframe>
+    </div>
+    <div class="vods-info">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="badge badge-live">Live</span>
+        <span class="badge vods-badge-twitch">${brandIcon("twitch")}Twitch</span>
+      </div>
+      ${heroTitleHTML(stream.title || "Live auf Twitch")}
+      ${metaHTML([
+        ["gamepad", escapeHTML(stream.game)],
+        ["users", stream.viewers != null ? `${NUMBER.format(stream.viewers)} Zuschauer` : ""],
+        ["clock", since ? `<span data-live-since="${escapeHTML(stream.startedAt)}">${since}</span>` : ""],
+      ])}
+      <div class="vods-actions">
+        <a class="btn btn-twitch" href="${TWITCH_CHANNEL_URL}" data-track-click="vods-live-twitch">${brandIcon("twitch")}Auf Twitch öffnen</a>
+        <a class="btn" href="${TWITCH_CHANNEL_URL}" data-track-click="vods-live-chat">${icon("chat")}Zum Twitch Chat</a>
+      </div>
+    </div>`,
+    { live: true }
+  );
 }
 
-// Fisher-Yates: used to pick a handful of "Aus dem Archiv" cards that don't
-// repeat in the same order every reload (see renderTwitchArchive below).
-function shuffledSample(list, n) {
-  const copy = [...list];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy.slice(0, n);
+function vodHeroHTML(vod) {
+  return stageHTML(`
+    ${mediaHTML({
+      href: vod.url,
+      tone: "twitch",
+      src: vod.thumbnail && twitchThumbLarge(vod.thumbnail),
+      fallback: vod.thumbnail,
+      duration: clockText(vod.seconds),
+      track: `vods-hero-twitch-${vod.id}`,
+    })}
+    <div class="vods-info">
+      <span class="badge vods-badge-twitch">${brandIcon("twitch")}Neuster Stream</span>
+      ${heroTitleHTML(vod.title)}
+      ${metaHTML([
+        ["calendar", dateHTML(vod.publishedAt, { long: true, withTime: true })],
+        ["eye", vod.views != null ? viewsText(vod.views) : ""],
+      ])}
+      <div class="vods-actions">
+        <a class="btn btn-twitch" href="${vod.url}" data-track-click="vods-hero-twitch-${vod.id}">${PLAY_ICON}Auf Twitch ansehen</a>
+      </div>
+      ${offlineNoteHTML()}
+    </div>`);
 }
 
-async function loadJSON(url, fallback) {
-  try {
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) throw new Error(String(res.status));
-    return await res.json();
-  } catch (err) {
-    console.warn(`Could not load ${url}:`, err);
-    return fallback;
-  }
+function plusHeroHTML(video, twitchOn) {
+  const text = excerpt(video.description);
+  return stageHTML(`
+    ${mediaHTML({
+      href: video.url,
+      tone: "yt",
+      src: `https://i.ytimg.com/vi/${video.id}/maxresdefault.jpg`,
+      fallback: video.thumbnail,
+      track: `vods-hero-yt-${video.id}`,
+    })}
+    <div class="vods-info">
+      <span class="badge vods-badge-yt">${brandIcon("youtube")}Neustes Video</span>
+      ${heroTitleHTML(video.title)}
+      ${metaHTML([["calendar", dateHTML(video.publishedAt, { long: true })]])}
+      ${text ? `<p class="vods-excerpt">${escapeHTML(text)}</p>` : ""}
+      <div class="vods-actions">
+        <a class="btn btn-yt" href="${video.url}" data-track-click="vods-hero-yt-${video.id}">${PLAY_ICON}Auf YouTube ansehen</a>
+      </div>
+      ${twitchOn ? offlineNoteHTML() : ""}
+    </div>`);
 }
 
-// Shown the instant the page mounts, before the data fetches below resolve,
-// so the layout is never a blank gap on the mat. Deliberately plain (no
-// .rip) and sized to the final content's footprint, matching the shimmer
-// convention already used for the shop grid (see js/catalog.js) — swapped
-// out in full by the render* calls at the end of init() once data is in.
-function renderSkeletons() {
-  if (heroPlayer) {
-    heroPlayer.innerHTML = `<div class="skeleton-card player-skeleton"></div>`;
-  }
-  if (chatCol && TWITCH_ENABLED) {
-    chatCol.innerHTML = `<div class="skeleton-card chat-skeleton"></div>`;
-  }
-  if (twitchVodRow && TWITCH_ENABLED) {
-    twitchVodRow.innerHTML = Array.from({ length: 4 }, () => `<div class="skeleton-card"></div>`).join("");
-  }
-  if (vodGrid) {
-    vodGrid.innerHTML = Array.from({ length: 6 }, () => `<div class="skeleton-card"></div>`).join("");
-  }
+// YouTube answers a missing maxresdefault.jpg with a 120x90 placeholder
+// (sometimes as an error, sometimes as a "loaded" image), so both count.
+function wireImageFallbacks(root) {
+  root.querySelectorAll("img[data-fallback]").forEach((img) => {
+    const swap = () => {
+      const next = img.dataset.fallback;
+      if (!next) return;
+      img.removeAttribute("data-fallback");
+      img.src = next;
+    };
+    const check = () => {
+      if (img.naturalWidth > 0 && img.naturalWidth <= 120) swap();
+    };
+    img.addEventListener("error", swap, { once: true });
+    img.addEventListener("load", check);
+    if (img.complete) {
+      if (img.naturalWidth === 0) swap();
+      else check();
+    }
+  });
 }
 
-let liveTickerId = null;
-// Hero player tracking state -- one active tracker/player instance at a
-// time (only one of the three renderPlayer() branches ever runs), reset via
-// resetHeroPlayer() at the top of every renderPlayer() call.
-let heroWatchTracker = null;
-let heroTwitchPlayer = null;
-let heroYTPlayer = null;
-
-function resetHeroPlayer() {
-  if (liveTickerId) {
-    clearInterval(liveTickerId);
-    liveTickerId = null;
-  }
-  heroWatchTracker?.destroy();
-  heroWatchTracker = null;
-  // No documented Twitch.Player.destroy() -- the innerHTML swap that follows
-  // this call already tears down its iframe; just drop the reference.
-  heroTwitchPlayer = null;
-  heroYTPlayer?.destroy?.();
-  heroYTPlayer = null;
-}
-
-function startLiveElapsedTicker(startedAtIso) {
-  if (liveTickerId) clearInterval(liveTickerId);
-  liveTickerId = setInterval(() => {
-    const el = document.getElementById("live-elapsed");
+let sinceTimer = 0;
+function startSinceTicker() {
+  clearInterval(sinceTimer);
+  sinceTimer = setInterval(() => {
+    const el = document.querySelector("[data-live-since]");
     if (!el) {
-      clearInterval(liveTickerId);
-      liveTickerId = null;
+      clearInterval(sinceTimer);
       return;
     }
-    el.textContent = formatElapsedSince(startedAtIso);
+    el.textContent = sinceText(el.dataset.liveSince);
   }, 30000);
 }
 
-// Priority for the hero: live on Twitch > latest Twitch VOD (archived
-// broadcast) > latest YouTube video, only falling that far back if nothing
-// has ever aired on Twitch yet. Untouched from the original logic — only the
-// markup each branch renders got richer, and now lands in the full-bleed
-// hero's #vod-hero-player instead of a boxed card below the page title.
-function renderPlayer(status, latestTwitchVod, latestYoutubeVideo) {
-  if (!heroPlayer) return;
-  resetHeroPlayer();
+function renderHero({ twitchOn, live, vods, videos }) {
+  const hero = els.hero;
+  let html = "";
+  if (live) html = liveHeroHTML(live);
+  else if (twitchOn && vods?.length) html = vodHeroHTML(vods[0]);
+  else if (videos?.length) html = plusHeroHTML(videos[0], twitchOn);
 
-  if (status.live) {
-    heroPlayer.innerHTML = `
-      <div class="player-wrap player-wrap--live rip">
-        <div id="twitch-hero-target" style="width:100%;height:100%;"></div>
-      </div>
-      <div class="vod-hero-status">
-        <span class="status-badge is-live"><span class="dot"></span> Live</span>
-        <h1 class="vod-hero-title">${status.title || "Live auf Twitch"}</h1>
-        <div class="player-stats">
-          ${status.game ? `<span class="stat">${gameIcon()}${status.game}</span>` : ""}
-          ${status.viewerCount != null ? `<span class="stat">${eyeIcon()}${formatViews(status.viewerCount)} Zuschauer</span>` : ""}
-          ${status.startedAt ? `<span class="stat">${clockIcon()}seit <span id="live-elapsed">${formatElapsedSince(status.startedAt)}</span></span>` : ""}
-        </div>
-        <div class="vod-hero-actions">
-          <a class="vod-hero-btn vod-hero-btn--primary" href="/live/">Jetzt zuschauen</a>
-          <a class="vod-hero-btn vod-hero-btn--ghost" href="https://www.twitch.tv/${TWITCH_CHANNEL}/schedule" target="_blank" rel="noopener">Zeitplan</a>
-        </div>
-      </div>`;
-    if (status.startedAt) startLiveElapsedTicker(status.startedAt);
-
-    // Same visual result as the old plain iframe (the SDK injects its own
-    // iframe as a child of #twitch-hero-target, still matched by the
-    // existing `.player-wrap iframe { width:100%; height:100% }` rule since
-    // it's a descendant selector) -- just constructed via the SDK so play/
-    // pause/ended events are available for watch-time tracking. The target
-    // div gets an explicit inline 100%/100% itself: it sits between
-    // `.player-wrap` (which has a definite height from the full-bleed hero's
-    // absolute positioning) and the SDK's iframe (which is `height:100%` via
-    // CSS, not `position:absolute`) -- without an explicit height in between,
-    // that percentage chain would resolve against "auto" and collapse.
-    const tracker = createWatchTimeTracker(`live:${TWITCH_CHANNEL}`);
-    heroWatchTracker = tracker;
-    ensureTwitchSDK().then((Twitch) => {
-      const el = document.getElementById("twitch-hero-target");
-      if (!el || heroWatchTracker !== tracker) return; // hero re-rendered before the SDK finished loading
-      heroTwitchPlayer = new Twitch.Player("twitch-hero-target", {
-        channel: TWITCH_CHANNEL,
-        parent: parentHosts(),
-        muted: false,
-        autoplay: true,
-        width: "100%",
-        height: "100%",
-      });
-      attachTwitchTracking(heroTwitchPlayer, Twitch, tracker);
-    });
+  hero.removeAttribute("aria-busy");
+  if (!html) {
+    // Nothing to feature: the sections below show the empty or error state.
+    hero.innerHTML = "";
+    hero.hidden = true;
     return;
   }
-
-  if (TWITCH_ENABLED && latestTwitchVod) {
-    const dur = formatTwitchDuration(latestTwitchVod.duration);
-    const views = latestTwitchVod.viewCount != null ? formatViews(latestTwitchVod.viewCount) : "";
-    heroPlayer.innerHTML = `
-      <div class="player-wrap player-wrap--twitch rip">
-        <div id="twitch-hero-target" style="width:100%;height:100%;"></div>
-      </div>
-      <div class="vod-hero-status">
-        <span class="status-badge is-offline">${twitchIcon()} Offline</span>
-        <h1 class="vod-hero-title">${latestTwitchVod.title}</h1>
-        <div class="player-stats">
-          ${dur ? `<span class="stat">${clockIcon()}${dur}</span>` : ""}
-          ${views ? `<span class="stat">${eyeIcon()}${views} Aufrufe</span>` : ""}
-          <span class="stat">${calendarIcon()}${formatDateTime(latestTwitchVod.publishedAt)}</span>
-        </div>
-        <div class="vod-hero-actions">
-          <a class="vod-hero-btn vod-hero-btn--primary" href="#twitch-vod-row">Weitere VODs</a>
-          <a class="vod-hero-btn vod-hero-btn--ghost" href="https://www.twitch.tv/${TWITCH_CHANNEL}" target="_blank" rel="noopener">Auf Twitch folgen</a>
-        </div>
-      </div>`;
-
-    const tracker = createWatchTimeTracker(latestTwitchVod.id);
-    heroWatchTracker = tracker;
-    ensureTwitchSDK().then((Twitch) => {
-      const el = document.getElementById("twitch-hero-target");
-      if (!el || heroWatchTracker !== tracker) return;
-      heroTwitchPlayer = new Twitch.Player("twitch-hero-target", {
-        video: latestTwitchVod.id,
-        parent: parentHosts(),
-        width: "100%",
-        height: "100%",
-      });
-      attachTwitchTracking(heroTwitchPlayer, Twitch, tracker);
-    });
-    return;
-  }
-
-  if (latestYoutubeVideo) {
-    const explain = TWITCH_ENABLED ? "Noch nichts auf Twitch archiviert. Hier das neueste Video vom VOD Kanal." : "";
-    heroPlayer.innerHTML = `
-      <div class="player-wrap player-wrap--youtube rip">
-        <iframe id="vod-hero-yt-frame" src="https://www.youtube.com/embed/${latestYoutubeVideo.id}?enablejsapi=1&origin=${encodeURIComponent(location.origin)}" title="${escapeHTML(latestYoutubeVideo.title)}" allowfullscreen></iframe>
-      </div>
-      <div class="vod-hero-status">
-        ${TWITCH_ENABLED ? `<span class="status-badge is-offline">${youtubeIcon()} Offline</span>` : ""}
-        <h1 class="vod-hero-title">${latestYoutubeVideo.title}</h1>
-        ${explain ? `<p class="vod-hero-explain">${explain}</p>` : ""}
-        <div class="player-stats"><span class="stat">${calendarIcon()}${formatDate(latestYoutubeVideo.publishedAt)}</span></div>
-        <div class="vod-hero-actions">
-          <a class="btn-youtube" href="${latestYoutubeVideo.url}" target="_blank" rel="noopener">${youtubeIcon()} Auf YouTube ansehen</a>
-        </div>
-      </div>`;
-
-    // Same iframe, same src video -- just enablejsapi/origin added so the YT
-    // IFrame API can attach to this already-in-DOM element (per its own
-    // documented "existing iframe" mode) without rebuilding the URL. No
-    // autoplay param before or after this change, so playback behavior is
-    // identical to the original iframe.
-    const tracker = createWatchTimeTracker(latestYoutubeVideo.id);
-    heroWatchTracker = tracker;
-    ensureYouTubeAPI().then((YT) => {
-      const el = document.getElementById("vod-hero-yt-frame");
-      if (!el || heroWatchTracker !== tracker) return;
-      heroYTPlayer = new YT.Player("vod-hero-yt-frame", {
-        events: { onStateChange: onYTStateChange(YT, tracker) },
-      });
-    });
-    return;
-  }
-
-  heroPlayer.innerHTML = `
-    <div class="player-wrap player-empty rip">
-      <div class="empty-state">
-        <h2>Noch keine Videos</h2>
-        <p>Schau später nochmal vorbei.</p>
-      </div>
-    </div>`;
+  hero.innerHTML = html;
+  hero.removeAttribute("aria-label");
+  hero.setAttribute("aria-labelledby", "vods-hero-title");
+  wireImageFallbacks(hero);
+  if (live) startSinceTicker();
 }
 
-// Offline: the chat column stays fully empty and collapsed (not even a
-// placeholder note) rather than taking up space beside the player -- the
-// player itself is flex:1, so with the chat column gone it reclaims the
-// full hero width. Only a real live stream gets the column back.
-function renderChat(status) {
-  if (!chatCol || !TWITCH_ENABLED) return;
-  if (!status.live) {
-    chatCol.innerHTML = "";
-    chatCol.style.display = "none";
-    return;
-  }
-  chatCol.style.display = "";
-  chatCol.innerHTML = `
-    <div class="chat-panel rip rip--b">
-      <h2>Live Chat</h2>
-      <div class="chat-frame-wrap">
-        <iframe src="https://www.twitch.tv/embed/${TWITCH_CHANNEL}/chat?${parentParams()}&darkpopout"></iframe>
-      </div>
-      <div class="chat-login-row" id="chat-login-row"></div>
-    </div>`;
-  mountChatLogin();
+// ---------- Grids ----------
+function cardClass(index) {
+  return ["paper", TEARS[index % TEARS.length], "paper-lift", "video-card", "reveal"].filter(Boolean).join(" ");
 }
 
-async function mountChatLogin() {
-  const row = document.getElementById("chat-login-row");
-  if (!row) return;
-  const stored = getToken();
+const SEP = '<span class="vods-sep" aria-hidden="true">·</span>';
 
-  if (!stored) {
-    row.innerHTML = `<button class="btn-twitch-login" id="twitch-login-btn">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/></svg>
-      Mit Twitch einloggen, um zu schreiben
-    </button>`;
-    document.getElementById("twitch-login-btn").addEventListener("click", startLogin);
-    return;
-  }
-
-  row.innerHTML = `<p class="chat-send-note">Lade dein Twitch Profil…</p>`;
-  try {
-    const user = await getCurrentUser(stored.accessToken);
-    if (!user) throw new Error("no user");
-    const broadcasterId = await resolveBroadcasterId(stored.accessToken, TWITCH_CHANNEL);
-
-    row.innerHTML = `
-      <div class="chat-user">
-        <img src="${user.profile_image_url}" alt="">
-        <span class="name">${user.display_name}</span>
-        <button class="cart-item-remove" id="twitch-logout-btn" style="margin-left:auto;">Abmelden</button>
-      </div>
-      <div class="chat-send-row">
-        <input type="text" id="chat-send-input" placeholder="Nachricht an den Chat" maxlength="500">
-        <button id="chat-send-btn">Senden</button>
-      </div>
-      <p class="chat-send-note" id="chat-send-status"></p>`;
-
-    document.getElementById("twitch-logout-btn").addEventListener("click", () => logout());
-
-    const input = document.getElementById("chat-send-input");
-    const sendBtn = document.getElementById("chat-send-btn");
-    const status = document.getElementById("chat-send-status");
-
-    async function send() {
-      const message = input.value.trim();
-      if (!message || !broadcasterId) return;
-      sendBtn.disabled = true;
-      try {
-        await sendChatMessage(stored.accessToken, broadcasterId, user.id, message);
-        input.value = "";
-        status.textContent = "Gesendet.";
-        setTimeout(() => (status.textContent = ""), 2000);
-      } catch (err) {
-        console.error("Send chat message failed:", err);
-        status.textContent = "Senden fehlgeschlagen.";
-      } finally {
-        sendBtn.disabled = false;
-      }
-    }
-    sendBtn.addEventListener("click", send);
-    input.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter") send();
-    });
-  } catch (err) {
-    console.error("Twitch profile load failed:", err);
-    row.innerHTML = `<p class="chat-send-note">Twitch Login abgelaufen. <button class="btn-twitch-login" id="twitch-relogin-btn">Erneut einloggen</button></p>`;
-    document.getElementById("twitch-relogin-btn")?.addEventListener("click", startLogin);
-  }
+function thumbFallbackHTML(tone) {
+  return `<span class="vods-thumb-fallback">${brandIcon(tone === "yt" ? "youtube" : "twitch")}</span>`;
 }
 
-// ---------- YouTube VOD-channel archive (unchanged behaviour) ----------
-
-function vodCardHTML(video, watchlist) {
-  const saved = watchlist.has(video.id);
+function twitchCardHTML(vod, index) {
+  const duration = clockText(vod.seconds);
+  const meta = [dateHTML(vod.publishedAt), vod.views != null ? viewsText(vod.views) : ""].filter(Boolean).join(SEP);
   return `
-  <a href="${video.url}" target="_blank" rel="noopener" class="vod-card rip reveal">
-    <div class="vod-thumb">
-      <img src="${video.thumbnail}" alt="" loading="lazy">
-      <span class="yt-play-overlay" aria-hidden="true"><span class="yt-play-circle">${playIcon()}</span></span>
-      <button class="watchlist-toggle${saved ? " is-saved" : ""}" data-watch-id="${video.id}" aria-label="Zur Watchlist" onclick="event.preventDefault()">${starIcon(saved)}</button>
+  <a class="${cardClass(index)}" href="${vod.url}" data-track-click="twitch-vod-${vod.id}" data-impression="twitch-vod:${vod.id}">
+    <div class="video-thumb">
+      ${vod.thumbnail ? `<img src="${escapeHTML(vod.thumbnail)}" alt="" loading="lazy" decoding="async">` : thumbFallbackHTML("twitch")}
+      ${duration ? `<span class="video-duration">${duration}</span>` : ""}
     </div>
-    <h3>${video.title}</h3>
-    <div class="vod-date">${formatDate(video.publishedAt)}</div>
+    <div class="video-title">${escapeHTML(vod.title)}</div>
+    ${meta ? `<div class="video-meta">${meta}</div>` : ""}
   </a>`;
 }
 
-function orderVods(list, sort) {
-  // Both branches copy before sorting -- `list` is a filtered *view* over
-  // the shared `videos` array (see renderVods), an in-place .sort() would
-  // corrupt the underlying order for whichever tab/sort is picked next.
-  if (sort === "old") return [...list].sort((a, b) => new Date(a.publishedAt) - new Date(b.publishedAt));
-  return [...list].sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
-}
-
-// Mirrors js/youtube.js's own renderSortBar -- only shown once there's
-// enough in this tab to be worth reordering (same reasoning as
-// renderTwitchArchive's own gate further down: sorting three-or-fewer
-// cards isn't a real second angle on the data).
-function renderVodSortBar(videos, list, mode) {
-  if (!vodSortBar) return;
-  if (list.length < 4) {
-    vodSortBar.innerHTML = "";
-    return;
-  }
-  vodSortBar.innerHTML = `
-    <button type="button" class="yt-sort-btn${vodSortMode === "new" ? " is-active" : ""}" data-sort="new">Neueste</button>
-    <button type="button" class="yt-sort-btn${vodSortMode === "old" ? " is-active" : ""}" data-sort="old">Älteste</button>`;
-  vodSortBar.querySelectorAll(".yt-sort-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      if (btn.dataset.sort === vodSortMode) return;
-      vodSortMode = btn.dataset.sort;
-      vodVisibleCount = VOD_PAGE_SIZE;
-      renderVods(videos, mode);
-    });
-  });
-}
-
-// Same "reveal a page at a time, re-render rather than append" pattern as
-// js/youtube.js's own renderLoadMore -- see that file's comment for why.
-function renderVodLoadMore(videos, mode, shownCount, totalCount) {
-  if (!vodLoadMore) return;
-  if (shownCount >= totalCount) {
-    vodLoadMore.innerHTML = "";
-    return;
-  }
-  vodLoadMore.innerHTML = `<button type="button" class="filter-pill rip yt-load-more-btn">${chevronDownIcon()}Weitere Videos laden &middot; noch ${totalCount - shownCount}</button>`;
-  vodLoadMore.querySelector(".yt-load-more-btn").addEventListener("click", () => {
-    vodVisibleCount += VOD_PAGE_SIZE;
-    renderVods(videos, mode);
-    vodLoadMore.querySelector(".yt-load-more-btn")?.focus();
-  });
-}
-
-function renderVods(videos, mode) {
-  if (!vodGrid) return;
-  const watchlist = getWatchlist();
-  const byMode = mode === "watchlist" ? videos.filter((v) => watchlist.has(v.id)) : videos;
-
-  const query = vodSearchQuery.trim().toLowerCase();
-  const list = query ? byMode.filter((v) => v.title.toLowerCase().includes(query)) : byMode;
-
-  renderVodSortBar(videos, list, mode);
-
-  if (!list.length) {
-    let html;
-    if (query) {
-      html = `<div class="empty-state">${emptyArchiveIcon()}<h2>Keine Treffer</h2><p>Keine Videos gefunden für „${escapeHTML(vodSearchQuery.trim())}".</p></div>`;
-    } else {
-      const icon = mode === "watchlist" ? `<svg class="yt-empty-icon" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z"/></svg>` : emptyArchiveIcon();
-      html = `<div class="empty-state">${icon}<h2>${mode === "watchlist" ? "Watchlist ist leer" : "Noch keine Videos"}</h2><p>${mode === "watchlist" ? "Speicher Videos mit dem Stern, um sie hier wiederzufinden." : "Schau bald wieder vorbei."}</p></div>`;
-    }
-    vodGrid.innerHTML = html;
-    renderVodLoadMore(videos, mode, 0, 0);
-    return;
-  }
-  const ordered = orderVods(list, vodSortMode);
-  const shown = ordered.slice(0, vodVisibleCount);
-  vodGrid.innerHTML = shown.map((v) => vodCardHTML(v, watchlist)).join("");
-  vodGrid.querySelectorAll("[data-watch-id]").forEach((btn) => {
-    btn.addEventListener("click", async (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      const updated = await toggleWatchlist(btn.dataset.watchId);
-      if (mode === "watchlist" && !updated.has(btn.dataset.watchId)) {
-        renderVods(videos, mode);
-      } else {
-        const isSaved = updated.has(btn.dataset.watchId);
-        btn.classList.toggle("is-saved", isSaved);
-        btn.innerHTML = starIcon(isSaved);
-      }
-    });
-  });
-  // vodCardHTML's <a> carries no id of its own, unlike the Twitch cards
-  // below -- its real YouTube video URL (the href it already links to) is
-  // the path value here.
-  observeImpressions(".vod-card", (el) => el.getAttribute("href"), vodGrid);
-  // Real bug this fixed: see js/reveal.js's comment -- this page never
-  // wired up the scroll-triggered reveal for these cards at all, only ever
-  // looking fine because css/vods.css's .vod-card carried its own immediate
-  // (non-scroll-triggered) fade-in, independent of scroll position.
-  initReveal(vodGrid);
-
-  renderVodLoadMore(videos, mode, shown.length, ordered.length);
-}
-
-function mountTabs(videos) {
-  if (!sectionHead) return;
-  const watchlistCount = videos.filter((v) => getWatchlist().has(v.id)).length;
-  sectionHead.innerHTML = `
-    <button class="filter-pill rip rip--accent is-active" data-mode="all">Alle Videos${videos.length ? ` (${videos.length})` : ""}</button>
-    <button class="filter-pill rip" data-mode="watchlist">${starIcon(false)} Meine Watchlist${watchlistCount ? ` (${watchlistCount})` : ""}</button>`;
-  sectionHead.querySelectorAll(".filter-pill").forEach((pill) => {
-    pill.addEventListener("click", () => {
-      sectionHead.querySelectorAll(".filter-pill").forEach((p) => p.classList.remove("is-active"));
-      pill.classList.add("is-active");
-      vodActiveMode = pill.dataset.mode;
-      vodVisibleCount = VOD_PAGE_SIZE; // fresh first page for the newly selected tab
-      vodSortMode = "new"; // and its own natural chronological order
-      renderVods(videos, vodActiveMode);
-    });
-  });
-}
-
-// Same reasoning as js/youtube.js's own mountSearch -- own always-present
-// search box, re-renders the currently active tab on every keystroke.
-function mountVodSearch(videos) {
-  if (!vodSearchInput) return;
-  vodSearchInput.addEventListener("input", () => {
-    vodSearchQuery = vodSearchInput.value;
-    vodSearchClear.hidden = !vodSearchQuery;
-    vodVisibleCount = VOD_PAGE_SIZE;
-    renderVods(videos, vodActiveMode);
-  });
-  vodSearchClear?.addEventListener("click", () => {
-    vodSearchInput.value = "";
-    vodSearchQuery = "";
-    vodSearchClear.hidden = true;
-    vodVisibleCount = VOD_PAGE_SIZE;
-    renderVods(videos, vodActiveMode);
-    vodSearchInput.focus();
-  });
-}
-
-// ---------- Twitch VOD archive ----------
-// The core of the gronkh.tv-style upgrade: past Twitch broadcasts get their
-// own horizontal shelf ("Die neusten Streams") plus a second "Aus dem
-// Archiv" discovery shelf, each card carrying the two real fields Twitch's
-// API adds on top that YouTube's RSS feed doesn't — duration and view count.
-//
-// Deliberately NOT built here, and why:
-// - A stream/episode number: Twitch's Get Videos endpoint has no such field,
-//   and the archive only ever holds the last ~12 broadcasts (this site's
-//   fetch script caps `first=12`), so a position-based "#N" would silently
-//   renumber itself as old VODs roll off — presenting a fake stable index.
-// - A "trending, last 30 days" row: the API gives a single lifetime
-//   view_count snapshot, not a time-windowed one, so there's no honest way
-//   to build that metric. A most-viewed sort is offered instead (see the
-//   sort pills below), labelled for what it actually is.
-// - A hero slide-selector cycling between multiple "featured" options:
-//   there's only ever one latest item per priority tier shown in the hero at
-//   a time (live, or the newest VOD, or the newest YouTube video) — nothing
-//   to flip between yet.
-
-function hasViewVariance(vods) {
-  const vals = new Set(vods.map((v) => v.viewCount ?? 0));
-  return vals.size > 1;
-}
-
-function twitchVodCardHTML(vod, tone = "") {
-  const dur = formatTwitchDuration(vod.duration);
-  const views = vod.viewCount != null ? formatViews(vod.viewCount) : "";
-  const classes = ["vod-card", "rip", tone, "reveal"].filter(Boolean).join(" ");
+function plusCardHTML(video, index) {
+  const date = dateHTML(video.publishedAt);
   return `
-  <a href="/vod/${vod.id}/" class="${classes}" data-twitch-vod-id="${vod.id}">
-    <div class="vod-thumb">
-      <img src="${vod.thumbnail}" alt="" loading="lazy">
-      <span class="yt-play-overlay" aria-hidden="true"><span class="yt-play-circle">${playIcon()}</span></span>
-      ${dur ? `<span class="vod-duration-badge">${dur}</span>` : ""}
+  <a class="${cardClass(index)}" href="${video.url}" data-track-click="yt-vod-${video.id}" data-impression="yt-vod:${video.id}">
+    <div class="video-thumb">
+      <img src="${escapeHTML(video.thumbnail)}" alt="" loading="lazy" decoding="async">
     </div>
-    <h3>${vod.title}</h3>
-    <div class="twitch-card-meta">
-      <span class="vod-date">${formatDateTime(vod.publishedAt)}</span>
-      ${views ? `<span class="twitch-card-views">${eyeIcon()}${views}</span>` : ""}
-    </div>
+    <div class="video-title">${escapeHTML(video.title)}</div>
+    ${date ? `<div class="video-meta">${date}</div>` : ""}
   </a>`;
 }
 
-// Shelf-arrow wiring, ported from js/youtube.js's own initShelf -- reuses
-// css/youtube.css's .yt-shelf-wrap/.yt-shelf-nav chrome around a .vod-row
-// track (a pure positioning wrapper + absolutely-positioned buttons, so it
-// doesn't care which track class sits inside it). Called once per wrap in
-// init() (the buttons themselves are static markup, not regenerated per
-// render) -- returns the updateNav function so later re-renders of the same
-// track (the sort-toggle click below) can re-check arrow visibility without
-// re-attaching a second set of scroll/resize listeners.
-function initShelf(wrapEl) {
-  const track = wrapEl?.querySelector(".vod-row");
-  const prev = wrapEl?.querySelector(".yt-shelf-nav--prev");
-  const next = wrapEl?.querySelector(".yt-shelf-nav--next");
-  if (!track || !prev || !next) return null;
-
-  prev.addEventListener("click", () => track.scrollBy({ left: -track.clientWidth * 0.85, behavior: "smooth" }));
-  next.addEventListener("click", () => track.scrollBy({ left: track.clientWidth * 0.85, behavior: "smooth" }));
-
-  const updateNav = () => {
-    const canScroll = track.scrollWidth > track.clientWidth + 4;
-    prev.classList.toggle("is-hidden", !canScroll || track.scrollLeft <= 10);
-    next.classList.toggle("is-hidden", !canScroll || track.scrollLeft >= track.scrollWidth - track.clientWidth - 10);
-  };
-  track.addEventListener("scroll", updateNav, { passive: true });
-  window.addEventListener("resize", updateNav);
-  requestAnimationFrame(updateNav);
-  setTimeout(updateNav, 300);
-  return updateNav;
+function noteHTML({ tone, iconName, title, text, actions = "" }) {
+  return `
+  <div class="paper paper-${tone} vods-empty">
+    <span class="vods-empty-icon">${icon(iconName)}</span>
+    <h3 class="vods-empty-title">${title}</h3>
+    <p>${text}</p>
+    ${actions ? `<div class="vods-empty-actions">${actions}</div>` : ""}
+  </div>`;
 }
-let updateTwitchVodShelfNav = null;
-let updateTwitchSpotlightShelfNav = null;
 
-function paintTwitchRow(list) {
-  if (!twitchVodRow) return;
-  if (!list.length) {
-    twitchVodRow.innerHTML = `<div class="empty-state">${emptyArchiveIcon()}<h2>Noch keine Twitch VODs</h2><p>Hier sammeln sich vergangene Streams, sobald welche archiviert sind. Bis dahin gibt's unten die YouTube Videos.</p></div>`;
-    updateTwitchVodShelfNav?.();
+const RELOAD_BUTTON = `<button type="button" class="btn btn-sm" data-reload>${icon("refresh")}Neu laden</button>`;
+
+// Impressions once per card, reveal for every new card.
+function activateCards(root) {
+  const fresh = "[data-impression]:not([data-impression-bound])";
+  observeImpressions(fresh, (el) => el.dataset.impression, root);
+  root.querySelectorAll(fresh).forEach((el) => el.setAttribute("data-impression-bound", ""));
+  initReveal(root);
+}
+
+function renderStreams(vods) {
+  const grid = els.streamsGrid;
+  grid.removeAttribute("aria-busy");
+  if (vods === null) {
+    grid.innerHTML = noteHTML({
+      tone: "pink",
+      iconName: "alert",
+      title: "Streams konnten nicht geladen werden",
+      text: "Da hat gerade etwas nicht geklappt. Lade die Seite neu oder schau direkt auf Twitch vorbei.",
+      actions: `${RELOAD_BUTTON}<a class="btn btn-sm btn-twitch" href="${TWITCH_CHANNEL_URL}">${brandIcon("twitch")}Zu Twitch</a>`,
+    });
     return;
   }
-  // Cards are plain links to their own /vod/<id>/ page (see twitchVodCardHTML
-  // above) -- no click handling needed here, native navigation already does
-  // the right thing (including ctrl/cmd/middle-click opening a new tab).
-  twitchVodRow.innerHTML = list.map((v) => twitchVodCardHTML(v)).join("");
-  observeImpressions("[data-twitch-vod-id]", (el) => el.dataset.twitchVodId, twitchVodRow);
-  initReveal(twitchVodRow);
-  updateTwitchVodShelfNav?.();
+  if (!vods.length) {
+    grid.innerHTML = noteHTML({
+      tone: "sky",
+      iconName: "history",
+      title: "Gerade keine Streams im Archiv",
+      text: "Twitch hebt vergangene Streams nur eine Weile auf. Sobald wieder einer da ist, findest du ihn hier.",
+      actions: `<a class="btn btn-sm btn-twitch" href="${TWITCH_CHANNEL_URL}" data-track-click="vods-twitch-empty">${brandIcon("twitch")}Zum Twitch Kanal</a>`,
+    });
+    return;
+  }
+  grid.innerHTML = vods.slice(0, PAGE_SIZE).map(twitchCardHTML).join("");
+  activateCards(grid);
 }
 
-function renderTwitchArchive(vods, featuredId) {
-  if (!twitchVodRow) return;
+const plus = { list: [], sort: "new", shown: 0 };
 
-  // "Aus dem Archiv" shelf: a shuffled handful of past broadcasts distinct
-  // from whatever the hero above is already showing — a second discovery
-  // angle on top of the plain chronological shelf below. Only worth its own
-  // row once there's a real pool of at least 3 other VODs to draw from —
-  // otherwise it's either a duplicate of the featured VOD or a fake
-  // "random" reshuffle of the same handful of cards already visible one
-  // scroll down. The whole heading+row pair is toggled via display, not a
-  // CSS :empty rule, since the heading text isn't JS-generated.
-  if (twitchSpotlightWrap && twitchSpotlightRow) {
-    const pool = vods.filter((v) => v.id !== featuredId);
-    if (vods.length >= 4 && pool.length >= 3) {
-      const picks = shuffledSample(pool, Math.min(6, pool.length));
-      twitchSpotlightRow.innerHTML = picks.map((v) => twitchVodCardHTML(v, "rip--accent")).join("");
-      observeImpressions("[data-twitch-vod-id]", (el) => el.dataset.twitchVodId, twitchSpotlightRow);
-      initReveal(twitchSpotlightRow);
-      twitchSpotlightWrap.style.display = "";
-      updateTwitchSpotlightShelfNav?.();
-    } else {
-      twitchSpotlightRow.innerHTML = "";
-      twitchSpotlightWrap.style.display = "none";
-    }
+function renderPlusPage({ reset = false } = {}) {
+  const grid = els.plusGrid;
+  const ordered = plus.sort === "old" ? [...plus.list].reverse() : plus.list;
+  if (reset) {
+    grid.innerHTML = "";
+    plus.shown = 0;
   }
+  const batch = ordered.slice(plus.shown, plus.shown + PAGE_SIZE);
+  grid.insertAdjacentHTML("beforeend", batch.map((video, i) => plusCardHTML(video, plus.shown + i)).join(""));
+  const firstNew = grid.children[plus.shown] || null;
+  plus.shown += batch.length;
+  els.plusMore.hidden = plus.shown >= ordered.length;
+  activateCards(grid);
+  return firstNew;
+}
 
-  // Sort toggle: only shown once there's enough archive to reorder AND the
-  // view counts actually differ — sorting four identical-looking numbers
-  // isn't a real second angle on the data.
-  if (twitchArchiveHead) {
-    if (vods.length >= 4 && hasViewVariance(vods)) {
-      twitchArchiveHead.innerHTML = `
-        <button class="filter-pill rip rip--accent is-active" data-sort="new">Neueste</button>
-        <button class="filter-pill rip" data-sort="views">Meistgesehen</button>`;
-      twitchArchiveHead.querySelectorAll(".filter-pill").forEach((pill) => {
-        pill.addEventListener("click", () => {
-          twitchArchiveHead.querySelectorAll(".filter-pill").forEach((p) => p.classList.remove("is-active"));
-          pill.classList.add("is-active");
-          const ordered = pill.dataset.sort === "views" ? [...vods].sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0)) : vods;
-          paintTwitchRow(ordered);
+function renderPlus(videos) {
+  const grid = els.plusGrid;
+  grid.removeAttribute("aria-busy");
+  if (!videos || !videos.length) {
+    els.plusMore.hidden = true;
+    grid.innerHTML = videos
+      ? noteHTML({
+          tone: "sky",
+          iconName: "video",
+          title: "Noch keine Videos",
+          text: "Hier ist gerade noch nichts. Schau bald wieder vorbei.",
+        })
+      : noteHTML({
+          tone: "pink",
+          iconName: "alert",
+          title: "Videos konnten nicht geladen werden",
+          text: "Da hat gerade etwas nicht geklappt. Lade die Seite neu oder schau direkt auf YouTube vorbei.",
+          actions: RELOAD_BUTTON,
         });
-      });
-    } else {
-      twitchArchiveHead.innerHTML = "";
-    }
+    return;
   }
-
-  paintTwitchRow(vods);
+  plus.list = videos;
+  els.plusSort.hidden = videos.length < 2;
+  renderPlusPage({ reset: true });
 }
 
+function wireControls() {
+  els.plusSort.addEventListener("click", (ev) => {
+    const btn = ev.target.closest("[data-sort]");
+    if (!btn || btn.dataset.sort === plus.sort) return;
+    plus.sort = btn.dataset.sort;
+    els.plusSort.querySelectorAll("[data-sort]").forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+    renderPlusPage({ reset: true });
+  });
+  els.plusMore.addEventListener("click", () => {
+    const firstNew = renderPlusPage();
+    // The button disappears after the last page, so focus moves to the new cards.
+    if (els.plusMore.hidden) firstNew?.focus({ preventScroll: true });
+  });
+  document.addEventListener("click", (ev) => {
+    if (ev.target.closest?.("[data-reload]")) location.reload();
+  });
+}
+
+// ---------- Init ----------
 async function init() {
-  // Doesn't depend on the feed, so it's wired up immediately rather than
-  // waiting on the fetch below -- same reasoning as js/youtube.js's init().
-  initHeroScrollObserver();
-  renderSkeletons();
+  if (!els.hero || !els.plusGrid) return;
+  wireControls();
 
-  // js/flags.js fires this once its background Firestore check finds the
-  // site-wide Twitch flag differs from what this page already loaded with
-  // (e.g. an admin flipped it in /privat/ while this tab was open). This
-  // page's whole init() branches on TWITCH_ENABLED once at load time (the
-  // Twitch VOD/spotlight shelves, hero chat column, etc. only ever get
-  // fetched/rendered under the original value), so a clean reload is the
-  // safe way to pick that up -- no risk of a live Twitch player/chat iframe
-  // or watch-time tracker being left half torn-down by a partial re-render.
-  window.addEventListener("zevkev:twitch-flag-updated", () => location.reload(), { once: true });
+  const plusRequest = loadJSON(DATA.plus);
+  const twitchOn = await twitchEnabled();
+  document.title = twitchOn ? "Mehr | ZevKev" : "ZevKev+ | ZevKev";
 
-  if (TWITCH_ENABLED) {
-    if (consumeRedirect()) {
-      // same-tab fallback path only; the popup path notifies via onAuthChange
-    }
-    onAuthChange(() => mountChatLogin());
-  }
+  const [status, twitchData, plusData] = await Promise.all([
+    twitchOn ? loadJSON(DATA.live) : null,
+    twitchOn ? loadJSON(DATA.twitch) : null,
+    plusRequest,
+  ]);
 
-  // Safety net -- see the matching comment in js/youtube.js's init(): a
-  // stuck skeleton with no explanation reads as "the page shows no content"
-  // to a visitor, so any unexpected failure here now shows a real message
-  // instead.
-  try {
-    const [status, twitchFeed, feed] = await Promise.all([
-      TWITCH_ENABLED ? loadJSON("/assets/data/live-status.json", { live: false }) : Promise.resolve({ live: false }),
-      TWITCH_ENABLED ? loadJSON("/assets/data/twitch-vods.json", { videos: [] }) : Promise.resolve({ videos: [] }),
-      loadJSON("/assets/data/videos.json", { videos: [] }),
-      getWatchlistIds().then((set) => (watchlistCache = set)),
-    ]);
+  const live = twitchOn ? liveStream(status) : null;
+  const vods = twitchOn ? normalizeTwitchVods(twitchData) : null;
+  const videos = normalizePlusVideos(plusData);
+  if (plusData) els.plusChannel.href = plusChannelUrl(plusData);
 
-    const videos = feed.videos || [];
-    const twitchVods = twitchFeed.videos || [];
-
-    renderPlayer(status, twitchVods[0], videos[0]);
-    renderChat(status);
-    if (TWITCH_ENABLED) {
-      // Wired once here, after the shelves' first render -- the nav buttons
-      // are static markup (not regenerated per render), so re-running
-      // initShelf on every sort-toggle click would just stack up duplicate
-      // scroll/resize listeners. paintTwitchRow/renderTwitchArchive call the
-      // returned updateNav functions directly on every later re-render.
-      updateTwitchVodShelfNav = initShelf(document.getElementById("twitch-vod-shelf-wrap"));
-      updateTwitchSpotlightShelfNav = initShelf(document.getElementById("twitch-spotlight-shelf-wrap"));
-      renderTwitchArchive(twitchVods, twitchVods[0]?.id);
-    }
-    mountTabs(videos);
-    mountVodSearch(videos);
-    renderVods(videos, "all");
-  } catch (err) {
-    console.error("Mehr page init failed:", err);
-    if (vodGrid) vodGrid.innerHTML = `<div class="empty-state"><h2>Etwas ist schiefgelaufen</h2><p>Bitte lade die Seite neu.</p></div>`;
-  }
+  renderHero({ twitchOn, live, vods, videos });
+  if (twitchOn) renderStreams(vods);
+  renderPlus(videos);
 }
 
-init();
+init().catch((err) => {
+  console.error("Mehr Seite konnte nicht aufgebaut werden:", err);
+  els.hero.hidden = true;
+  renderStreams(null);
+  renderPlus(null);
+});

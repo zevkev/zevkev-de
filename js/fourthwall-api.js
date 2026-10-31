@@ -1,89 +1,133 @@
-// Thin client for the Fourthwall Storefront API (public read + cart-creation
-// token only — never the admin/HMAC credentials from Fourthwall settings).
+// Thin client for the Fourthwall Storefront API. Uses only the public
+// storefront token (product reads and carts), never admin credentials.
 // Docs: https://docs.fourthwall.com/reference/storefront-api
-import { FOURTHWALL_STOREFRONT_TOKEN } from "./config.js";
+//
+// Verified against the live API:
+// - Prices: every request asks for currency=EUR, so Fourthwall converts with
+//   the same rate its hosted checkout charges. No conversion happens here.
+// - Paging: the API ignores per_page. The real params are page (0 based) and
+//   size, and the default page size is 10, so lists are fetched page by page
+//   until paging.hasNextPage is false.
+// - Carts: Fourthwall rejects PUT/PATCH/DELETE at its edge (a 403 without
+//   CORS headers, which the browser reports as a CORS error). Cart changes
+//   use the POST endpoints, each returning the full updated cart:
+//     POST /carts                 { items: [{ variantId, quantity }] }  new cart
+//     POST /carts/{id}/add        { items: [{ variantId, quantity }] }  adds or increments a line
+//     POST /carts/{id}/change     { items: [{ variantId, quantity }] }  sets a line's quantity
+//     POST /carts/{id}/remove     { items: [{ variantId }] }            drops a line
+//   An unknown or expired cart id answers 404 with code CART_NOT_FOUND.
+import { FOURTHWALL_STOREFRONT_TOKEN } from "/js/config.js";
 
 const BASE = "https://storefront-api.fourthwall.com/v1";
+const PAGE_SIZE = 50;
+const MAX_PAGES = 20;
 
-async function request(path, opts = {}) {
-  if (!FOURTHWALL_STOREFRONT_TOKEN) {
-    throw new Error("FOURTHWALL_STOREFRONT_TOKEN is not set in js/config.js");
+export class FourthwallError extends Error {
+  constructor(status, path, body) {
+    super(`Fourthwall API ${status} on ${path}`);
+    this.name = "FourthwallError";
+    this.status = status;
+    this.code = body?.code || null;
   }
+}
+
+async function request(path, { params = {}, body } = {}) {
   const url = new URL(BASE + path);
   url.searchParams.set("storefront_token", FOURTHWALL_STOREFRONT_TOKEN);
-  // Fourthwall's Storefront API accepts a `currency` param on product/
-  // collection/cart endpoints and returns prices pre-converted using
-  // THEIR OWN rate -- the same rate their hosted checkout actually charges.
-  // Previously this site fetched USD prices and converted them itself using
-  // a separately-fetched ECB rate (js/currency.js), which could drift from
-  // Fourthwall's own conversion and show a different price than checkout
-  // actually charged. Requesting EUR directly here guarantees the two
-  // always match, since there's only one conversion happening now, not two.
-  // This site is exclusively for a German audience (see checkoutUrl() in
-  // js/cart.js), so EUR is always correct.
   url.searchParams.set("currency", "EUR");
-  const res = await fetch(url, {
-    ...opts,
-    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
-  });
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, String(value));
+
+  // Content-Type only when there is a body: a plain GET then stays a
+  // "simple" CORS request and skips the preflight round trip.
+  const init = body === undefined
+    ? { method: "GET" }
+    : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+
+  const res = await fetch(url, init);
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`Fourthwall API ${res.status} on ${path}: ${body}`);
+    const data = await res.json().catch(() => null);
+    throw new FourthwallError(res.status, path, data);
   }
   return res.json();
 }
 
-// The Storefront API has no single "replace cart contents" endpoint, and PUT/PATCH/DELETE
-// are rejected outright at Fourthwall's edge — a blanket 403 with no CORS headers at all,
-// regardless of path (verified against /carts/{id}, /carts/{id}/items, and unrelated
-// GET-only routes, both via curl and Node's fetch, so it's not a routing mistake or a
-// client-fingerprinting fluke). That 403-with-no-CORS-headers is exactly what the browser
-// reports as a CORS error on PUT. The real API is action-based and POST-only:
-//   POST /carts/{id}/add    { items: [{ variantId, quantity }] }  adds a line or increments its quantity
-//   POST /carts/{id}/change { items: [{ variantId, quantity }] }  sets a line's quantity outright; lines not listed are left alone
-//   POST /carts/{id}/remove { items: [{ variantId }] }            drops a line entirely (no quantity needed)
-// All three return the full updated cart, same shape as GET /carts/{id}.
-//
-// updateCart(cartId, items) keeps its original "here is the full desired item list"
-// contract (js/cart.js's itemsForUpdate() still builds that full list) by diffing it
-// against the live cart and issuing only the add/change/remove calls needed to match it,
-// so no call sites in cart.js need to change.
-async function updateCart(cartId, items) {
-  const current = await request(`/carts/${cartId}`);
-  const currentQty = new Map(current.items.map((it) => [it.variant.id, it.quantity]));
-  const desiredIds = new Set(items.map((it) => it.variantId));
-
-  const toRemove = [...currentQty.keys()].filter((id) => !desiredIds.has(id));
-  const toAdd = items.filter((it) => !currentQty.has(it.variantId));
-  const toChange = items.filter((it) => currentQty.has(it.variantId) && currentQty.get(it.variantId) !== it.quantity);
-
-  let cart = current;
-  if (toRemove.length) {
-    cart = await request(`/carts/${cartId}/remove`, {
-      method: "POST",
-      body: JSON.stringify({ items: toRemove.map((variantId) => ({ variantId })) }),
-    });
+async function getAllPages(path) {
+  const all = [];
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const data = await request(path, { params: { page, size: PAGE_SIZE } });
+    all.push(...(data.results || []));
+    if (!data.paging?.hasNextPage) break;
   }
-  if (toAdd.length) {
-    cart = await request(`/carts/${cartId}/add`, {
-      method: "POST",
-      body: JSON.stringify({ items: toAdd }),
-    });
-  }
-  if (toChange.length) {
-    cart = await request(`/carts/${cartId}/change`, {
-      method: "POST",
-      body: JSON.stringify({ items: toChange }),
-    });
-  }
-  return cart;
+  return all;
 }
 
 export const FourthwallAPI = {
-  getCollections: () => request("/collections?per_page=50"),
-  getCollectionProducts: (slug) => request(`/collections/${encodeURIComponent(slug)}/products?per_page=100`),
+  getCollections: () => getAllPages("/collections"),
+  getCollectionProducts: (slug) => getAllPages(`/collections/${encodeURIComponent(slug)}/products`),
   getProduct: (slug) => request(`/products/${encodeURIComponent(slug)}`),
-  createCart: (items = []) => request("/carts", { method: "POST", body: JSON.stringify({ items }) }),
-  getCart: (cartId) => request(`/carts/${cartId}`),
-  updateCart,
+
+  createCart: (items) => request("/carts", { body: { items } }),
+  getCart: (cartId) => request(`/carts/${encodeURIComponent(cartId)}`),
+  addToCart: (cartId, items) => request(`/carts/${encodeURIComponent(cartId)}/add`, { body: { items } }),
+  changeCart: (cartId, items) => request(`/carts/${encodeURIComponent(cartId)}/change`, { body: { items } }),
+  removeFromCart: (cartId, variantIds) =>
+    request(`/carts/${encodeURIComponent(cartId)}/remove`, { body: { items: variantIds.map((variantId) => ({ variantId })) } }),
 };
+
+// ---------- Helpers for the product data shape ----------
+// A variant looks like { id, unitPrice: { value, currency }, compareAtPrice,
+// stock: { type: "UNLIMITED" } | { type: "LIMITED", quantity }, images: [...],
+// attributes: { description: "White, S", color: { name, swatch }, size: { name } } }.
+// Every variant carries its own images, identical across the sizes of one
+// color and different between colors.
+
+export function variantInStock(variant) {
+  if (!variant) return false;
+  return !(variant.stock?.type === "LIMITED" && (variant.stock.quantity ?? 0) <= 0);
+}
+
+export function productSoldOut(product) {
+  if (product?.state?.type === "SOLD_OUT") return true;
+  const variants = product?.variants || [];
+  return variants.length > 0 && !variants.some(variantInStock);
+}
+
+export function variantOnSale(variant) {
+  const price = variant?.unitPrice?.value;
+  const compareAt = variant?.compareAtPrice?.value;
+  return price != null && compareAt != null && compareAt > price;
+}
+
+// Cheapest variant (preferring ones in stock) plus whether prices differ, so
+// a card can say "ab 19,17 €" when sizes are priced differently.
+export function priceSummary(product) {
+  const variants = product?.variants || [];
+  const pool = variants.some(variantInStock) ? variants.filter(variantInStock) : variants;
+  let cheapest = null;
+  for (const v of pool) {
+    if (!cheapest || (v.unitPrice?.value ?? Infinity) < (cheapest.unitPrice?.value ?? Infinity)) cheapest = v;
+  }
+  const values = new Set(pool.map((v) => v.unitPrice?.value));
+  return { variant: cheapest, varies: values.size > 1 };
+}
+
+// Images of the first variant with the given color (falls back to the
+// product's own images when the product has no color or no variant images).
+export function imagesForColor(product, colorName) {
+  if (colorName != null) {
+    const variant = (product?.variants || []).find((v) => v.attributes?.color?.name === colorName && v.images?.length);
+    if (variant) return variant.images;
+  }
+  if (product?.images?.length) return product.images;
+  return product?.image ? [product.image] : [];
+}
+
+// Unique colors in variant order: [{ name, swatch }].
+export function productColors(product) {
+  const seen = new Map();
+  for (const v of product?.variants || []) {
+    const c = v.attributes?.color;
+    if (c?.name != null && !seen.has(c.name)) seen.set(c.name, { name: c.name, swatch: c.swatch || null });
+  }
+  return [...seen.values()];
+}

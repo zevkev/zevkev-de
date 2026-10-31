@@ -2,29 +2,37 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Impressum | ZevKev</title>
+<meta name="description" content="Impressum von zevkev.de: Anbieterkennzeichnung, Kontakt und Haftungshinweise.">
 <meta name="robots" content="noindex">
+<link rel="canonical" href="https://zevkev.de/impressum/">
 <link rel="icon" type="image/png" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css">
-<link rel="stylesheet" href="/css/legal.css">
+<link rel="apple-touch-icon" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
+<meta name="theme-color" content="#234d70">
+<link rel="preload" href="/assets/fonts/jost-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/bebas-neue-latin-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/css/app.css">
+<script src="/js/boot.js"></script>
 </head>
 <body>
-
-<script type="module" src="/js/theme.js"></script>
-<script type="module" src="/js/user-theme.js"></script>
-<script type="module" src="/js/consent.js"></script>
-
 <div id="site-header"></div>
 
-<div class="page-body">
-  <div class="container legal-container">
-    <div class="legal-sheet rip">
-      <div class="tape"></div>
-      <h1>Impressum</h1>
+<main id="main" class="page">
+  <div class="container-page">
+    <nav class="seg legal-nav mx-auto mb-8 flex w-fit" aria-label="Rechtliches">
+      <a class="seg-item is-active" href="/impressum/" aria-current="page">Impressum</a>
+      <a class="seg-item" href="/datenschutz/">Datenschutz</a>
+      <a class="seg-item" href="/agb/">AGB</a>
+      <a class="seg-item" href="/widerruf/">Widerrufsrecht</a>
+      <a class="seg-item" href="/kontakt/">Kontakt</a>
+    </nav>
+
+    <article class="paper legal-sheet legal">
+      <div class="tape left-1/2 -translate-x-1/2 rotate-[-3deg]"></div>
+      <header class="legal-head">
+        <h1>Impressum</h1>
+      </header>
 
       <h2>Angaben gemäß § 5 Digitale Dienste Gesetz (DDG)</h2>
       <p>
@@ -59,16 +67,11 @@
 
       <h2>Urheberrecht</h2>
       <p>Die durch die Seitenbetreiber erstellten Inhalte und Werke auf diesen Seiten unterliegen dem deutschen Urheberrecht. Beiträge Dritter sind als solche gekennzeichnet. Die Vervielfältigung, Bearbeitung, Verbreitung und jede Art der Verwertung außerhalb der Grenzen des Urheberrechtes bedürfen der schriftlichen Zustimmung des jeweiligen Autors bzw. Erstellers.</p>
-    </div>
+    </article>
   </div>
-</div>
+</main>
 
 <div id="site-footer"></div>
-
-<script type="module" src="/js/flags.js"></script>
-<script type="module">
-  import { mountLayout } from "/js/layout.js";
-  mountLayout();
-</script>
+<script type="module" src="/js/layout.js"></script>
 </body>
 </html>

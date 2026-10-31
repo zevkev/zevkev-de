@@ -2,164 +2,117 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Seite nicht gefunden | ZevKev</title>
 <meta name="description" content="Diese Seite gibt es nicht (mehr).">
-
 <link rel="icon" type="image/png" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
 <link rel="apple-touch-icon" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#234d70">
+<link rel="preload" href="/assets/fonts/jost-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/bebas-neue-latin-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/css/app.css">
+<script src="/js/boot.js"></script>
 
 <meta property="og:type" content="website">
-<meta property="og:title" content="Seite nicht gefunden | ZevKev">
-<meta property="og:description" content="Diese Seite gibt es nicht (mehr).">
+<meta property="og:title" content="ZevKev">
+<meta property="og:description" content="Videos, Streams und Merch von ZevKev.">
 <meta property="og:image" content="https://zevkev.github.io/Medienspeicher/Bilder/ZevKev.png">
+<meta property="og:url" content="https://zevkev.de/">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://zevkev.github.io/Medienspeicher/Bilder/ZevKev.png">
 
 <!--
-  GitHub Pages has no server-side rewrites/routing config — this is the
-  standard static-host workaround for pretty URLs: GitHub Pages serves this
-  exact file, from the repo ROOT (the only place it's honored — it will NOT
-  be picked up from e.g. shop/404.html), for ANY unmatched path site-wide,
-  with an HTTP 404 status code (the page itself still renders and works
-  normally for visitors; search engines/some tools just won't index these
-  URLs as "real" pages — an accepted, unavoidable tradeoff of this technique
-  on GitHub Pages specifically, not a bug here).
-
-  This page is structurally identical to shop/product/index.html and
-  watch/index.html on purpose: when the unmatched path looks like a clean
-  product URL (/shop/<slug>) or a clean video URL (/video/<id> or
-  /vod/<id> — see the inline script below), it loads the exact same
-  js/product.js or js/watch.js used on those real pages, both of which
-  already know how to pull their id out of location.pathname when there's
-  no query string. Nothing about either page's rendering is duplicated here.
-
-  All /js/, /css/ etc. references below are root-absolute, so they resolve
-  correctly no matter what URL this was actually served for (this file
-  itself lives at the repo root either way).
+  GitHub Pages serves this file (only from the repo root) for every path
+  that has no real file, with HTTP status 404. It does three jobs:
+  1. /shop/<slug> renders the product page with js/product.js (clean product
+     URLs, GitHub Pages has no rewrites).
+  2. Old shared links of removed pages forward to where that content lives
+     now (location.replace, so the dead URL doesn't stay in the history).
+  3. Anything else shows the "Seite nicht gefunden" card.
+  All asset paths are root absolute because this renders at any URL.
 -->
+<script>
+  (function () {
+    var root = document.documentElement;
+    var parts = location.pathname.split("/").filter(Boolean);
+    var first = (parts[0] || "").toLowerCase();
+    var id = parts[1] || "";
+    try { id = decodeURIComponent(id); } catch (e) {}
 
-<link rel="stylesheet" href="/css/style.css">
-<link rel="stylesheet" href="/css/shop.css">
-<link rel="stylesheet" href="/css/vods.css">
-<link rel="stylesheet" href="/css/youtube.css">
-<link rel="stylesheet" href="/css/watch.css">
-<link rel="stylesheet" href="/css/profil.css">
+    function go(url) {
+      root.setAttribute("data-route", "redirect");
+      location.replace(url);
+    }
+
+    if (first === "video") {
+      go(id ? "https://www.youtube.com/watch?v=" + encodeURIComponent(id) : "/youtube/");
+    } else if (first === "vod") {
+      go(id ? "https://www.twitch.tv/videos/" + encodeURIComponent(id) : "/vods/");
+    } else if (first === "watch") {
+      // Old player page: /watch/?id=<id>&type=video|vod
+      var params = new URLSearchParams(location.search);
+      var wid = params.get("id");
+      if (!wid) go("/");
+      else if (params.get("type") === "vod") go("https://www.twitch.tv/videos/" + encodeURIComponent(wid));
+      else go("https://www.youtube.com/watch?v=" + encodeURIComponent(wid));
+    } else if (first === "live") {
+      go("/vods/");
+    } else if (["watchlist", "account", "login", "profil", "privat", "user"].indexOf(first) !== -1) {
+      go("/");
+    } else if (parts[0] === "shop" && parts.length === 2 && parts[1] !== "product") {
+      root.setAttribute("data-route", "product");
+      document.title = "Produkt | ZevKev Shop";
+    } else {
+      root.setAttribute("data-route", "notfound");
+    }
+  })();
+</script>
 </head>
 <body>
-
-<script type="module" src="/js/theme.js"></script>
-<script type="module" src="/js/user-theme.js"></script>
-<script type="module" src="/js/consent.js"></script>
-
 <div id="site-header"></div>
 
-<div class="page-body">
-  <div class="container" id="fallback-container">
-    <a href="/shop/" class="shop-back-link" id="shop-back-link">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-      Zurück zum Shop
-    </a>
-
+<main id="main" class="page">
+  <div class="container-page">
     <div id="product-root"></div>
 
-    <div class="watch-page" id="watch-page" style="display:none;">
-      <div class="watch-player-wrap" id="watch-player"><div class="skeleton-card player-skeleton"></div></div>
-      <div class="watch-meta rip" id="watch-meta"></div>
-    </div>
-    <div class="comments-section rip" id="comments-root" style="display:none;"></div>
-
-    <div id="profil-root" class="profil-root" style="display:none;"></div>
-
+    <section id="notfound" class="paper paper-b mx-auto mt-4 max-w-xl px-6 pb-10 pt-12 text-center sm:px-12" aria-labelledby="notfound-title" hidden>
+      <div class="tape left-1/2 -translate-x-1/2"></div>
+      <p class="notfound-number" aria-hidden="true">404</p>
+      <h1 id="notfound-title" class="mt-2 text-5xl">Seite nicht gefunden</h1>
+      <p class="mx-auto mt-3 max-w-sm leading-relaxed text-ink-muted">Diese Seite gibt es nicht (mehr). Vielleicht ist der Link falsch oder schon etwas älter.</p>
+      <a href="/" class="btn btn-accent btn-lg mt-7">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/></svg>
+        Zur Startseite
+      </a>
+      <hr class="divider-dashed mx-auto mt-8 max-w-xs">
+      <p class="mt-5 text-sm font-semibold text-ink-muted">Oder schau hier vorbei:</p>
+      <nav class="mt-3 flex flex-wrap justify-center gap-2" aria-label="Beliebte Seiten">
+        <a href="/shop/" class="btn btn-sm">Shop</a>
+        <a href="/youtube/" class="btn btn-sm">YouTube</a>
+        <a href="/vods/" class="btn btn-sm"><span data-twitch-soft>Mehr</span><span data-no-twitch>ZevKev+</span></a>
+      </nav>
+    </section>
   </div>
-</div>
+</main>
 
 <div id="site-footer"></div>
-
-<script type="module" src="/js/flags.js"></script>
-<script type="module">
-  import { mountLayout } from "/js/layout.js";
-  mountLayout();
-</script>
 <script>
-  // Which real page's script (if any) this unmatched path actually maps to.
-  // Anything that doesn't match one of these shapes (a typo'd path anywhere
-  // else on the site, a link to a removed page, etc.) gets a plain generic
-  // "not found" message instead of borrowing either page's own wording.
-  const parts = location.pathname.split("/").filter(Boolean);
-  const looksLikeProductSlug = parts.length === 2 && parts[0] === "shop" && parts[1] !== "product";
-  const looksLikeWatchPath = parts.length === 2 && (parts[0] === "video" || parts[0] === "vod");
-  const looksLikeUserProfile = parts.length === 2 && parts[0] === "user";
-
-  if (looksLikeProductSlug) {
-    const script = document.createElement("script");
-    script.type = "module";
-    script.src = "/js/product.js";
-    document.body.appendChild(script);
-  } else if (looksLikeWatchPath) {
-    document.getElementById("shop-back-link").style.display = "none";
-    document.getElementById("watch-page").style.display = "";
-    document.getElementById("comments-root").style.display = "";
-    // watch/index.html's own .container carries this same inline style
-    // (its content, unlike the product page's grid, needs to be a centered
-    // column) -- applied here in JS since this container is shared with the
-    // product-slug branch above, which must NOT get it.
-    const container = document.getElementById("fallback-container");
-    container.style.display = "flex";
-    container.style.flexDirection = "column";
-    container.style.alignItems = "center";
-    const script = document.createElement("script");
-    script.type = "module";
-    script.src = "/js/watch.js";
-    document.body.appendChild(script);
-  } else if (looksLikeUserProfile) {
-    document.getElementById("shop-back-link").style.display = "none";
-    document.getElementById("profil-root").style.display = "";
-    // profil.js's own getUsernameFromLocation() already reads the /user/<name>
-    // path shape directly (see that file) -- no query string needed here.
-    const script = document.createElement("script");
-    script.type = "module";
-    script.src = "/js/profil.js";
-    document.body.appendChild(script);
-  } else {
-    // A truly unmatched path (typo, removed page, dead external link) --
-    // not shop-specific, so the "Zurück zum Shop" link from the branches
-    // above would be misleading here and is hidden instead.
-    document.getElementById("shop-back-link").style.display = "none";
-    const root = document.getElementById("product-root");
-    if (root) {
-      // A dedicated card, not a reuse of the plain .empty-state/.notfound-state
-      // treatment shared with the account/privat login gates and profil.js's
-      // own not-found message -- those sit inline within an already-decorated
-      // page, so bare white text on the dark mat reads fine there. This is a
-      // whole standalone page with nothing else around it, and used to just
-      // float that same bare text in a sea of empty dark mat with a single
-      // way forward -- reads as noticeably plainer than every other page on
-      // the site, which is presumably what "looks bad" referred to. Wrapped
-      // in the same .rip torn-paper card + tape accent the legal pages use,
-      // with a few quick links below the primary CTA so a visitor who
-      // followed a dead link has more than one path back into the site.
-      root.innerHTML = `
-        <div class="notfound-card rip rip--b">
-          <div class="tape"></div>
-          <div class="notfound-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M14.5 9.5l-2 5-5 2 2-5 5-2z"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg>
-          </div>
-          <p class="notfound-number">404</p>
-          <h2>Seite nicht gefunden</h2>
-          <p>Diese Seite gibt es nicht (mehr). Vielleicht ist der Link falsch oder veraltet.</p>
-          <a href="/" class="p-btn rip btn-accent">Zur Startseite</a>
-          <div class="notfound-links">
-            <a href="/shop/">Shop</a>
-            <a href="/youtube/">YouTube</a>
-            <a href="/vods/">Mehr</a>
-          </div>
-        </div>`;
+  (function () {
+    var route = document.documentElement.getAttribute("data-route");
+    if (route === "notfound") {
+      document.getElementById("notfound").hidden = false;
+      var robots = document.createElement("meta");
+      robots.name = "robots";
+      robots.content = "noindex";
+      document.head.appendChild(robots);
+    } else if (route === "product") {
+      var s = document.createElement("script");
+      s.type = "module";
+      s.src = "/js/product.js";
+      document.body.appendChild(s);
     }
-  }
+  })();
 </script>
+<script type="module" src="/js/layout.js"></script>
 </body>
 </html>

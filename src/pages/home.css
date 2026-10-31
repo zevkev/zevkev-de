@@ -1,0 +1,194 @@
+/* Page styles: home. Owned by the home page; wrap rules in @layer components so utilities can override them. */
+@layer components {
+  /* ONE element paints the whole homepage background: body.home (the
+     browser propagates it to the canvas). The colour wash runs from the
+     hero blue through the Discord indigo to the Twitch purple and is sized
+     to the full document height (100% 100%), the texture tiles from the same
+     origin. Sections never paint anything, so there is no boundary between
+     two backgrounds anywhere on the page, which is what used to show up as
+     a blue seam without texture between the zones. No fixed attachment
+     (broken on iOS). */
+  body.home {
+    --home-dot: rgb(255 255 255 / 0.13);
+    --home-line: rgb(255 255 255 / 0.045);
+    --home-glow: rgb(255 255 255 / 0.07);
+    --home-wash: linear-gradient(
+      180deg,
+      var(--zone-hero) 0%,
+      var(--zone-hero) 13%,
+      var(--zone-discord) 33%,
+      var(--zone-discord) 58%,
+      var(--zone-twitch) 80%,
+      var(--zone-twitch) 100%
+    );
+    background-color: var(--zone-twitch);
+    background-image:
+      radial-gradient(120% 60% at 50% 0%, var(--home-glow), transparent 70%),
+      radial-gradient(var(--home-dot) 1.2px, transparent 1.6px),
+      repeating-linear-gradient(45deg, var(--home-line) 0 1px, transparent 1px 160px),
+      repeating-linear-gradient(-45deg, var(--home-line) 0 1px, transparent 1px 160px),
+      var(--home-wash);
+    background-size: 100% 100vh, 26px 26px, auto, auto, 100% 100%;
+    background-repeat: no-repeat, repeat, repeat, repeat, no-repeat;
+    background-position: 50% 0, 0 0, 0 0, 0 0, 0 0;
+  }
+
+  /* Twitch section hidden (twitch.txt false, or not confirmed yet, which
+     matches html:not(.twitch-on) [data-twitch] in app.css): the page ends
+     with the Discord zone, so the wash ends in the Discord colour. */
+  html:not(.twitch-on) body.home {
+    --home-wash: linear-gradient(
+      180deg,
+      var(--zone-hero) 0%,
+      var(--zone-hero) 16%,
+      var(--zone-discord) 42%,
+      var(--zone-discord) 100%
+    );
+    background-color: var(--zone-discord);
+  }
+
+  [data-theme="dark"] body.home {
+    --home-dot: rgb(255 255 255 / 0.075);
+    --home-line: rgb(255 255 255 / 0.03);
+    --home-glow: rgb(120 170 255 / 0.05);
+  }
+
+  /* Dashed glass pill on the mat ("Weiter scrollen", Twitch hint). */
+  .hint-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    max-width: 100%;
+    padding: 0.6rem 1.15rem;
+    border: 1.5px dashed rgb(255 255 255 / 0.45);
+    border-radius: 1.4rem;
+    background: rgb(0 0 0 / 0.26);
+    color: #fff;
+    font-size: 0.92rem;
+    line-height: 1.45;
+    text-align: center;
+    backdrop-filter: blur(6px);
+  }
+  .hint-pill svg { width: 1.05rem; height: 1.05rem; flex-shrink: 0; opacity: 0.85; }
+  .hint-pill a {
+    color: #fff;
+    font-weight: 700;
+    white-space: nowrap;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+    text-decoration-color: rgb(255 255 255 / 0.4);
+  }
+  .hint-pill a:hover { text-decoration-color: #fff; }
+  @media (prefers-reduced-motion: no-preference) {
+    .hint-arrow { animation: var(--animate-float); animation-duration: 2.4s; }
+  }
+
+  /* Scattered notes (Discord perks, Twitch formats). */
+  .note-icon {
+    display: grid;
+    place-items: center;
+    width: 2.6rem;
+    height: 2.6rem;
+    border-radius: 0.8rem;
+    color: #fff;
+    box-shadow: 0 2px 0 rgb(0 0 0 / 0.18), 0 6px 14px -6px rgb(0 0 0 / 0.5);
+  }
+  .note-icon svg { width: 1.35rem; height: 1.35rem; }
+  .note-title {
+    margin-top: 1rem;
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    letter-spacing: 0.03em;
+    line-height: 1.05;
+  }
+  .note-text { margin-top: 0.4rem; line-height: 1.55; }
+
+  /* Copy invite: the check icon replaces the copy icon for a moment. */
+  #discord-copy .copy-icon-done { display: none; }
+  #discord-copy.is-copied .copy-icon { display: none; }
+  #discord-copy.is-copied .copy-icon-done { display: block; }
+
+  .copy-ok {
+    min-height: 1.5rem;
+    margin-top: 0.85rem;
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-align: center;
+    overflow-wrap: anywhere;
+    user-select: all;
+  }
+
+  /* "So trittst du bei" accordion (native details/summary). */
+  .how-summary {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 1.15rem 1.5rem;
+    font-size: 1.08rem;
+    font-weight: 650;
+    list-style: none;
+    user-select: none;
+    border-radius: 0.75rem;
+  }
+  .how-summary::-webkit-details-marker { display: none; }
+  .how-summary::marker { content: ""; }
+  .how-chev {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    background: var(--color-discord);
+    color: #fff;
+    box-shadow: 0 2px 5px rgb(0 0 0 / 0.3);
+    transition: rotate 0.3s var(--ease-soft);
+  }
+  .how-chev svg { width: 1rem; height: 1rem; }
+  .how[open] .how-chev { rotate: 90deg; }
+  .how-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    padding: 0.25rem 1.5rem 1.6rem;
+    line-height: 1.6;
+  }
+  .how-steps li { display: flex; align-items: flex-start; gap: 0.85rem; }
+  .how-num {
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    background: var(--color-discord);
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .how[open] .how-steps { animation: how-in 0.35s var(--ease-soft); }
+  }
+  @keyframes how-in {
+    from { opacity: 0; translate: 0 -6px; }
+    to { opacity: 1; translate: 0 0; }
+  }
+  @media (min-width: 640px) {
+    .how-summary { padding: 1.3rem 2rem; }
+    .how-steps { padding: 0.25rem 2rem 1.9rem 2rem; }
+  }
+
+  /* Host cards. */
+  .host-photo { width: 7.25rem; padding-bottom: 1.25rem; }
+  .host-name {
+    margin-top: 1.4rem;
+    font-family: var(--font-display);
+    font-size: 2rem;
+    letter-spacing: 0.04em;
+    line-height: 1;
+  }
+  .host-text { margin-top: 0.45rem; line-height: 1.55; color: var(--ink-muted); }
+}
