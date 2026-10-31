@@ -171,6 +171,10 @@
 
 /* ---------- Base ---------- */
 @layer base {
+  /* Safety net: rotated paper and tape can stick out a few pixels; never
+     let that turn into sideways scrolling on phones. */
+  html, body { overflow-x: clip; }
+
   html {
     -webkit-tap-highlight-color: transparent;
     scroll-padding-top: calc(var(--header-h) + 16px);
@@ -198,7 +202,6 @@
     background-repeat: no-repeat, repeat, repeat, repeat, repeat, repeat, repeat;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    overflow-x: hidden;
     text-rendering: optimizeLegibility;
   }
 
