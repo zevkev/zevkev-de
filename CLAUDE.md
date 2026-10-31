@@ -66,7 +66,7 @@ Kevin's request. The old work-in-progress for achievements/accounts is in
 | `youtube/` + `js/youtube.js` | Main channel: hero, Videos/Shorts tabs (`#shorts`), sort, load more. |
 | `impressum/ datenschutz/ agb/ widerruf/ kontakt/` | Legal + contact pages (`.legal` typography). |
 | `scripts/*.mjs` + `.github/workflows/data-refresh.yml` | Every 30 min: YouTube main feed (Data API, `YOUTUBE_API_KEY` secret), ZevKev+ RSS feed, Twitch status + VODs (secrets `TWITCH_CLIENT_ID/SECRET`) into `assets/data/*.json`, committed by the bot. |
-| `.github/workflows/deploy.yml` | On push to main: `npm ci`, `npm run build`, deploy to Pages. |
+| `.github/workflows/deploy.yml` | On push to main: `npm ci`, `npm run build`, adds `?v=<commit>` to every `app.css` link (Pages caches 10 min; without it visitors got new HTML with old CSS right after a deploy), deploy to Pages. JS is not versioned on purpose (double module loads). |
 | `tools/cdp-shot.mjs` | Headless Chrome test tool (see Testing). |
 
 ## Fourthwall facts (verified live)
