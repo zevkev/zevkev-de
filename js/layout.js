@@ -57,7 +57,7 @@ function headerHTML(path, isShop) {
     <div class="container-page relative flex h-full items-center gap-3">
       <a class="site-logo" href="/" aria-label="ZevKev Startseite">ZevKev</a>
       <nav id="site-nav" class="site-nav md:absolute md:left-1/2 md:flex md:-translate-x-1/2 md:items-center md:gap-1" aria-label="Hauptnavigation">${links}</nav>
-      <div class="ml-auto flex items-center gap-2">
+      <div class="header-actions ml-auto">
         <button id="theme-toggle" class="icon-btn theme-toggle" type="button" aria-label="Dunkles Design umschalten">
           <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4V2M12 22v-2M4.93 4.93 3.51 3.51M20.49 20.49l-1.42-1.42M4 12H2M22 12h-2M4.93 19.07l-1.42 1.42M20.49 3.51l-1.42 1.42"/><circle cx="12" cy="12" r="5"/></svg>
           <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>

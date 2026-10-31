@@ -604,6 +604,9 @@ html.twitch-off [data-twitch-soft] { display: none !important; }
     letter-spacing: 0.06em;
     line-height: 1;
     text-transform: uppercase;
+    /* Bebas caps sit high in their line box; this centres them optically
+       against the header buttons. */
+    padding-top: 0.12em;
     transition: rotate 0.3s var(--ease-bounce), translate 0.3s var(--ease-bounce);
   }
   .site-logo:hover { rotate: -2deg; translate: 0 -1px; }
@@ -647,9 +650,30 @@ html.twitch-off [data-twitch-soft] { display: none !important; }
     .site-nav .nav-link { justify-content: center; height: 3rem; font-size: 1.05rem; }
   }
 
-  .theme-toggle { overflow: hidden; background: linear-gradient(to bottom, #bfe0f5, #eaf3d8); }
-  .theme-toggle:hover { background: linear-gradient(to bottom, #bfe0f5, #eaf3d8); }
-  .theme-toggle.is-dark, .theme-toggle.is-dark:hover { background: linear-gradient(to bottom, #182035, #2a1f30); }
+  /* Header buttons sit together in one capsule, so the right side reads as
+     one shape with the same edge distance as the logo on the left. */
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.2rem;
+    border-radius: 9999px;
+    background: rgb(255 255 255 / 0.5);
+    box-shadow: inset 0 0 0 1.5px rgb(0 0 0 / 0.09), 0 1px 0 rgb(255 255 255 / 0.6);
+  }
+  :where([data-theme="dark"]) .header-actions {
+    background: rgb(255 255 255 / 0.05);
+    box-shadow: inset 0 0 0 1.5px rgb(190 210 255 / 0.12);
+  }
+  .header-actions .icon-btn {
+    width: 2.35rem;
+    height: 2.35rem;
+    border: 0;
+    background: transparent;
+  }
+  .header-actions .icon-btn:hover { scale: 1; background: rgb(255 255 255 / 0.85); }
+  :where([data-theme="dark"]) .header-actions .icon-btn:hover { background: rgb(255 255 255 / 0.1); }
+  .theme-toggle { overflow: hidden; }
   .theme-icon {
     position: absolute;
     top: 50%;

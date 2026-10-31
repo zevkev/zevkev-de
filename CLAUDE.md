@@ -103,6 +103,11 @@ Kevin's request. The old work-in-progress for achievements/accounts is in
   repeated "blue seam between Discord and Twitch" complaint; never give a
   section its own background again.
 - Buttons don't inherit `color`; set it explicitly on custom buttons.
+- Header: logo left, all header buttons in one `.header-actions` capsule on
+  the right (same 16px edge distance on phones). Kevin flagged loose,
+  differently coloured buttons as "nicht symmetrisch".
+- Homepage hosts are a cork pinboard (`.hosts-board`) with pinned polaroid
+  profiles; in dark mode the board turns into slate felt (no brown).
 - Dark mode (redesigned 2026-10-31): night-blue mat with blue/violet glow,
   blue-tinted paper with a light sheen, indigo surfaces. Call-to-action and
   price highlights use `--highlight` (sticky-note yellow in dark, same as
