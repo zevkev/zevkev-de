@@ -9,7 +9,6 @@
 import { FourthwallAPI, variantInStock, variantOnSale, imagesForColor } from "/js/fourthwall-api.js";
 import { Cart, escapeHTML, ICON } from "/js/cart.js";
 import { money } from "/js/currency.js";
-import { track } from "/js/track.js";
 import { initReveal } from "/js/reveal.js";
 
 const root = document.getElementById("product-root");
@@ -183,7 +182,6 @@ function renderProduct(product) {
   let index = 0;
 
   updateMeta(product, images[0]?.url);
-  track("product_view", product.slug);
 
   const name = escapeHTML(product.name);
   const description = cleanHTML(product.description);
@@ -236,7 +234,7 @@ function renderProduct(product) {
             <input id="pd-qty" type="number" inputmode="numeric" min="1" max="99" value="1" aria-label="Menge">
             <button type="button" id="pd-qty-inc" aria-label="Eins mehr">${ICON.plus}</button>
           </div>
-          <button type="button" id="pd-add" class="btn btn-accent btn-lg min-w-[13rem] flex-1" data-track-click="shop-add-to-cart">${ICON.cart}<span>In den Warenkorb</span></button>
+          <button type="button" id="pd-add" class="btn btn-accent btn-lg min-w-[13rem] flex-1">${ICON.cart}<span>In den Warenkorb</span></button>
         </div>
         <p id="pd-stock" class="pd-stock mt-4" aria-live="polite"></p>
         <p class="mt-2 flex items-center gap-2 text-sm text-ink-muted [&>svg]:size-4 [&>svg]:shrink-0">${ICONS.truck}Preise inkl. MwSt., zzgl. Versandkosten.</p>

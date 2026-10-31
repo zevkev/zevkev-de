@@ -9,7 +9,6 @@
 // With Twitch off (twitch.txt) the page is "ZevKev+": no Twitch data is
 // fetched and nothing Twitch related is rendered.
 import { twitchEnabled } from "/js/twitch.js";
-import { observeImpressions } from "/js/track.js";
 import { initReveal } from "/js/reveal.js";
 import { brandIcon } from "/js/layout.js";
 import { cleanText } from "/js/text.js";
@@ -38,10 +37,6 @@ const els = {
   plusMore: byId("plus-more"),
   plusChannel: byId("plus-channel"),
 };
-
-// The cached Twitch state from js/boot.js is usually right, so the tab title
-// is correct from the start. init() confirms it once twitch.txt is read.
-if (document.documentElement.classList.contains("twitch-off")) document.title = "ZevKev+ | ZevKev";
 
 // ---------- Icons ----------
 const STROKE_ICONS = {
@@ -241,12 +236,12 @@ function metaHTML(items) {
   return `<ul class="vods-meta">${list.map(([name, html]) => `<li>${icon(name)}<span>${html}</span></li>`).join("")}</ul>`;
 }
 
-function mediaHTML({ href, tone, src, fallback, duration, track }) {
+function mediaHTML({ href, tone, src, fallback, duration }) {
   const img = src
     ? `<img src="${escapeHTML(src)}"${fallback && fallback !== src ? ` data-fallback="${escapeHTML(fallback)}"` : ""} alt="" fetchpriority="high" decoding="async">`
     : `<span class="vods-thumb-fallback">${brandIcon(tone === "yt" ? "youtube" : "twitch")}</span>`;
   return `
-    <a class="vods-media vods-media--${tone}" href="${escapeHTML(href)}" tabindex="-1" aria-hidden="true" data-track-click="${track}">
+    <a class="vods-media vods-media--${tone}" href="${escapeHTML(href)}" tabindex="-1" aria-hidden="true">
       ${img}
       <span class="vods-play">${PLAY_ICON}</span>
       ${duration ? `<span class="video-duration">${duration}</span>` : ""}
@@ -260,7 +255,7 @@ function offlineNoteHTML() {
         <span class="vods-note-status"><span class="vods-note-dot" aria-hidden="true"></span>Gerade offline</span>
         Folg mir auf Twitch, dann verpasst du den nächsten Stream nicht.
       </p>
-      <a class="btn btn-sm" href="${TWITCH_CHANNEL_URL}" data-track-click="vods-twitch-follow">${brandIcon("twitch", "vods-ico-twitch")}Auf Twitch folgen</a>
+      <a class="btn btn-sm" href="${TWITCH_CHANNEL_URL}">${brandIcon("twitch", "vods-ico-twitch")}Auf Twitch folgen</a>
     </div>`;
 }
 
@@ -270,7 +265,12 @@ function liveHeroHTML(stream) {
   return stageHTML(
     `
     <div class="vods-player">
-      <iframe src="${escapeHTML(src)}" title="Twitch Livestream von ZevKev" allow="autoplay; picture-in-picture" allowfullscreen></iframe>
+      <div class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[radial-gradient(circle_at_50%_35%,#3b2370,#140d24_70%)] p-6 text-center text-white">
+        <span class="flex size-14 items-center justify-center rounded-full bg-twitch [&>svg]:size-7">${brandIcon("twitch")}</span>
+        <p class="font-display text-3xl">Livestream hier ansehen</p>
+        <p class="max-w-md text-sm leading-relaxed text-white/75">Erst beim Klick wird der Player von Twitch geladen. Dabei werden Daten wie deine IP Adresse an Twitch übertragen und Twitch kann Cookies setzen. Mehr dazu in der <a class="font-semibold text-white underline" href="/datenschutz/#twitch">Datenschutzerklärung</a>.</p>
+        <button type="button" class="btn btn-twitch" data-load-player="${escapeHTML(src)}">${PLAY_ICON}Player laden</button>
+      </div>
     </div>
     <div class="vods-info">
       <div class="flex flex-wrap items-center gap-2">
@@ -284,8 +284,8 @@ function liveHeroHTML(stream) {
         ["clock", since ? `<span data-live-since="${escapeHTML(stream.startedAt)}">${since}</span>` : ""],
       ])}
       <div class="vods-actions">
-        <a class="btn btn-twitch" href="${TWITCH_CHANNEL_URL}" data-track-click="vods-live-twitch">${brandIcon("twitch")}Auf Twitch öffnen</a>
-        <a class="btn" href="${TWITCH_CHANNEL_URL}" data-track-click="vods-live-chat">${icon("chat")}Zum Twitch Chat</a>
+        <a class="btn btn-twitch" href="${TWITCH_CHANNEL_URL}">${brandIcon("twitch")}Auf Twitch öffnen</a>
+        <a class="btn" href="${TWITCH_CHANNEL_URL}">${icon("chat")}Zum Twitch Chat</a>
       </div>
     </div>`,
     { live: true }
@@ -300,7 +300,6 @@ function vodHeroHTML(vod) {
       src: vod.thumbnail && twitchThumbLarge(vod.thumbnail),
       fallback: vod.thumbnail,
       duration: clockText(vod.seconds),
-      track: `vods-hero-twitch-${vod.id}`,
     })}
     <div class="vods-info">
       <span class="badge vods-badge-twitch">${brandIcon("twitch")}Neuster Stream</span>
@@ -310,7 +309,7 @@ function vodHeroHTML(vod) {
         ["eye", vod.views != null ? viewsText(vod.views) : ""],
       ])}
       <div class="vods-actions">
-        <a class="btn btn-twitch" href="${vod.url}" data-track-click="vods-hero-twitch-${vod.id}">${PLAY_ICON}Auf Twitch ansehen</a>
+        <a class="btn btn-twitch" href="${vod.url}">${PLAY_ICON}Auf Twitch ansehen</a>
       </div>
       ${offlineNoteHTML()}
     </div>`);
@@ -324,7 +323,6 @@ function plusHeroHTML(video, twitchOn) {
       tone: "yt",
       src: `https://i.ytimg.com/vi/${video.id}/maxresdefault.jpg`,
       fallback: video.thumbnail,
-      track: `vods-hero-yt-${video.id}`,
     })}
     <div class="vods-info">
       <span class="badge vods-badge-yt">${brandIcon("youtube")}Neustes Video</span>
@@ -332,7 +330,7 @@ function plusHeroHTML(video, twitchOn) {
       ${metaHTML([["calendar", dateHTML(video.publishedAt, { long: true })]])}
       ${text ? `<p class="vods-excerpt">${escapeHTML(text)}</p>` : ""}
       <div class="vods-actions">
-        <a class="btn btn-yt" href="${video.url}" data-track-click="vods-hero-yt-${video.id}">${PLAY_ICON}Auf YouTube ansehen</a>
+        <a class="btn btn-yt" href="${video.url}">${PLAY_ICON}Auf YouTube ansehen</a>
       </div>
       ${twitchOn ? offlineNoteHTML() : ""}
     </div>`);
@@ -373,6 +371,18 @@ function startSinceTicker() {
   }, 30000);
 }
 
+// Two-click embed: nothing from Twitch loads until the visitor asks for it.
+els.hero.addEventListener("click", (ev) => {
+  const btn = ev.target.closest("[data-load-player]");
+  if (!btn) return;
+  const frame = document.createElement("iframe");
+  frame.src = btn.dataset.loadPlayer;
+  frame.title = "Twitch Livestream von ZevKev";
+  frame.allow = "autoplay; picture-in-picture";
+  frame.allowFullscreen = true;
+  btn.closest(".vods-player").replaceChildren(frame);
+});
+
 function renderHero({ twitchOn, live, vods, videos }) {
   const hero = els.hero;
   let html = "";
@@ -409,7 +419,7 @@ function twitchCardHTML(vod, index) {
   const duration = clockText(vod.seconds);
   const meta = [dateHTML(vod.publishedAt), vod.views != null ? viewsText(vod.views) : ""].filter(Boolean).join(SEP);
   return `
-  <a class="${cardClass(index)}" href="${vod.url}" data-track-click="twitch-vod-${vod.id}" data-impression="twitch-vod:${vod.id}">
+  <a class="${cardClass(index)}" href="${vod.url}">
     <div class="video-thumb">
       ${vod.thumbnail ? `<img src="${escapeHTML(vod.thumbnail)}" alt="" loading="lazy" decoding="async">` : thumbFallbackHTML("twitch")}
       ${duration ? `<span class="video-duration">${duration}</span>` : ""}
@@ -422,7 +432,7 @@ function twitchCardHTML(vod, index) {
 function plusCardHTML(video, index) {
   const date = dateHTML(video.publishedAt);
   return `
-  <a class="${cardClass(index)}" href="${video.url}" data-track-click="yt-vod-${video.id}" data-impression="yt-vod:${video.id}">
+  <a class="${cardClass(index)}" href="${video.url}">
     <div class="video-thumb">
       <img src="${escapeHTML(video.thumbnail)}" alt="" loading="lazy" decoding="async">
     </div>
@@ -443,11 +453,7 @@ function noteHTML({ tone, iconName, title, text, actions = "" }) {
 
 const RELOAD_BUTTON = `<button type="button" class="btn btn-sm" data-reload>${icon("refresh")}Neu laden</button>`;
 
-// Impressions once per card, reveal for every new card.
 function activateCards(root) {
-  const fresh = "[data-impression]:not([data-impression-bound])";
-  observeImpressions(fresh, (el) => el.dataset.impression, root);
-  root.querySelectorAll(fresh).forEach((el) => el.setAttribute("data-impression-bound", ""));
   initReveal(root);
 }
 
@@ -470,7 +476,7 @@ function renderStreams(vods) {
       iconName: "history",
       title: "Gerade keine Streams im Archiv",
       text: "Twitch hebt vergangene Streams nur eine Weile auf. Sobald wieder einer da ist, findest du ihn hier.",
-      actions: `<a class="btn btn-sm btn-twitch" href="${TWITCH_CHANNEL_URL}" data-track-click="vods-twitch-empty">${brandIcon("twitch")}Zum Twitch Kanal</a>`,
+      actions: `<a class="btn btn-sm btn-twitch" href="${TWITCH_CHANNEL_URL}">${brandIcon("twitch")}Zum Twitch Kanal</a>`,
     });
     return;
   }

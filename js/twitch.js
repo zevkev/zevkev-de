@@ -1,7 +1,7 @@
 // Reads the Twitch switch from /twitch.txt ("twitch = true" or
 // "twitch = false"), marks <html> with .twitch-on / .twitch-off so CSS can
-// show or hide [data-twitch] / [data-no-twitch] content, and caches the value
-// for js/boot.js on the next page load. Anything other than an explicit
+// show or hide [data-twitch] / [data-no-twitch] content. Nothing is stored
+// in the browser. Anything other than an explicit
 // "true" counts as off, so a missing or broken file never shows Twitch.
 let pending;
 
@@ -9,9 +9,6 @@ function apply(on) {
   const root = document.documentElement;
   root.classList.toggle("twitch-on", on);
   root.classList.toggle("twitch-off", !on);
-  try {
-    localStorage.setItem("zevkev-twitch", on ? "1" : "0");
-  } catch {}
 }
 
 export function parseTwitchFlag(text) {

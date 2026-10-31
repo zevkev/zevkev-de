@@ -11,6 +11,14 @@ HTML + ES modules, Tailwind CSS v4 compiled in CI, data JSON refreshed by a
 GitHub Actions cron, shop data and checkout from Fourthwall. Kevin explicitly
 wants it to stay that way (no accounts, no Firebase, no hosted APIs).
 
+**No cookies, no analytics, no consent banner** (Google Analytics and the
+cookie banner were removed 2026-10-31 on Kevin's request). localStorage is
+only written when a visitor uses a feature (theme toggle, cart). Third-party
+requests on page load: YouTube thumbnails (i.ytimg.com, Kevin accepted that,
+disclosed in Datenschutz), Fourthwall API/images on shop pages, Twitch VOD
+thumbnails when Twitch is on. The Twitch live player is click-to-load. Keep
+the Datenschutz page in sync with any change to these.
+
 Rewritten from hand-written CSS to Tailwind on 2026-10-30. The same day,
 login/accounts, comments, watchlist, internal watch pages (/video/, /vod/),
 /live/, /privat/, Firebase and the custom Twitch chat login were removed on
@@ -38,7 +46,6 @@ Kevin's request. The old work-in-progress for achievements/accounts is in
 |---|---|
 | `twitch.txt` | `twitch = true` / `twitch = false`: every Twitch element on the site, plus the Twitch fetch in `data-refresh.yml`. Off turns the "Mehr" page into "ZevKev+". |
 | `aktion.txt` | Shop promo banner: `aktiv = ja/nein`, `text`, `code`, `bis = JJJJ-MM-TT`. |
-| `js/ga-config.js` | GA4 Measurement ID (still the placeholder, so analytics stays off). |
 
 ## Architecture map
 
@@ -48,14 +55,14 @@ Kevin's request. The old work-in-progress for achievements/accounts is in
 | `src/pages/{home,shop,vods,youtube,legal}.css` | Page styles, each inside `@layer components`. |
 | `assets/css/app.css` | **Generated** (`npm run build`), gitignored, built in `deploy.yml`. |
 | `assets/fonts/` | Self-hosted Bebas Neue + Jost (no Google Fonts requests). |
-| `js/boot.js` | Classic script in `<head>`: applies saved theme and cached Twitch state before paint. |
-| `js/layout.js` | Header, footer, mobile nav, theme toggle, cookie banner, cart button on `/shop*`. Mounts itself on import. Exports `ICONS`/`brandIcon`. |
-| `js/twitch.js` | Reads `/twitch.txt`, sets `html.twitch-on/off`. Markup: `data-twitch` (on only), `data-no-twitch` (off only), `data-twitch-soft` (unless known off). |
-| `js/theme.js`, `js/consent.js`, `js/ga-config.js`, `js/track.js`, `js/reveal.js`, `js/text.js` | Theme toggle; GA4 consent banner (GA never loads without consent); GA4 events; scroll reveal; emoji-free title cleaning. |
+| `js/boot.js` | Classic script in `<head>`: applies the saved theme (or system setting) before paint. |
+| `js/layout.js` | Header (text-only "ZevKev" wordmark, no image), footer, mobile nav, theme toggle, cart button on `/shop*`. Mounts itself on import. Exports `ICONS`/`brandIcon`. |
+| `js/twitch.js` | Reads `/twitch.txt`, sets `html.twitch-on/off` (nothing cached). Markup: `data-twitch` (on only), `data-no-twitch` (off only), `data-twitch-soft` (unless known off). |
+| `js/theme.js`, `js/reveal.js`, `js/text.js` | Theme toggle; scroll reveal; emoji-free title cleaning. |
 | `index.html` + `js/home.js` | Homepage: hero, Discord zone, hosts, Twitch zone (`data-twitch`). |
 | `shop/`, `js/catalog.js`, `js/product.js`, `js/cart.js`, `js/fourthwall-api.js`, `js/currency.js` | Shop grid, product page, cart drawer, Fourthwall Storefront client. |
 | `404.html` | GitHub Pages fallback: renders `/shop/<slug>` product pages, redirects old `/video/<id>/` to YouTube, `/vod/<id>/` to Twitch, `/live/` to `/vods/`, removed account pages to `/`, else a 404 card. Must stay at repo root. |
-| `vods/` + `js/vods.js` | "Mehr" page: hero = live player > newest Twitch VOD > newest ZevKev+ video; Twitch archive grid; ZevKev+ YouTube grid. |
+| `vods/` + `js/vods.js` | "Mehr" page: hero = live player (click-to-load "Player laden", nothing from Twitch before the click) > newest Twitch VOD > newest ZevKev+ video; Twitch archive grid; ZevKev+ YouTube grid. |
 | `youtube/` + `js/youtube.js` | Main channel: hero, Videos/Shorts tabs (`#shorts`), sort, load more. |
 | `impressum/ datenschutz/ agb/ widerruf/ kontakt/` | Legal + contact pages (`.legal` typography). |
 | `scripts/*.mjs` + `.github/workflows/data-refresh.yml` | Every 30 min: YouTube main feed (Data API, `YOUTUBE_API_KEY` secret), ZevKev+ RSS feed, Twitch status + VODs (secrets `TWITCH_CLIENT_ID/SECRET`) into `assets/data/*.json`, committed by the bot. |
@@ -96,6 +103,10 @@ Kevin's request. The old work-in-progress for achievements/accounts is in
   repeated "blue seam between Discord and Twitch" complaint; never give a
   section its own background again.
 - Buttons don't inherit `color`; set it explicitly on custom buttons.
+- Dark mode (redesigned 2026-10-31): night-blue mat with blue/violet glow,
+  blue-tinted paper with a light sheen, indigo surfaces. Call-to-action and
+  price highlights use `--highlight` (sticky-note yellow in dark, same as
+  `--paper-accent` in light), not `--paper-accent`, which is a surface colour.
 
 ## Testing
 
@@ -104,7 +115,7 @@ Kevin's request. The old work-in-progress for achievements/accounts is in
   serve `404.html`, so test product pages via `/shop/product/?slug=<slug>`.
 - `node tools/cdp-shot.mjs --url http://localhost:8100/shop/ --out shot.png
   [--mobile --width 390 --height 844] [--scheme dark] [--full] [--eval "js"]
-  [--storage '{"zevkev-consent":"declined"}']` prints console errors,
+  [--storage '{"zevkev-theme":"dark"}']` prints console errors,
   exceptions and HTTP >= 400. Headless Chrome can't go below ~500px wide,
   hence `--mobile`.
 - The in-app browser pane caches modules, CSS and even HTML aggressively;
@@ -112,7 +123,6 @@ Kevin's request. The old work-in-progress for achievements/accounts is in
 
 ## Open items
 
-- [ ] GA4 Measurement ID placeholder in `js/ga-config.js`.
 - [ ] GitHub Pages "Enforce HTTPS": never confirmed enabled.
 - [ ] Widerrufsbelehrung needs a professional (don't write legal text).
 - [ ] Shop filters are hidden while the only collection equals "Alle"; they
@@ -127,4 +137,5 @@ Kevin's request. The old work-in-progress for achievements/accounts is in
 - Don't invent legal text.
 - Don't redesign the cork grain recipe (`.cork` in `src/app.css`), it was
   calibrated with Kevin against a reference photo.
-- Don't add a backend, accounts or a second analytics system without being asked.
+- Don't add a backend, accounts, analytics or anything that sets cookies
+  without being asked (it would also need a consent banner again).

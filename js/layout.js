@@ -1,13 +1,9 @@
-// Shared header, footer and cookie banner. Mounts itself into
+// Shared header and footer. Mounts itself into
 // #site-header / #site-footer when imported. On /shop pages it adds the cart
 // button and hands over to js/cart.js (Cart.init() mounts the drawer).
-import { track } from "/js/track.js";
-import { mountConsentBanner, openConsentSettings } from "/js/consent.js";
 import { getTheme, toggleTheme } from "/js/theme.js";
 import { initReveal } from "/js/reveal.js";
 import "/js/twitch.js";
-
-const LOGO = "https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png";
 
 const NAV = [
   { href: "/", label: "Home", match: (p) => p === "/" || p === "/index.html" },
@@ -59,10 +55,7 @@ function headerHTML(path, isShop) {
   <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[200] focus:rounded-lg focus:bg-paper focus:px-4 focus:py-2 focus:font-semibold">Zum Inhalt springen</a>
   <header class="site-header">
     <div class="container-page relative flex h-full items-center gap-3">
-      <a class="site-logo" href="/" aria-label="ZevKev Startseite">
-        <img src="${LOGO}" alt="" width="36" height="36">
-        <span>ZevKev</span>
-      </a>
+      <a class="site-logo" href="/" aria-label="ZevKev Startseite">ZevKev</a>
       <nav id="site-nav" class="site-nav md:absolute md:left-1/2 md:flex md:-translate-x-1/2 md:items-center md:gap-1" aria-label="Hauptnavigation">${links}</nav>
       <div class="ml-auto flex items-center gap-2">
         <button id="theme-toggle" class="icon-btn theme-toggle" type="button" aria-label="Dunkles Design umschalten">
@@ -82,7 +75,7 @@ function headerHTML(path, isShop) {
 
 function footerHTML() {
   const socials = SOCIALS.map(
-    (s) => `<a class="social-btn" href="${s.href}" target="_blank" rel="noopener" aria-label="${s.label}" data-track-click="social-${s.icon}"${s.twitch ? " data-twitch" : ""}>${brandIcon(s.icon)}</a>`
+    (s) => `<a class="social-btn" href="${s.href}" target="_blank" rel="noopener" aria-label="${s.label}"${s.twitch ? " data-twitch" : ""}>${brandIcon(s.icon)}</a>`
   ).join("");
   const main = NAV.map((n) => `<a class="footer-link" href="${n.href}">${navLabel(n)}</a>`).join("");
   const legal = LEGAL.map((n) => `<a class="footer-link" href="${n.href}">${n.label}</a>`).join("");
@@ -95,10 +88,6 @@ function footerHTML() {
         <div class="flex flex-wrap justify-center gap-x-5 gap-y-1.5">${main}</div>
         <div class="flex flex-wrap justify-center gap-x-5 gap-y-1.5">${legal}</div>
       </nav>
-      <button id="cookie-settings" type="button" class="badge h-8 gap-2 px-3.5 text-[0.8rem] hover:opacity-100 opacity-80">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a9.96 9.96 0 0 0-7.05 2.92A10 10 0 1 0 12 2Z"/><circle cx="8.5" cy="10.5" r="1" fill="currentColor" stroke="none"/><circle cx="14" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="14.5" r="1" fill="currentColor" stroke="none"/><circle cx="10" cy="15.5" r="1" fill="currentColor" stroke="none"/></svg>
-        Cookie-Einstellungen
-      </button>
       <p class="text-sm text-ink-muted">&copy; ${new Date().getFullYear()} ZevKev. Videos und Entertainment.</p>
     </div>
   </footer>`;
@@ -144,8 +133,6 @@ export async function mountLayout() {
   const path = window.location.pathname;
   const isShop = path.startsWith("/shop");
 
-  track("page_view", path);
-
   const headerSlot = document.getElementById("site-header");
   const footerSlot = document.getElementById("site-footer");
   if (headerSlot) headerSlot.outerHTML = headerHTML(path, isShop);
@@ -153,8 +140,6 @@ export async function mountLayout() {
 
   wireTheme();
   wireMobileNav();
-  document.getElementById("cookie-settings")?.addEventListener("click", openConsentSettings);
-  mountConsentBanner();
   initReveal();
 
   if (isShop) {

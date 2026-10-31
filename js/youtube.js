@@ -5,7 +5,6 @@
 // same tab: no player, no watch page, no modal.
 //
 // State that is linkable: the active tab lives in the URL hash (#shorts).
-import { observeImpressions } from "/js/track.js";
 import { initReveal } from "/js/reveal.js";
 import { cleanText } from "/js/text.js";
 
@@ -167,13 +166,13 @@ function sortedList() {
 /* ---------- Markup ---------- */
 
 function channelButton(extra = "") {
-  return `<a class="btn btn-yt${extra}" href="${CHANNEL_URL}" data-track-click="youtube-channel">${ICON.youtube}Zum Kanal</a>`;
+  return `<a class="btn btn-yt${extra}" href="${CHANNEL_URL}">${ICON.youtube}Zum Kanal</a>`;
 }
 
 function noticeHTML({ icon, heading = "h3", title, text, actions = "" }) {
   return `
     <div class="paper paper-c mx-auto flex max-w-xl flex-col items-center px-6 pb-10 pt-9 text-center sm:px-10">
-      <span class="grid size-14 place-items-center rounded-full bg-paper-accent text-ink [&>svg]:size-7">${icon}</span>
+      <span class="grid size-14 place-items-center rounded-full bg-highlight text-highlight-ink [&>svg]:size-7">${icon}</span>
       <${heading} class="font-display mt-4 text-3xl">${title}</${heading}>
       <p class="mt-2 max-w-sm leading-relaxed text-ink-muted">${text}</p>
       ${actions ? `<div class="mt-6 flex flex-wrap justify-center gap-3">${actions}</div>` : ""}
@@ -185,7 +184,7 @@ function cardHTML(v, index) {
   const duration = v.duration ? `<span class="video-duration">${durationText(v.duration)}</span>` : "";
   return `
     <li class="reveal">
-      <a class="paper${TEARS[index % 3]} paper-lift video-card" href="${watchUrl(v)}" data-video-id="${v.id}" data-yt-new data-track-click="youtube-${v.isShort ? "short" : "video"}:${v.id}">
+      <a class="paper${TEARS[index % 3]} paper-lift video-card" href="${watchUrl(v)}">
         <div class="video-thumb${v.isShort ? " video-thumb--short" : ""}">
           <img src="${esc(v.thumb)}" data-fallback="${fallbackThumb(v.id)}" data-min-width="121" alt="" width="480" height="360" loading="lazy" decoding="async">
           ${duration}
@@ -232,10 +231,10 @@ function renderFeature() {
   // below fall back to the feed's own thumbnail (see data-min-width).
   const src = v.isShort ? v.thumb : `https://i.ytimg.com/vi/${v.id}/maxresdefault.jpg`;
   featureEl.innerHTML = `
-    <article class="paper paper-b yt-feature" data-video-id="${v.id}">
+    <article class="paper paper-b yt-feature">
       <div class="tape"></div>
       <div class="tape left-auto right-8 rotate-[8deg]"></div>
-      <a class="video-thumb yt-feature-thumb" href="${url}" tabindex="-1" aria-hidden="true" data-track-click="youtube-hero-thumb:${v.id}">
+      <a class="video-thumb yt-feature-thumb" href="${url}" tabindex="-1" aria-hidden="true">
         <img src="${esc(src)}" data-fallback="${esc(v.thumb)}" data-min-width="121" alt="" width="1280" height="720" fetchpriority="high" decoding="async">
         <span class="yt-play">${ICON.play}</span>
       </a>
@@ -244,12 +243,11 @@ function renderFeature() {
           <span class="badge bg-yt text-white">${v.isShort ? "Neuestes Short" : "Neuestes Video"}</span>
           ${meta ? `<span class="yt-meta">${meta}</span>` : ""}
         </div>
-        <h2 class="yt-feature-title mt-3"><a href="${url}" tabindex="-1" data-track-click="youtube-hero-title:${v.id}">${esc(v.title)}</a></h2>
-        <a class="btn btn-yt mt-6" href="${url}" data-track-click="youtube-hero-play:${v.id}">${ICON.play}Auf YouTube ansehen</a>
+        <h2 class="yt-feature-title mt-3"><a href="${url}" tabindex="-1">${esc(v.title)}</a></h2>
+        <a class="btn btn-yt mt-6" href="${url}">${ICON.play}Auf YouTube ansehen</a>
       </div>
     </article>`;
   featureEl.removeAttribute("aria-busy");
-  observeImpressions("[data-video-id]", (el) => el.dataset.videoId, featureEl);
 }
 
 function syncSort() {
@@ -292,9 +290,6 @@ function appendPage(list) {
   const slice = list.slice(start, start + PAGE_SIZE[state.mode]);
   gridEl.insertAdjacentHTML("beforeend", slice.map((v, i) => cardHTML(v, start + i)).join(""));
   state.shown = start + slice.length;
-  // Only the cards added just now, so earlier ones never report twice.
-  observeImpressions("[data-yt-new]", (el) => el.dataset.videoId, gridEl);
-  for (const el of gridEl.querySelectorAll("[data-yt-new]")) el.removeAttribute("data-yt-new");
   initReveal(gridEl);
   updateMore(list);
   return gridEl.children[start]?.querySelector("a") || null;

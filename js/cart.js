@@ -9,7 +9,6 @@
 // fast clicks can never race each other or apply an older response last.
 import { FourthwallAPI } from "/js/fourthwall-api.js";
 import { money, toCents } from "/js/currency.js";
-import { track } from "/js/track.js";
 
 const STORAGE_KEY = "zevkev-cart-id";
 const MAX_QTY = 99;
@@ -138,7 +137,7 @@ function mount() {
         <span id="cart-subtotal" class="font-display text-3xl tracking-wide"></span>
       </div>
       <p class="mt-1 text-sm text-ink-muted">Inkl. MwSt., zzgl. Versandkosten. Versand und Rabattcodes siehst du an der Kasse.</p>
-      <a id="cart-checkout" href="/shop/" class="btn btn-accent btn-lg btn-block mt-4" data-track-click="cart-checkout">${ICON.lock}Zur Kasse</a>
+      <a id="cart-checkout" href="/shop/" class="btn btn-accent btn-lg btn-block mt-4">${ICON.lock}Zur Kasse</a>
       <button type="button" class="cart-continue mt-2" data-cart-close>Weiter einkaufen</button>
     </div>
   </aside>`
@@ -243,7 +242,7 @@ function render() {
         <span class="cart-empty-icon">${ICON.cart}</span>
         <p class="font-display text-3xl">Dein Warenkorb ist leer</p>
         <p class="text-ink-muted">Schau dich im Shop um, da findest du bestimmt was.</p>
-        <a href="/shop/" class="btn btn-accent mt-2" data-track-click="cart-empty-go-shop"${onShopIndex() ? " data-cart-close" : ""}>Zum Shop</a>
+        <a href="/shop/" class="btn btn-accent mt-2"${onShopIndex() ? " data-cart-close" : ""}>Zum Shop</a>
       </div>`;
     foot.hidden = true;
     return;
@@ -401,7 +400,6 @@ function addItem(variantId, quantity = 1) {
       state.cart = cart;
       state.status = "idle";
       render();
-      track("add_to_cart", variantId, qty);
       openDrawer();
       showToast(qty > 1 ? `${qty} Stück liegen jetzt im Warenkorb.` : "Liegt jetzt im Warenkorb.");
       return true;
