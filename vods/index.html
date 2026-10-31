@@ -2,130 +2,123 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mehr | ZevKev</title>
 <meta name="description" content="ZevKev live auf Twitch, vergangene Streams zum Nachschauen und die neuesten Videos vom VOD Kanal ZevKev+.">
-
+<link rel="canonical" href="https://zevkev.de/vods/">
 <link rel="icon" type="image/png" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
 <link rel="apple-touch-icon" href="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#234d70">
+<link rel="preload" href="/assets/fonts/jost-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/bebas-neue-latin-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preconnect" href="https://i.ytimg.com">
+<link rel="stylesheet" href="/assets/css/app.css">
+<script src="/js/boot.js"></script>
+<noscript><style>#vods-hero > .vods-stage, .vods-section { display: none !important; }</style></noscript>
 
 <meta property="og:type" content="website">
 <meta property="og:title" content="Mehr | ZevKev">
 <meta property="og:description" content="Live auf Twitch, vergangene Streams und die neuesten Videos vom VOD Kanal ZevKev+.">
 <meta property="og:image" content="https://zevkev.github.io/Medienspeicher/Bilder/ZevKev.png">
-<link rel="canonical" href="https://zevkev.de/vods/">
 <meta property="og:url" content="https://zevkev.de/vods/">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://zevkev.github.io/Medienspeicher/Bilder/ZevKev.png">
-
-<link rel="stylesheet" href="/css/style.css">
-<link rel="stylesheet" href="/css/shop.css">
-<link rel="stylesheet" href="/css/vods.css">
-<link rel="stylesheet" href="/css/youtube.css">
 </head>
-<body class="vods-page">
-
-<script type="module" src="/js/theme.js"></script>
-<script type="module" src="/js/user-theme.js"></script>
-<script type="module" src="/js/consent.js"></script>
-
+<body>
 <div id="site-header"></div>
 
-<!-- Full-bleed hero (gronkh.tv structural reference): the current/live
-     video fills the page width right under the fixed nav, which floats over
-     it as a translucent bar instead of sitting in normal flow above it (see
-     .vods-page .site-header in vods.css). This is the same player+chat
-     pairing the page always had — js/vods.js just renders it into this new
-     frame, with a scrimmed status bar (badge/title/stats/actions) near the
-     hero's bottom edge instead of a caption printed below the player. -->
-<section class="vod-hero" id="vod-hero" aria-label="Aktueller Stream">
-  <div class="vod-hero-row">
-    <div class="vod-hero-player" id="vod-hero-player"></div>
-    <div class="vod-hero-chat" id="chat-col" data-twitch-only></div>
-  </div>
-  <div class="vod-hero-tear" aria-hidden="true"></div>
-</section>
-<div id="vod-hero-sentinel" aria-hidden="true"></div>
+<main id="main" class="page">
+  <div class="container-page">
 
-<div class="page-body">
-  <div class="container" style="display:flex; flex-direction:column; align-items:center;">
+    <!-- Page heading. With Twitch off (twitch.txt) this page is "ZevKev+":
+         the [data-twitch-soft] / [data-no-twitch] pairs swap via the
+         html.twitch-on / html.twitch-off class, js/vods.js sets the title. -->
+    <header class="vods-head">
+      <h1 class="mat-title vods-title"><span data-twitch-soft>Streams und VODs</span><span data-no-twitch>ZevKev+</span></h1>
+      <p class="mat-text vods-lead">
+        <span data-twitch-soft>Live auf Twitch, vergangene Streams zum Nachschauen und die neusten Videos vom VOD Kanal ZevKev+.</span>
+        <span data-no-twitch>Die neusten Videos vom YouTube VOD Kanal ZevKev+. Ein Klick und du schaust direkt auf YouTube.</span>
+      </p>
+    </header>
 
-    <!-- .yt-library/.scissor-line: the same paper-sheet card + torn-edge
-         divider already used on youtube/index.html for its lower section
-         (css/youtube.css is already loaded here for .yt-section-title, so
-         this reuses that exact styling instead of duplicating it). -->
-    <div class="yt-library">
-      <div class="scissor-line" aria-hidden="true"></div>
-
-      <!-- .yt-library-head: same integrated heading+pills row youtube.css's
-           own library section uses (css/youtube.css is loaded here too) --
-           label left, pill row right, instead of two separately centered
-           elements stacked on top of each other. -->
-      <div class="yt-library-head" data-twitch-only>
-        <h2 class="yt-section-title">Die neusten Streams</h2>
-        <div class="vod-section-head" id="twitch-archive-head"></div>
-      </div>
-      <!-- .yt-shelf-wrap/.yt-shelf-nav: the same shelf-arrow chrome already
-           used by youtube.css's own shelves (css/youtube.css is loaded here
-           too) -- purely a positioning wrapper + absolutely-positioned
-           buttons, so it works around a .vod-row track just as well as
-           around a .yt-shelf one without needing its own CSS. -->
-      <div class="yt-shelf-wrap" id="twitch-vod-shelf-wrap" data-twitch-only>
-        <button type="button" class="yt-shelf-nav yt-shelf-nav--prev is-hidden" aria-label="Zurück scrollen"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
-        <div class="vod-row" id="twitch-vod-row"></div>
-        <button type="button" class="yt-shelf-nav yt-shelf-nav--next is-hidden" aria-label="Weiter scrollen"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
-      </div>
-
-      <div id="twitch-spotlight-wrap" data-twitch-only>
-        <!-- .yt-spotlight-label: youtube.css's lighter-weight uppercase
-             label style for this exact "Aus dem Archiv" discovery row --
-             was a full .yt-section-title here (same weight as a primary
-             heading), mismatched with how the YouTube page treats the
-             identically-named row. -->
-        <div class="yt-spotlight-label">Aus dem Archiv</div>
-        <div class="yt-shelf-wrap" id="twitch-spotlight-shelf-wrap">
-          <button type="button" class="yt-shelf-nav yt-shelf-nav--prev is-hidden" aria-label="Zurück scrollen"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
-          <div class="vod-row vod-row--accent" id="twitch-spotlight-row"></div>
-          <button type="button" class="yt-shelf-nav yt-shelf-nav--next is-hidden" aria-label="Weiter scrollen"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+    <!-- Hero: live player, newest Twitch VOD or newest ZevKev+ video.
+         js/vods.js replaces this skeleton once the data is in. -->
+    <section id="vods-hero" class="vods-hero" aria-label="Aktuell" aria-busy="true">
+      <div class="paper vods-stage" aria-hidden="true">
+        <div class="tape"></div>
+        <div class="vods-stage-grid">
+          <div class="vods-media"><div class="skeleton absolute inset-0 rounded-none"></div></div>
+          <div class="vods-info w-full">
+            <div class="vods-skel h-6 w-32 rounded-full"></div>
+            <div class="vods-skel h-10 w-full"></div>
+            <div class="vods-skel h-10 w-3/4"></div>
+            <div class="vods-skel h-4 w-1/2"></div>
+            <div class="vods-skel mt-2 h-11 w-48 rounded-xl"></div>
+          </div>
         </div>
       </div>
+      <noscript>
+        <div class="paper paper-sky vods-empty">
+          <h2 class="vods-empty-title">Hier braucht es JavaScript</h2>
+          <p>Die Videos werden mit JavaScript geladen. Alle Videos findest du auch direkt auf dem Kanal.</p>
+          <a class="btn btn-yt" href="https://www.youtube.com/channel/UCTTbSiyRUop-hMeZGIJD_QA">Zum ZevKev+ Kanal</a>
+        </div>
+      </noscript>
+    </section>
 
-      <div class="yt-library-head">
-        <h2 class="yt-section-title">Vom YouTube VOD Kanal (ZevKev+)</h2>
-        <div class="vod-section-head" id="vod-section-head"></div>
+    <!-- Twitch archive. Only exists with Twitch on. -->
+    <section id="streams" class="vods-section" data-twitch aria-labelledby="streams-title">
+      <div class="vods-section-head">
+        <div>
+          <h2 id="streams-title" class="mat-title">Die neusten Streams</h2>
+          <p class="mat-text vods-section-sub">Vergangene Twitch Streams zum Nachschauen.</p>
+        </div>
+        <a class="btn btn-ghost btn-sm" href="https://www.twitch.tv/zevkev_/videos?filter=archives&amp;sort=time" data-track-click="vods-twitch-all">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0 1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/></svg>
+          Alle auf Twitch
+        </a>
       </div>
+      <div id="streams-grid" class="vods-grid" aria-busy="true">
+        <div class="paper video-card" aria-hidden="true"><div class="video-thumb"><div class="skeleton absolute inset-0 rounded-none"></div></div><div class="vods-skel h-4 w-4/5"></div><div class="vods-skel h-3 w-2/5"></div></div>
+        <div class="paper paper-b video-card max-sm:hidden" aria-hidden="true"><div class="video-thumb"><div class="skeleton absolute inset-0 rounded-none"></div></div><div class="vods-skel h-4 w-3/4"></div><div class="vods-skel h-3 w-1/3"></div></div>
+        <div class="paper paper-c video-card max-lg:hidden" aria-hidden="true"><div class="video-thumb"><div class="skeleton absolute inset-0 rounded-none"></div></div><div class="vods-skel h-4 w-4/5"></div><div class="vods-skel h-3 w-2/5"></div></div>
+      </div>
+    </section>
 
-      <!-- Reuses css/youtube.css's .yt-search-* classes (already loaded on
-           this page, see the <link> above) instead of duplicating the
-           styling -- same search-a-title-as-you-type feature as the
-           YouTube page, for this section's own (potentially long,
-           load-more-paginated) video list. -->
-      <div class="yt-search-row">
-        <div class="yt-search-box">
-          <svg class="yt-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-          <input type="search" id="vod-search-input" class="yt-search-input" placeholder="Videos durchsuchen…" aria-label="Videos durchsuchen">
-          <button type="button" id="vod-search-clear" class="yt-search-clear" aria-label="Suche zurücksetzen" hidden>&times;</button>
+    <!-- ZevKev+ YouTube channel (assets/data/videos.json). -->
+    <section id="zevkev-plus" class="vods-section" aria-labelledby="plus-title">
+      <div class="vods-section-head">
+        <div>
+          <h2 id="plus-title" class="mat-title">Vom YouTube VOD Kanal</h2>
+          <p class="mat-text vods-section-sub">Alle Videos von ZevKev+, ein Klick und es läuft auf YouTube.</p>
+        </div>
+        <div id="plus-sort" class="seg" role="group" aria-label="Sortierung" hidden>
+          <button type="button" class="seg-item" data-sort="new" aria-pressed="true">Neueste</button>
+          <button type="button" class="seg-item" data-sort="old" aria-pressed="false">Älteste</button>
         </div>
       </div>
-
-      <div class="vod-section-head" id="vod-sort-bar"></div>
-      <div class="vod-grid" id="vod-grid"></div>
-      <div class="yt-load-more-row" id="vod-load-more"></div>
-    </div>
+      <div id="plus-grid" class="vods-grid" aria-busy="true">
+        <div class="paper video-card" aria-hidden="true"><div class="video-thumb"><div class="skeleton absolute inset-0 rounded-none"></div></div><div class="vods-skel h-4 w-4/5"></div><div class="vods-skel h-3 w-2/5"></div></div>
+        <div class="paper paper-b video-card max-sm:hidden" aria-hidden="true"><div class="video-thumb"><div class="skeleton absolute inset-0 rounded-none"></div></div><div class="vods-skel h-4 w-3/4"></div><div class="vods-skel h-3 w-1/3"></div></div>
+        <div class="paper paper-c video-card max-lg:hidden" aria-hidden="true"><div class="video-thumb"><div class="skeleton absolute inset-0 rounded-none"></div></div><div class="vods-skel h-4 w-4/5"></div><div class="vods-skel h-3 w-2/5"></div></div>
+      </div>
+      <div class="vods-grid-foot">
+        <button id="plus-more" type="button" class="btn btn-accent" data-track-click="vods-plus-more" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          Mehr laden
+        </button>
+        <a id="plus-channel" class="btn btn-yt" href="https://www.youtube.com/channel/UCTTbSiyRUop-hMeZGIJD_QA" data-track-click="vods-plus-channel">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+          Zum ZevKev+ Kanal
+        </a>
+      </div>
+    </section>
 
   </div>
-</div>
+</main>
 
 <div id="site-footer"></div>
-
-<script type="module" src="/js/flags.js"></script>
-<script type="module">
-  import { mountLayout } from "/js/layout.js";
-  mountLayout();
-</script>
+<script type="module" src="/js/layout.js"></script>
 <script type="module" src="/js/vods.js"></script>
 </body>
 </html>

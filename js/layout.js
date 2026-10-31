@@ -1,21 +1,27 @@
-// Shared header + footer, mounted into #site-header / #site-footer on every
-// page. The cart icon/drawer only ever appears on /shop/ pages.
+// Shared header, footer and cookie banner. Mounts itself into
+// #site-header / #site-footer when imported. On /shop pages it adds the cart
+// button and hands over to js/cart.js (Cart.init() mounts the drawer).
 import { track } from "/js/track.js";
-import { mountConsentBanner } from "/js/consent.js";
-import { TWITCH_ENABLED } from "/js/config.js";
+import { mountConsentBanner, openConsentSettings } from "/js/consent.js";
+import { getTheme, toggleTheme } from "/js/theme.js";
+import { initReveal } from "/js/reveal.js";
+import "/js/twitch.js";
 
-// "Mehr" becomes "ZevKev+" whenever Twitch content is switched off (see
-// /privat/'s "Einstellungen" tab) -- the page itself already falls back to
-// a YouTube-only view via [data-twitch-only] (css/style.css), this just
-// keeps the nav label honest about there being nothing Twitch-related to
-// find there right now. Reversible: flipping the toggle back on switches
-// the label back too, nothing here is written anywhere.
+const LOGO = "https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png";
+
 const NAV = [
   { href: "/", label: "Home", match: (p) => p === "/" || p === "/index.html" },
   { href: "/shop/", label: "Shop", match: (p) => p.startsWith("/shop") },
   { href: "/youtube/", label: "YouTube", match: (p) => p.startsWith("/youtube") },
-  { href: "/vods/", label: TWITCH_ENABLED ? "Mehr" : "ZevKev+", match: (p) => p.startsWith("/vods") },
-  { href: "/watchlist/", label: "Watchlist", match: (p) => p.startsWith("/watchlist") },
+  { href: "/vods/", label: "Mehr", labelNoTwitch: "ZevKev+", match: (p) => p.startsWith("/vods") },
+];
+
+const LEGAL = [
+  { href: "/impressum/", label: "Impressum" },
+  { href: "/datenschutz/", label: "Datenschutz" },
+  { href: "/agb/", label: "AGB" },
+  { href: "/widerruf/", label: "Widerrufsrecht" },
+  { href: "/kontakt/", label: "Kontakt" },
 ];
 
 const SOCIALS = [
@@ -23,10 +29,10 @@ const SOCIALS = [
   { href: "https://www.instagram.com/zevkev/", label: "Instagram", icon: "instagram" },
   { href: "https://www.tiktok.com/@zevkev", label: "TikTok", icon: "tiktok" },
   { href: "https://discord.com/invite/psW4NgjBFN", label: "Discord", icon: "discord" },
-  { href: "https://www.twitch.tv/zevkev_", label: "Twitch", icon: "twitch", twitchOnly: true },
+  { href: "https://www.twitch.tv/zevkev_", label: "Twitch", icon: "twitch", twitch: true },
 ];
 
-const ICONS = {
+export const ICONS = {
   youtube: '<path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>',
   instagram: '<path d="M7.03.084c-1.277.06-2.149.264-2.911.563-.789.308-1.458.72-2.123 1.388-.665.668-1.075 1.337-1.38 2.127-.295.764-.496 1.636-.552 2.914C.05 8.253.037 8.664.043 11.923c.006 3.259.021 3.667.083 4.947.06 1.277.264 2.148.563 2.911.309.789.72 1.457 1.388 2.123.668.665 1.337 1.074 2.129 1.38.763.295 1.636.496 2.913.552 1.277.056 1.689.069 4.947.063 3.257-.006 3.667-.021 4.947-.081 1.28-.061 2.147-.266 2.91-.564.789-.309 1.458-.72 2.123-1.388.665-.668 1.074-1.337 1.379-2.129.296-.763.497-1.636.552-2.912.056-1.281.069-1.69.063-4.948-.006-3.258-.021-3.667-.082-4.947-.06-1.28-.264-2.149-.563-2.912-.309-.789-.72-1.457-1.387-2.123C21.298 1.33 20.628.92 19.838.616 19.074.32 18.202.119 16.924.064 15.647.009 15.236-.005 11.977.001 8.718.007 8.31.022 7.03.084M7.17 21.776c-1.17-.051-1.805-.245-2.229-.408-.56-.216-.96-.477-1.382-.895-.422-.418-.681-.819-.9-1.378-.164-.423-.362-1.058-.417-2.228-.06-1.264-.072-1.644-.079-4.848-.007-3.204.005-3.583.061-4.848.05-1.169.246-1.805.408-2.228.216-.561.476-.96.895-1.382.419-.422.818-.681 1.378-.9.423-.165 1.057-.361 2.227-.417 1.265-.06 1.644-.072 4.848-.079 3.203-.007 3.583.005 4.848.061 1.169.053 1.805.246 2.228.408.56.216.96.475 1.382.895.422.419.681.818.9 1.378.165.422.361 1.056.417 2.226.06 1.265.074 1.645.079 4.848.005 3.203-.006 3.584-.062 4.848-.052 1.17-.246 1.805-.408 2.229-.216.56-.477.96-.895 1.382-.419.421-.818.68-1.378.899-.422.165-1.058.362-2.226.418-1.265.06-1.645.072-4.849.079-3.204.007-3.582-.006-4.848-.062M15.947 5.586a1.44 1.44 0 1 0 1.437-1.442 1.44 1.44 0 0 0-1.437 1.442M5.839 12a6.161 6.161 0 1 0 12.323-.001 6.161 6.161 0 0 0-12.323.001M8 12a4 4 0 1 1 4 4 4 4 0 0 1-4-4"/>',
   tiktok: '<path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>',
@@ -34,216 +40,127 @@ const ICONS = {
   twitch: '<path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0 1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>',
 };
 
-function themeIconHTML() {
-  return `
-  <span class="theme-toggle-scene">
-    <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4V2M12 22v-2M4.93 4.93 3.51 3.51M20.49 20.49l-1.42-1.42M4 12H2M22 12h-2M4.93 19.07l-1.42 1.42M20.49 3.51l-1.42 1.42"/><circle cx="12" cy="12" r="5"/></svg>
-    <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/><circle cx="17" cy="7" r=".6" fill="currentColor" stroke="none"/><circle cx="14" cy="4" r=".4" fill="currentColor" stroke="none"/></svg>
-  </span>`;
+export function brandIcon(name, cls = "") {
+  return `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"${cls ? ` class="${cls}"` : ""}>${ICONS[name]}</svg>`;
 }
 
-function socialLinksHTML() {
-  return SOCIALS.map(
-    (s) => `<a href="${s.href}" target="_blank" rel="noopener" aria-label="${s.label}" data-track-click="social-${s.icon}"${s.twitchOnly ? " data-twitch-only" : ""}><svg viewBox="0 0 24 24" fill="currentColor">${ICONS[s.icon]}</svg></a>`
-  ).join("");
+function navLabel(n) {
+  if (!n.labelNoTwitch) return n.label;
+  return `<span data-twitch-soft>${n.label}</span><span data-no-twitch>${n.labelNoTwitch}</span>`;
 }
 
-function headerHTML(isShop, showAccount) {
+function headerHTML(path, isShop) {
+  const links = NAV.map((n) => {
+    const current = n.match(path) ? ' aria-current="page"' : "";
+    return `<a class="nav-link" href="${n.href}"${current}>${navLabel(n)}</a>`;
+  }).join("");
+
   return `
+  <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[200] focus:rounded-lg focus:bg-paper focus:px-4 focus:py-2 focus:font-semibold">Zum Inhalt springen</a>
   <header class="site-header">
-    <div class="container">
-      <a class="site-logo" href="/">
-        <img src="https://zevkev.github.io/Medienspeicher/Bilder/neues%20icon.png" alt="">
-        ZevKev
+    <div class="container-page relative flex h-full items-center gap-3">
+      <a class="site-logo" href="/" aria-label="ZevKev Startseite">
+        <img src="${LOGO}" alt="" width="36" height="36">
+        <span>ZevKev</span>
       </a>
-      <nav class="site-nav" id="site-nav">
-        ${NAV.map((n) => `<a href="${n.href}" data-nav="${n.label}"${n.href === "/vods/" ? " data-twitch-optional" : ""}>${n.label}</a>`).join("")}
-        <div class="nav-account-slot" id="nav-account-slot"></div>
-      </nav>
-      <div class="header-actions" id="header-actions">
-        <button class="theme-toggle" id="theme-toggle" aria-label="Dunkles Design umschalten" type="button">${themeIconHTML()}</button>
-        ${isShop ? cartButtonHTML() : ""}
-        ${showAccount ? `<div id="account-slot"></div>` : ""}
-        <button class="nav-toggle" id="nav-toggle" aria-label="Menü öffnen" aria-expanded="false"><span></span></button>
+      <nav id="site-nav" class="site-nav md:absolute md:left-1/2 md:flex md:-translate-x-1/2 md:items-center md:gap-1" aria-label="Hauptnavigation">${links}</nav>
+      <div class="ml-auto flex items-center gap-2">
+        <button id="theme-toggle" class="icon-btn theme-toggle" type="button" aria-label="Dunkles Design umschalten">
+          <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4V2M12 22v-2M4.93 4.93 3.51 3.51M20.49 20.49l-1.42-1.42M4 12H2M22 12h-2M4.93 19.07l-1.42 1.42M20.49 3.51l-1.42 1.42"/><circle cx="12" cy="12" r="5"/></svg>
+          <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
+        </button>
+        ${isShop ? `
+        <button id="cart-open" class="icon-btn" type="button" aria-label="Warenkorb öffnen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h2l2.4 12.4a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="9" cy="21" r="1"/><circle cx="18" cy="21" r="1"/></svg>
+          <span id="cart-badge" class="cart-badge" hidden>0</span>
+        </button>` : ""}
+        <button id="nav-toggle" class="icon-btn md:hidden" type="button" aria-label="Menü öffnen" aria-expanded="false" aria-controls="site-nav"><span class="nav-toggle-bars"></span></button>
       </div>
     </div>
   </header>`;
 }
 
-function cartButtonHTML() {
-  return `
-  <button class="cart-button" id="cart-open" aria-label="Warenkorb öffnen">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h2l2.4 12.4a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="9" cy="21" r="1"/><circle cx="18" cy="21" r="1"/></svg>
-    <span class="cart-badge" id="cart-badge">0</span>
-  </button>`;
-}
-
-function cartDrawerHTML() {
-  return `
-  <div class="cart-backdrop" id="cart-backdrop"></div>
-  <aside class="cart-drawer" id="cart-drawer" aria-hidden="true">
-    <div class="cart-drawer-header">
-      <h2>Warenkorb</h2>
-      <button class="cart-close" id="cart-close" aria-label="Schließen">&times;</button>
-    </div>
-    <div class="cart-items" id="cart-items"></div>
-    <div class="receipt-tear"></div>
-    <div class="cart-footer" id="cart-footer" style="display:none;">
-      <div class="cart-subtotal">
-        <span class="cart-subtotal-label">Zwischensumme</span>
-        <span class="cart-subtotal-value" id="cart-subtotal">0,00 €</span>
-      </div>
-      <p class="cart-shipping-note">zzgl. Versandkosten</p>
-      <a class="p-btn rip btn-accent" id="cart-checkout" data-track-click="cart-checkout" style="width:100%; justify-content:center;">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-        Zur Kasse
-      </a>
-    </div>
-  </aside>`;
-}
-
 function footerHTML() {
+  const socials = SOCIALS.map(
+    (s) => `<a class="social-btn" href="${s.href}" target="_blank" rel="noopener" aria-label="${s.label}" data-track-click="social-${s.icon}"${s.twitch ? " data-twitch" : ""}>${brandIcon(s.icon)}</a>`
+  ).join("");
+  const main = NAV.map((n) => `<a class="footer-link" href="${n.href}">${navLabel(n)}</a>`).join("");
+  const legal = LEGAL.map((n) => `<a class="footer-link" href="${n.href}">${n.label}</a>`).join("");
+
   return `
   <footer class="site-footer">
-    <div class="footer-inner">
-      <div class="footer-socials">${socialLinksHTML()}</div>
-      <div class="footer-links">
-        <a href="/">Home</a>
-        <a href="/shop/">Shop</a>
-        <a href="/youtube/">YouTube</a>
-        <a href="/vods/">Mehr</a>
-        <a href="/watchlist/" id="footer-watchlist-link">Watchlist</a>
-        <a href="/impressum/">Impressum</a>
-        <a href="/datenschutz/">Datenschutz</a>
-        <a href="/agb/">AGB</a>
-        <a href="/widerruf/">Widerrufsrecht</a>
-        <a href="/kontakt/">Kontakt</a>
-      </div>
-      <button type="button" class="footer-cookie-btn" id="cookie-settings-link"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a9.96 9.96 0 0 0-7.05 2.92A10 10 0 1 0 12 2Z"/><circle cx="8.5" cy="10.5" r="1" fill="currentColor" stroke="none"/><circle cx="14" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="14.5" r="1" fill="currentColor" stroke="none"/><circle cx="10" cy="15.5" r="1" fill="currentColor" stroke="none"/></svg>Cookie-Einstellungen</button>
-      <p class="footer-note">&copy; ${new Date().getFullYear()} ZevKev. Videos und Entertainment.</p>
+    <div class="container-page flex flex-col items-center gap-5 pb-9 pt-10 text-center">
+      <div class="flex flex-wrap justify-center gap-2.5">${socials}</div>
+      <nav class="flex flex-col items-center gap-2" aria-label="Fußzeile">
+        <div class="flex flex-wrap justify-center gap-x-5 gap-y-1.5">${main}</div>
+        <div class="flex flex-wrap justify-center gap-x-5 gap-y-1.5">${legal}</div>
+      </nav>
+      <button id="cookie-settings" type="button" class="badge h-8 gap-2 px-3.5 text-[0.8rem] hover:opacity-100 opacity-80">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a9.96 9.96 0 0 0-7.05 2.92A10 10 0 1 0 12 2Z"/><circle cx="8.5" cy="10.5" r="1" fill="currentColor" stroke="none"/><circle cx="14" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="14.5" r="1" fill="currentColor" stroke="none"/><circle cx="10" cy="15.5" r="1" fill="currentColor" stroke="none"/></svg>
+        Cookie-Einstellungen
+      </button>
+      <p class="text-sm text-ink-muted">&copy; ${new Date().getFullYear()} ZevKev. Videos und Entertainment.</p>
     </div>
   </footer>`;
 }
 
-// Owner-only "Privat" nav/footer link to /privat/ -- shown site-wide (not
-// scoped to showAccount's video-page set below, unlike the login button
-// itself) since this is Kevin's own quick access to the moderation panel,
-// useful from any page, not just video ones. Reactive via onAuthChange so
-// it appears/disappears immediately on sign-in/out without a reload, and
-// invisible (zero extra Firestore/Auth cost beyond the already-free local
-// session check) for every other visitor, who is never isOwner().
-async function mountOwnerNav() {
-  const { isOwner, onAuthChange } = await import("/js/auth.js");
+function wireTheme() {
+  const btn = document.getElementById("theme-toggle");
+  const sync = () => {
+    const dark = getTheme() === "dark";
+    btn?.classList.toggle("is-dark", dark);
+    btn?.setAttribute("aria-pressed", String(dark));
+  };
+  sync();
+  btn?.addEventListener("click", () => {
+    toggleTheme();
+    sync();
+  });
+}
+
+function wireMobileNav() {
   const nav = document.getElementById("site-nav");
-  const footerLinks = document.querySelector(".footer-links");
-  onAuthChange((user) => {
-    const owner = isOwner(user);
-    let navLink = nav?.querySelector('[data-nav="Privat"]');
-    let footerLink = document.getElementById("footer-privat-link");
-    if (!owner) {
-      navLink?.remove();
-      footerLink?.remove();
-      return;
-    }
-    if (nav && !navLink) {
-      navLink = document.createElement("a");
-      navLink.href = "/privat/";
-      navLink.dataset.nav = "Privat";
-      navLink.textContent = "Privat";
-      if (window.location.pathname.startsWith("/privat")) navLink.classList.add("is-active");
-      navLink.addEventListener("click", () => {
-        nav.classList.remove("is-open");
-        document.getElementById("nav-toggle")?.setAttribute("aria-expanded", "false");
-      });
-      nav.appendChild(navLink);
-    }
-    if (footerLinks && !footerLink) {
-      footerLink = document.createElement("a");
-      footerLink.href = "/privat/";
-      footerLink.id = "footer-privat-link";
-      footerLink.textContent = "Privat";
-      // Cookie-Einstellungen moved out of .footer-links entirely (now its
-      // own <button> below the row, see footerHTML()) -- was previously
-      // used as the insertBefore anchor to keep it last in the row; a
-      // plain append does the same job now that there's nothing after it.
-      footerLinks.appendChild(footerLink);
-    }
+  const toggle = document.getElementById("nav-toggle");
+  if (!nav || !toggle) return;
+  const setOpen = (open) => {
+    nav.classList.toggle("is-open", open);
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.setAttribute("aria-label", open ? "Menü schließen" : "Menü öffnen");
+  };
+  toggle.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    setOpen(!nav.classList.contains("is-open"));
+  });
+  nav.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => setOpen(false)));
+  document.addEventListener("click", (ev) => {
+    if (nav.classList.contains("is-open") && !nav.contains(ev.target)) setOpen(false);
+  });
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape") setOpen(false);
   });
 }
 
 export async function mountLayout() {
   const path = window.location.pathname;
   const isShop = path.startsWith("/shop");
-  // Used to only show on pages where login "did something" (comments,
-  // watchlist, resume position) -- home/shop/legal pages were left out on
-  // the theory that a login chip there would just sit unused. Explicit
-  // request since: login should be reachable everywhere, not gated by a
-  // per-page allowlist -- and now that /user/<name>/ is a real destination
-  // (comments link to it, admins get real photos/badges there), "sign in"
-  // is relevant from any page, not just the ones with a save/comment
-  // feature directly on them.
-  const showAccount = true;
 
   track("page_view", path);
 
   const headerSlot = document.getElementById("site-header");
   const footerSlot = document.getElementById("site-footer");
-  if (headerSlot) headerSlot.outerHTML = headerHTML(isShop, showAccount) + (isShop ? cartDrawerHTML() : "");
+  if (headerSlot) headerSlot.outerHTML = headerHTML(path, isShop);
   if (footerSlot) footerSlot.outerHTML = footerHTML();
 
+  wireTheme();
+  wireMobileNav();
+  document.getElementById("cookie-settings")?.addEventListener("click", openConsentSettings);
   mountConsentBanner();
-  // Unconditional (unlike the header's own #account-slot chip above, still
-  // deliberately scoped to showAccount per the comment there) -- the
-  // hamburger drawer's #nav-account-slot is now in every page's header, so
-  // login state shows up in the menu everywhere, even on pages where the
-  // persistent header chip itself stays hidden as not relevant there.
-  import("/js/auth-ui.js").then(({ mountAccountUI }) => mountAccountUI());
-  mountOwnerNav();
-  document.getElementById("cookie-settings-link")?.addEventListener("click", async (ev) => {
-    ev.preventDefault();
-    const { openConsentSettings } = await import("/js/consent.js");
-    openConsentSettings();
-  });
-
-  const { getTheme, toggleTheme } = await import("/js/theme.js");
-  const themeBtn = document.getElementById("theme-toggle");
-  const syncThemeIcon = () => themeBtn?.classList.toggle("is-dark", getTheme() === "dark");
-  syncThemeIcon();
-  themeBtn?.addEventListener("click", () => {
-    toggleTheme();
-    syncThemeIcon();
-  });
-
-  const nav = document.getElementById("site-nav");
-  const active = NAV.find((n) => n.match(path));
-  if (active) nav.querySelector(`[data-nav="${active.label}"]`)?.classList.add("is-active");
-
-  // Same pages the login button itself is scoped to (see showAccount above)
-  // -- previously this stayed hidden until the watchlist actually had
-  // something in it, but that's a chicken-and-egg problem: hiding the only
-  // nav entry point to the page makes it harder to discover in the first
-  // place. Shown on every video/stream page now regardless of whether it's
-  // empty yet, hidden everywhere else (home/shop/legal) same as before.
-  if (!showAccount) {
-    nav.querySelector('[data-nav="Watchlist"]')?.remove();
-    document.getElementById("footer-watchlist-link")?.remove();
-  }
-
-  const toggle = document.getElementById("nav-toggle");
-  toggle?.addEventListener("click", () => {
-    const open = nav.classList.toggle("is-open");
-    toggle.setAttribute("aria-expanded", String(open));
-  });
-  nav?.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => {
-    nav.classList.remove("is-open");
-    toggle?.setAttribute("aria-expanded", "false");
-  }));
+  initReveal();
 
   if (isShop) {
     const { Cart } = await import("/js/cart.js");
-    document.getElementById("cart-open")?.addEventListener("click", () => Cart.openDrawer());
-    document.getElementById("cart-close")?.addEventListener("click", () => Cart.closeDrawer());
-    document.getElementById("cart-backdrop")?.addEventListener("click", () => Cart.closeDrawer());
     Cart.init();
   }
 }
+
+mountLayout();

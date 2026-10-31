@@ -18,9 +18,7 @@ export function track(type, path, value = null) {
 }
 
 // Lower-level sibling of track() for events that need GA4's own named
-// parameters (e.g. "sign_up"/"login" want `method`, not event_label/value) --
-// used for the account, watchlist and comment events below. Same silent-
-// failure contract as track(): never throws, never blocks anything visible.
+// parameters. Same silent-failure contract: never throws, never blocks.
 export function trackEvent(name, params = {}) {
   try {
     if (typeof window.gtag !== "function") return; // no consent yet, or declined

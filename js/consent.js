@@ -45,7 +45,7 @@ if (isConfigured && getChoice() === "accepted") loadGtag();
 
 function cookieIcon() {
   return `
-  <svg class="consent-icon" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <svg class="h-7 w-7 shrink-0 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <path d="M12 2a9.96 9.96 0 0 0-7.07 2.93A9.96 9.96 0 0 0 2 12c0 5.52 4.48 10 10 10s10-4.48 10-10c0-.34-.02-.68-.05-1a3 3 0 0 1-3.95-3.95A10.02 10.02 0 0 0 12 2Z"/>
     <circle cx="8.5" cy="10.5" r="1" fill="currentColor" stroke="none"/>
     <circle cx="13" cy="14" r="1" fill="currentColor" stroke="none"/>
@@ -54,42 +54,32 @@ function cookieIcon() {
   </svg>`;
 }
 
-// Both buttons deliberately use the exact same plain .p-btn rip style (no
-// .btn-accent highlight on Accept) -- an accepted-looking gold "Akzeptieren"
-// next to a plain grey "Ablehnen" nudges the choice rather than presenting
-// it neutrally, which is the kind of thing DPAs flag as a dark pattern.
-// Kevin was explicit that the banner must let people decline just as
-// easily as accept, so equal visual weight here isn't just styling.
-// Revisiting via the footer's "Cookie-Einstellungen" link used to always
-// show this exact same first-visit prompt, with no indication of what a
-// returning visitor had already chosen -- someone checking "did I actually
-// accept analytics?" had no way to tell short of opening dev tools. The
-// status line below is plain text, not a styled/highlighted state on either
-// button, so it stays purely informational rather than nudging the choice
-// (see the comment on .consent-actions below for why that distinction
-// matters here specifically).
+// Both buttons share the exact same style on purpose: highlighting
+// "Akzeptieren" would nudge the choice (a dark pattern), and declining must
+// be as easy as accepting. The status line is plain text for the same reason.
 function currentChoiceHTML(choice) {
   if (!choice) return "";
   const label = choice === "accepted" ? "Akzeptiert" : "Abgelehnt";
-  return `<p class="consent-status">Aktuell: <strong>${label}</strong></p>`;
+  return `<p class="text-sm text-ink-muted">Aktuell: <strong class="text-ink">${label}</strong></p>`;
 }
 
 function bannerHTML(choice) {
   return `
-  <div class="consent-banner rip rip--b" id="consent-banner" role="dialog" aria-label="Cookie-Einstellungen">
-    <div class="tape"></div>
-    <div class="consent-head">
+  <div id="consent-banner" role="dialog" aria-label="Cookie-Einstellungen" aria-live="polite"
+       class="paper paper-b fixed inset-x-3 bottom-3 z-[400] mx-auto flex max-w-xl flex-col gap-3.5 px-6 pb-6 pt-7 sm:bottom-5 sm:px-7">
+    <div class="tape left-1/2 -translate-x-1/2 rotate-[-3deg]"></div>
+    <div class="flex items-center gap-2.5">
       ${cookieIcon()}
-      <h2>Cookies &amp; Datenschutz</h2>
+      <h2 class="text-2xl">Cookies &amp; Datenschutz</h2>
     </div>
-    <p>
+    <p class="leading-relaxed">
       Wir nutzen Cookies für Google Analytics. Läuft nur mit deiner Zustimmung.
-      Mehr Infos in den <a href="/datenschutz/#cookies">Cookie-Einstellungen</a>.
+      Mehr Infos in der <a class="link" href="/datenschutz/#cookies">Datenschutzerklärung</a>.
     </p>
     ${currentChoiceHTML(choice)}
-    <div class="consent-actions">
-      <button type="button" class="p-btn rip rip--pink" id="consent-decline">Ablehnen</button>
-      <button type="button" class="p-btn rip rip--pink" id="consent-accept">Akzeptieren</button>
+    <div class="mt-1 grid grid-cols-2 gap-3 sm:flex sm:justify-end">
+      <button type="button" class="btn btn-pink" id="consent-decline">Ablehnen</button>
+      <button type="button" class="btn btn-pink" id="consent-accept">Akzeptieren</button>
     </div>
   </div>`;
 }

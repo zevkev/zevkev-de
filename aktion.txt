@@ -1,0 +1,7 @@
+# Rabattaktion im Shop: Banner oben auf der Shop-Seite.
+# aktiv = ja zeigt das Banner, aktiv = nein blendet es aus.
+# bis = Datum (JJJJ-MM-TT), danach verschwindet das Banner automatisch. Leer lassen = kein Ende.
+aktiv = nein
+text = 
+code = 
+bis = 

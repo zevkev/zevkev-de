@@ -1,5 +1,4 @@
 User-agent: *
 Allow: /
-Disallow: /privat/
 
 Sitemap: https://zevkev.de/sitemap.xml

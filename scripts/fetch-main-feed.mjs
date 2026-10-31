@@ -173,6 +173,7 @@ async function main() {
       thumbnail: v.thumbnail,
       description: v.description,
       views: details.get(v.id)?.views ?? null,
+      durationSeconds: details.get(v.id)?.durationSeconds ?? null,
       url: `https://www.youtube.com/watch?v=${v.id}`,
       isShort: isShortByDuration(details.get(v.id)?.durationSeconds ?? null),
     }))

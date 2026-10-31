@@ -1,23 +1,6 @@
-// Shared scroll-reveal for .reveal elements (style.css's .reveal/.reveal.is-visible
-// pair: opacity 0 -> 1 snap + a 0.5s slide-up on transform, see that file's own
-// comment on why opacity itself isn't in transition-property).
-//
-// Real bug this replaced: only the homepage (via js/home.js's own inline
-// initReveal(), called once at module load) and, by a fragile side effect,
-// the shop/product pages (which dynamically `import("/js/home.js")` purely
-// to trigger that same one-time call) ever actually wired an
-// IntersectionObserver up to add .is-visible. Every other page that reused
-// the .reveal class on dynamically-rendered cards (js/youtube.js,
-// js/vods.js, js/watchlist.js, js/account.js's watchlist preview) never
-// triggered it at all -- those pages only ever looked "revealed" because
-// css/shop.css's .product-card and css/vods.css's .vod-card additionally
-// carried their own `animation: fadeUp 0.5s ease both;`, which fires
-// immediately on insertion regardless of scroll position. That's what made
-// every one of those pages look static once you'd scrolled past the very
-// top: everything below the fold had already faded in before you ever saw
-// it, instead of animating in as each card actually entered the viewport.
-// Removed that redundant per-page animation; this is now the one real
-// reveal mechanism everywhere.
+// Shared scroll-reveal: adds .is-visible to .reveal elements as they enter
+// the viewport (see .reveal in src/app.css: opacity snaps, only transform
+// animates). js/layout.js runs it once on load.
 //
 // Exported (not just run once like the old inline version) specifically so
 // a page can call it again after rendering NEW .reveal elements -- a filter
@@ -44,7 +27,9 @@ export function initReveal(root = document) {
         }
       });
     },
-    { threshold: 0.15 }
+    // threshold 0 plus a bottom margin, not a ratio: a ratio can never be
+    // reached by elements much taller than the viewport.
+    { threshold: 0, rootMargin: "0px 0px -10% 0px" }
   );
   items.forEach((el) => io.observe(el));
 }

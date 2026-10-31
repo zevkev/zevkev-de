@@ -1,517 +1,504 @@
-import { observeImpressions } from "./track.js";
-import { getWatchlistIds, toggleWatchlistId } from "./user-data.js";
-import { initReveal } from "./reveal.js";
+// YouTube page (/youtube/): the newest regular video as the hero, then every
+// upload of the main channel split into Videos and Shorts. Shorts are uploads
+// under two minutes, already classified as `isShort` by
+// scripts/fetch-main-feed.mjs. Every video is a plain link to YouTube in the
+// same tab: no player, no watch page, no modal.
+//
+// State that is linkable: the active tab lives in the URL hash (#shorts).
+import { observeImpressions } from "/js/track.js";
+import { initReveal } from "/js/reveal.js";
+import { cleanText } from "/js/text.js";
 
-// Loaded once in init() (await getWatchlistIds()) and kept in sync locally
-// after that by toggleWatchlist() below -- render functions read this
-// directly (synchronously) rather than each awaiting the (now account-aware)
-// store themselves. See js/user-data.js for why this is a single load per
-// page view rather than a live subscription.
-let watchlistCache = new Set();
+const DATA_URL = "/assets/data/main-videos.json";
+const CHANNEL_URL = "https://www.youtube.com/@ZevKev";
+const PAGE_SIZE = { videos: 12, shorts: 24 };
+// Literal class strings so the Tailwind scanner picks them up.
+const GRID_CLASS = {
+  videos: "yt-grid grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3",
+  shorts: "yt-grid yt-grid--shorts grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6",
+};
+const TEARS = ["", " paper-b", " paper-c"];
+const NOUN = { videos: ["Video", "Videos"], shorts: ["Short", "Shorts"] };
 
-// How many cards the shelf shows before a "load more" click reveals the next
-// batch. Needed now that main-videos.json can hold a long-running channel's
-// entire upload history (hundreds of videos, via scripts/fetch-main-feed.mjs
-// and the YouTube Data API) instead of the old RSS feed's ~15-video cap —
-// rendering all of them into the DOM at once on first paint doesn't scale
-// the same way. Reset to PAGE_SIZE on every Videos/Shorts tab switch
-// (mountFilters below) and bumped by PAGE_SIZE on every "load more" click.
-const PAGE_SIZE = 24;
-let visibleCount = PAGE_SIZE;
+const ICON = {
+  play: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>',
+  youtube:
+    '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>',
+  refresh:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>',
+  alert:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>',
+  screen:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M10 9.2v5.6l4.6-2.8z" fill="currentColor"/></svg>',
+};
 
-// "Neueste" / "Meistgesehen" toggle for whichever tab (Videos or Shorts) is
-// active. Reset to "new" on every tab switch, same as visibleCount, so a
-// fresh tab always opens on its natural chronological order.
-let sortMode = "new";
+const $ = (id) => document.getElementById(id);
+const featureEl = $("yt-feature");
+const statsEl = $("yt-stats");
+const libraryEl = $("yt-library");
+const panelEl = $("yt-panel");
+const gridEl = $("yt-grid");
+const moreBtn = $("yt-more");
+const progressEl = $("yt-progress");
+const statusEl = $("yt-status");
+const tabsEl = $("yt-tabs");
+const sortEl = $("yt-sort");
+const tabs = [...tabsEl.querySelectorAll('[role="tab"]')];
+const sortBtns = [...sortEl.querySelectorAll("[data-sort]")];
 
-// Current title-search text, applied on top of the active Videos/Shorts tab
-// (see renderGrid) -- deliberately NOT reset on tab switch (unlike sortMode/
-// visibleCount above), so searching "Karls" then flipping between Videos and
-// Shorts keeps the same filter instead of silently dropping it.
-let searchQuery = "";
+// Skeleton markup as shipped in the HTML, reused when "Nochmal versuchen"
+// starts a fresh load after an error.
+const initialFeatureHTML = featureEl.innerHTML;
+const initialStatsHTML = statsEl.innerHTML;
 
-// Tracks which tab is active so the search input's own handler (wired once
-// in init(), independent of mountFilters' per-pill click handlers) knows
-// which list to re-render against.
-let activeMode = "videos";
+const state = {
+  loaded: false,
+  failed: false,
+  lists: { videos: [], shorts: [] },
+  sorted: new Map(),
+  hasViews: false,
+  totalViews: 0,
+  mode: modeFromHash() || "videos",
+  sort: "new",
+  shown: 0,
+};
 
-// Minimum items + real view-count spread before the sort toggle is worth
-// showing at all -- same threshold js/vods.js uses for its Twitch-archive
-// sort pills (see renderSortBar below).
-const SORT_MIN = 4;
+/* ---------- Formatting ---------- */
 
-// The Videos tab's "Aus dem Archiv" discovery row (see renderSpotlight) is
-// computed once per page load, not on every re-render -- otherwise it would
-// re-roll on every "load more" click or sort change, which reads as buggy
-// rather than as a stable discovery pick. Empty until computeSpotlight() runs
-// in init(), and stays empty forever if the gate in computeSpotlight isn't
-// met. An array now (not a single pick) -- see the gating rationale below
-// .yt-spotlight-label in css/youtube.css: unlike the Twitch VOD archive,
-// which vods.js gates at just 3 items because that list is permanently
-// capped at 12 by its own fetch script, main-videos.json holds the channel's
-// *entire* upload history with no such cap, so a whole horizontal row of
-// picks (not one lonely card) is worth the screen space once there's a real
-// pool to discover from.
-let spotlightVideos = [];
-const SPOTLIGHT_MIN_TOTAL = 8;
-const SPOTLIGHT_MIN_POOL = 5;
-const SPOTLIGHT_MAX_PICKS = 10;
+const numberDE = new Intl.NumberFormat("de-DE");
+const decimalDE = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
+const dateShort = new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "short", year: "numeric" });
+const dateLong = new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long", year: "numeric" });
 
-const heroMediaEl = document.getElementById("yt-hero-media");
-const heroContentEl = document.getElementById("yt-hero-content");
-const gridEl = document.getElementById("yt-grid");
-const filterBarEl = document.getElementById("yt-filter-bar");
-const spotlightEl = document.getElementById("yt-spotlight");
-const sortBarEl = document.getElementById("yt-sort-bar");
-const loadMoreEl = document.getElementById("yt-load-more");
-const searchInputEl = document.getElementById("yt-search-input");
-const searchClearEl = document.getElementById("yt-search-clear");
-
-function starIcon(filled) {
-  return `<svg viewBox="0 0 24 24" width="18" height="18" fill="${filled ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.8"><path d="M12 3.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z" stroke-linejoin="round"/></svg>`;
-}
-function playIcon(size = 15) {
-  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>`;
-}
-function boltIcon(size = 14) {
-  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="currentColor" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>`;
-}
-function eyeIcon() {
-  return `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
-}
-function emptyIcon() {
-  return `<svg class="yt-empty-icon" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M10 9.3v5.4l4.5-2.7Z" fill="currentColor" stroke="none"/></svg>`;
-}
-function chevronDownIcon(size = 14) {
-  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`;
-}
-function sortIcon(size = 13) {
-  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M6 12h12M10 18h4"/></svg>`;
-}
-function chevronLeftIcon(size = 18) {
-  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>`;
-}
-function chevronRightIcon(size = 18) {
-  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
-}
-function calendarIcon() {
-  return `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>`;
-}
-function youtubeGlyph() {
-  return `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`;
+function esc(value) {
+  return String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }
 
-function escapeHTML(str) {
-  return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-}
-
-function formatViews(n) {
-  if (n == null || Number.isNaN(n)) return "";
-  try {
-    return new Intl.NumberFormat("de-DE").format(n);
-  } catch {
-    return String(n);
+// 584 Aufrufe, 9.613 Aufrufe, 25,1 Tsd. Aufrufe, 410 Tsd. Aufrufe, 1,2 Mio. Aufrufe
+function viewsText(n) {
+  if (n === 1) return "1 Aufruf";
+  if (n < 10_000) return `${numberDE.format(n)} Aufrufe`;
+  if (n < 1_000_000) {
+    const k = n / 1000;
+    return `${n < 100_000 ? decimalDE.format(Math.floor(k * 10) / 10) : numberDE.format(Math.floor(k))} Tsd. Aufrufe`;
   }
+  return `${decimalDE.format(Math.floor(n / 100_000) / 10)} Mio. Aufrufe`;
 }
 
-function getWatchlist() {
-  return watchlistCache;
-}
-async function toggleWatchlist(id) {
-  watchlistCache = await toggleWatchlistId(id);
-  return watchlistCache;
+function startOfDay(d) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
-function formatDate(iso) {
-  if (!iso) return "";
-  try {
-    return new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "long", year: "numeric" }).format(new Date(iso));
-  } catch {
-    return "";
+// Heute, Gestern, vor 3 Tagen, vor 2 Wochen, then 12. Okt. 2025
+function dateText(ms) {
+  const d = new Date(ms);
+  const days = Math.round((startOfDay(new Date()) - startOfDay(d)) / 86_400_000);
+  if (days < 0) return dateShort.format(d);
+  if (days === 0) return "Heute";
+  if (days === 1) return "Gestern";
+  if (days < 7) return `vor ${days} Tagen`;
+  if (days < 28) {
+    const weeks = Math.floor(days / 7);
+    return weeks === 1 ? "vor einer Woche" : `vor ${weeks} Wochen`;
   }
+  return dateShort.format(d);
 }
 
-async function loadJSON(url, fallback) {
-  try {
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) throw new Error(String(res.status));
-    return await res.json();
-  } catch (err) {
-    console.warn(`Could not load ${url}:`, err);
-    return fallback;
+function durationText(sec) {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = String(Math.floor(sec % 60)).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+}
+
+// Direct children of .yt-meta get a middle dot between them (page CSS).
+function metaHTML(v) {
+  const parts = [];
+  if (v.views != null) parts.push(`<span title="${numberDE.format(v.views)} ${v.views === 1 ? "Aufruf" : "Aufrufe"}">${viewsText(v.views)}</span>`);
+  if (v.published != null) {
+    const d = new Date(v.published);
+    parts.push(`<time datetime="${d.toISOString()}" title="${dateLong.format(d)}">${dateText(v.published)}</time>`);
   }
+  return parts.join("");
 }
 
-/* ---------- Full-bleed hero ----------
-   Gronkh.tv-style structural reference: the latest upload fills the page's
-   full width/height as a background image right from y=0, with the site nav
-   floating on top of it (see initHeroScrollObserver below) instead of a
-   bounded card sitting underneath a solid nav bar. Click the image or the
-   "Video ansehen" button to go to that video's own page (js/watch.js,
-   /video/<id>/) -- videos used to open in an on-page modal here; now every
-   video/VOD gets a real page with comments, so this just links there like
-   any other card. */
-function renderFeatured(video) {
-  if (!heroMediaEl || !heroContentEl) return;
+/* ---------- Data ---------- */
 
-  if (!video) {
-    heroMediaEl.innerHTML = "";
-    heroContentEl.innerHTML = `
-      <div class="yt-hero-empty">
-        ${emptyIcon()}
-        <h2>Noch keine Videos geladen</h2>
-        <p>Schau bald wieder vorbei.</p>
-        <a class="yt-empty-cta" href="https://www.youtube.com/@ZevKev" target="_blank" rel="noopener">Zum YouTube-Kanal</a>
-      </div>`;
-    return;
-  }
+const ID_RE = /^[A-Za-z0-9_-]{6,20}$/;
 
-  heroMediaEl.innerHTML = `<img src="${video.thumbnail}" alt="">`;
-  heroMediaEl.querySelector("img")?.addEventListener("click", () => {
-    location.href = `/video/${video.id}/`;
-  });
-
-  const stats = [
-    video.publishedAt ? `<span class="stat">${calendarIcon()}${formatDate(video.publishedAt)}</span>` : "",
-    video.views != null ? `<span class="stat">${eyeIcon()}${formatViews(video.views)} Aufrufe</span>` : "",
-  ].filter(Boolean).join("");
-
-  const watchlist = getWatchlist();
-  const saved = watchlist.has(video.id);
-
-  heroContentEl.innerHTML = `
-    <div class="yt-hero-badge">${video.isShort ? boltIcon(13) : playIcon(13)}${video.isShort ? "Neuestes Short" : "Neuestes Video"}</div>
-    <div class="yt-hero-title">${video.title}</div>
-    ${stats ? `<div class="yt-hero-stats">${stats}</div>` : ""}
-    <div class="yt-hero-actions">
-      <a href="/video/${video.id}/" class="yt-hero-play-btn" id="yt-hero-play" data-track-click="youtube-hero-play">${playIcon(16)}Video ansehen</a>
-      <a class="btn-youtube" href="https://www.youtube.com/@ZevKev?sub_confirmation=1" target="_blank" rel="noopener" data-track-click="youtube-subscribe">${youtubeGlyph()}Abonnieren</a>
-      <button type="button" class="watchlist-toggle yt-hero-watch${saved ? " is-saved" : ""}" data-watch-id="${video.id}" aria-label="Zur Watchlist">${starIcon(saved)}</button>
-    </div>`;
-
-  const watchBtn = heroContentEl.querySelector(".yt-hero-watch");
-  watchBtn?.addEventListener("click", async () => {
-    const updated = await toggleWatchlist(video.id);
-    const isSaved = updated.has(video.id);
-    watchBtn.classList.toggle("is-saved", isSaved);
-    watchBtn.innerHTML = starIcon(isSaved);
-  });
+function toCount(value) {
+  const n = typeof value === "string" && value.trim() !== "" ? Number(value) : value;
+  return typeof n === "number" && Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
 }
 
-// The nav (mounted by js/layout.js into #site-header, untouched here) floats
-// as a transparent bar directly over the hero -- see the body.yt-page rules
-// in css/youtube.css -- and only gains its normal solid paper background
-// once the hero has actually scrolled past it. #yt-hero-sentinel sits right
-// at that boundary; watching it (rather than a raw scroll-position number)
-// stays correct even if the hero's own height changes across breakpoints.
-function initHeroScrollObserver() {
-  const sentinel = document.getElementById("yt-hero-sentinel");
-  if (!sentinel) return;
-  if (!("IntersectionObserver" in window)) {
-    document.body.classList.add("yt-scrolled");
-    return;
-  }
-  const headerH = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--header-h"), 10) || 72;
-  const io = new IntersectionObserver(
-    ([entry]) => document.body.classList.toggle("yt-scrolled", !entry.isIntersecting),
-    { rootMargin: `-${headerH}px 0px 0px 0px`, threshold: 0 }
-  );
-  io.observe(sentinel);
+function fallbackThumb(id) {
+  return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
 }
 
-function cardHTML(video, watchlist, isShort) {
-  const saved = watchlist.has(video.id);
-  const views = video.views != null ? formatViews(video.views) : "";
-  return `
-  <a href="/video/${video.id}/" class="vod-card rip reveal${isShort ? " vod-card--short" : ""}" data-video-id="${video.id}">
-    <div class="vod-thumb">
-      <img src="${video.thumbnail}" alt="" loading="lazy">
-      <span class="yt-play-overlay" aria-hidden="true"><span class="yt-play-circle">${playIcon(20)}</span></span>
-      ${isShort ? `<span class="yt-short-badge">${boltIcon(11)}Short</span>` : ""}
-      <button class="watchlist-toggle${saved ? " is-saved" : ""}" data-watch-id="${video.id}" aria-label="Zur Watchlist" onclick="event.preventDefault()">${starIcon(saved)}</button>
-    </div>
-    <h3>${video.title}</h3>
-    <div class="yt-card-meta">
-      <span class="vod-date">${formatDate(video.publishedAt)}</span>
-      ${views ? `<span class="yt-card-views">${eyeIcon()}${views}</span>` : ""}
-    </div>
-  </a>`;
-}
-
-// Shared by renderGrid and renderSpotlight for the watchlist-star wiring.
-// Cards themselves are now plain links to their own /video/<id>/ page (see
-// cardHTML above), so clicking one just navigates natively -- no click
-// interception needed there anymore.
-function attachCardHandlers(container) {
-  container.querySelectorAll("[data-watch-id]").forEach((btn) => {
-    btn.addEventListener("click", async (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      const updated = await toggleWatchlist(btn.dataset.watchId);
-      const isSaved = updated.has(btn.dataset.watchId);
-      btn.classList.toggle("is-saved", isSaved);
-      btn.innerHTML = starIcon(isSaved);
-    });
-  });
-}
-
-// Wires the prev/next chevrons on a horizontally scrolling row (.yt-shelf
-// inside .yt-shelf-wrap) -- one "page" (~85% of the visible width) per
-// click, plus hiding whichever end has nothing left to scroll to instead of
-// leaving a dead-looking control sitting there. Only used for the "Aus dem
-// Archiv" spotlight row now (a handful of curated picks, fine to browse
-// sideways) -- the main #yt-grid switched to a normal wrapping grid +
-// "load more" button, since sideways-scrolling through a 195-video catalog
-// was the actual complaint this was built to avoid. Called fresh every time
-// renderSpotlight rebuilds its own shelf (its wrap element is freshly
-// created each time, so it needs its own wiring pass each time too).
-function initShelf(wrapEl) {
-  const track = wrapEl?.querySelector(".yt-shelf");
-  const prev = wrapEl?.querySelector(".yt-shelf-nav--prev");
-  const next = wrapEl?.querySelector(".yt-shelf-nav--next");
-  if (!track || !prev || !next) return null;
-
-  prev.addEventListener("click", () => track.scrollBy({ left: -track.clientWidth * 0.85, behavior: "smooth" }));
-  next.addEventListener("click", () => track.scrollBy({ left: track.clientWidth * 0.85, behavior: "smooth" }));
-
-  const updateNav = () => {
-    const canScroll = track.scrollWidth > track.clientWidth + 4;
-    prev.classList.toggle("is-hidden", !canScroll || track.scrollLeft <= 10);
-    next.classList.toggle("is-hidden", !canScroll || track.scrollLeft >= track.scrollWidth - track.clientWidth - 10);
+function normalize(raw) {
+  if (!raw || typeof raw !== "object" || typeof raw.id !== "string" || !ID_RE.test(raw.id)) return null;
+  const published = Date.parse(raw.publishedAt);
+  const duration = toCount(raw.durationSeconds);
+  return {
+    id: raw.id,
+    title: cleanText(raw.title) || "Video",
+    published: Number.isFinite(published) ? published : null,
+    views: toCount(raw.views),
+    duration: duration > 0 ? duration : null,
+    isShort: raw.isShort === true,
+    thumb: typeof raw.thumbnail === "string" && raw.thumbnail.startsWith("https://") ? raw.thumbnail : fallbackThumb(raw.id),
   };
-  track.addEventListener("scroll", updateNav, { passive: true });
-  window.addEventListener("resize", updateNav);
-  // Images/cards can still be loading right after this runs, which changes
-  // scrollWidth -- one rAF pass plus a short delayed re-check covers that
-  // without needing a full ResizeObserver.
-  requestAnimationFrame(updateNav);
-  setTimeout(updateNav, 300);
-  return updateNav;
 }
 
-// True once at least two videos in the list have a different view count --
-// guards the sort toggle below from offering to "sort by views" when every
-// card would end up in the exact same order anyway.
-function hasViewVariance(list) {
-  const vals = new Set(list.map((v) => v.views ?? 0));
-  return vals.size > 1;
+function watchUrl(v) {
+  return v.isShort ? `https://www.youtube.com/shorts/${v.id}` : `https://www.youtube.com/watch?v=${v.id}`;
 }
 
-function orderList(list, sort) {
-  if (sort !== "views") return list;
-  return [...list].sort((a, b) => (b.views ?? 0) - (a.views ?? 0));
-}
-
-// Computed once from the full feed right after it loads (see init()), not on
-// every render -- picking a fresh random sample on every "load more" click
-// or sort change would make the row look like it's glitching rather than
-// showing a stable discovery pick.
-function computeSpotlight(videos) {
-  const featuredId = videos[0]?.id;
-  const nonShorts = videos.filter((v) => !v.isShort);
-  const pool = nonShorts.filter((v) => v.id !== featuredId);
-  if (nonShorts.length < SPOTLIGHT_MIN_TOTAL || pool.length < SPOTLIGHT_MIN_POOL) {
-    spotlightVideos = [];
-    return;
+function sortedList() {
+  const key = `${state.mode}:${state.sort}`;
+  if (!state.sorted.has(key)) {
+    const base = state.lists[state.mode];
+    const list = state.sort === "views" ? [...base].sort((a, b) => (b.views ?? -1) - (a.views ?? -1) || (b.published ?? 0) - (a.published ?? 0)) : base;
+    state.sorted.set(key, list);
   }
-  // Fisher-Yates shuffle of a copy of the pool, then take the first
-  // SPOTLIGHT_MAX_PICKS -- an unbiased random sample rather than a single
-  // pick, so "Aus dem Archiv" reads as its own horizontal discovery row.
-  const shuffled = [...pool];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  spotlightVideos = shuffled.slice(0, SPOTLIGHT_MAX_PICKS);
+  return state.sorted.get(key);
 }
 
-// Only ever shown on the Videos tab (see the comment on computeSpotlight) --
-// Shorts already get their own dense shelf with nothing to "discover" beyond
-// scrolling it. Reuses the same cardHTML/.yt-shelf card language as the main
-// row below (not a separate wide spotlight-card layout) per the gronkh.tv
-// structural reference: a second horizontal discovery row, not a one-off.
-function renderSpotlight(mode, isSearching) {
-  if (!spotlightEl) return;
-  if (isSearching || mode !== "videos" || !spotlightVideos.length) {
-    spotlightEl.innerHTML = "";
-    return;
-  }
-  const watchlist = getWatchlist();
-  spotlightEl.innerHTML = `
-    <div class="yt-spotlight-label">Aus dem Archiv</div>
-    <div class="yt-shelf-wrap">
-      <button type="button" class="yt-shelf-nav yt-shelf-nav--prev is-hidden" aria-label="Zurück scrollen">${chevronLeftIcon()}</button>
-      <div class="yt-shelf" id="yt-spotlight-shelf">${spotlightVideos.map((v) => cardHTML(v, watchlist, false)).join("")}</div>
-      <button type="button" class="yt-shelf-nav yt-shelf-nav--next" aria-label="Weiter scrollen">${chevronRightIcon()}</button>
+/* ---------- Markup ---------- */
+
+function channelButton(extra = "") {
+  return `<a class="btn btn-yt${extra}" href="${CHANNEL_URL}" data-track-click="youtube-channel">${ICON.youtube}Zum Kanal</a>`;
+}
+
+function noticeHTML({ icon, heading = "h3", title, text, actions = "" }) {
+  return `
+    <div class="paper paper-c mx-auto flex max-w-xl flex-col items-center px-6 pb-10 pt-9 text-center sm:px-10">
+      <span class="grid size-14 place-items-center rounded-full bg-paper-accent text-ink [&>svg]:size-7">${icon}</span>
+      <${heading} class="font-display mt-4 text-3xl">${title}</${heading}>
+      <p class="mt-2 max-w-sm leading-relaxed text-ink-muted">${text}</p>
+      ${actions ? `<div class="mt-6 flex flex-wrap justify-center gap-3">${actions}</div>` : ""}
     </div>`;
-  attachCardHandlers(spotlightEl);
-  initShelf(spotlightEl.querySelector(".yt-shelf-wrap"));
-  observeImpressions(".vod-card[data-video-id]", (el) => el.dataset.videoId, spotlightEl);
-  initReveal(spotlightEl);
 }
 
-// "Neueste" / "Meistgesehen" toggle for the currently active tab's own list.
-// A compact segmented control rather than a second row of big pills
-// identical to the Videos/Shorts filter above -- it's a secondary, lighter-
-// weight control, not another primary navigation choice. Gated at SORT_MIN
-// items with real view-count spread (see its declaration above) -- both
-// thresholds real main-videos.json data already clears today for the Videos
-// tab (4 items, all with different view counts) and easily clears for
-// Shorts (11 items).
-function renderSortBar(videos, list, mode) {
-  if (!sortBarEl) return;
-  if (list.length < SORT_MIN || !hasViewVariance(list)) {
-    sortBarEl.innerHTML = "";
-    return;
+function cardHTML(v, index) {
+  const meta = metaHTML(v);
+  const duration = v.duration ? `<span class="video-duration">${durationText(v.duration)}</span>` : "";
+  return `
+    <li class="reveal">
+      <a class="paper${TEARS[index % 3]} paper-lift video-card" href="${watchUrl(v)}" data-video-id="${v.id}" data-yt-new data-track-click="youtube-${v.isShort ? "short" : "video"}:${v.id}">
+        <div class="video-thumb${v.isShort ? " video-thumb--short" : ""}">
+          <img src="${esc(v.thumb)}" data-fallback="${fallbackThumb(v.id)}" data-min-width="121" alt="" width="480" height="360" loading="lazy" decoding="async">
+          ${duration}
+        </div>
+        <div class="video-title" title="${esc(v.title)}">${esc(v.title)}</div>
+        ${meta ? `<div class="video-meta yt-meta">${meta}</div>` : ""}
+      </a>
+    </li>`;
+}
+
+function skeletonHTML(mode) {
+  const thumb = mode === "shorts" ? "aspect-[9/16]" : "aspect-video";
+  const count = mode === "shorts" ? 12 : 6;
+  return Array.from(
+    { length: count },
+    (_, i) => `<li class="paper${TEARS[i % 3]} video-card" aria-hidden="true"><div class="yt-skel ${thumb}"></div><div class="yt-skel h-4 w-11/12"></div><div class="yt-skel h-4 w-3/5"></div><div class="yt-skel h-3 w-2/5"></div></li>`
+  ).join("");
+}
+
+/* ---------- Rendering ---------- */
+
+function renderStats() {
+  const items = [
+    [state.lists.videos.length, NOUN.videos],
+    [state.lists.shorts.length, NOUN.shorts],
+  ].map(([n, noun]) => [numberDE.format(n), noun[n === 1 ? 0 : 1]]);
+  if (state.hasViews) items.push([numberDE.format(state.totalViews), state.totalViews === 1 ? "Aufruf" : "Aufrufe"]);
+  statsEl.innerHTML = items.map(([num, label]) => `<li><span class="yt-stat-num">${num}</span><span class="yt-stat-label">${label}</span></li>`).join("");
+  statsEl.hidden = false;
+}
+
+function renderCounts() {
+  for (const el of tabsEl.querySelectorAll("[data-count]")) {
+    el.textContent = numberDE.format(state.lists[el.dataset.count].length);
   }
-  sortBarEl.innerHTML = `
-    <span class="yt-sort-label">${sortIcon()}Sortierung</span>
-    <div class="yt-sort-toggle" role="group" aria-label="Sortierung">
-      <button type="button" class="yt-sort-btn${sortMode === "new" ? " is-active" : ""}" data-sort="new">Neueste</button>
-      <button type="button" class="yt-sort-btn${sortMode === "views" ? " is-active" : ""}" data-sort="views">Meistgesehen</button>
-    </div>`;
-  sortBarEl.querySelectorAll(".yt-sort-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      if (btn.dataset.sort === sortMode) return;
-      sortMode = btn.dataset.sort;
-      visibleCount = PAGE_SIZE; // fresh first page under the new order
-      renderGrid(videos, mode);
-    });
-  });
 }
 
-function renderGrid(videos, mode) {
-  if (!gridEl) return;
-  const byMode = mode === "shorts" ? videos.filter((v) => v.isShort) : videos.filter((v) => !v.isShort);
-  gridEl.classList.toggle("yt-grid--shorts", mode === "shorts");
+function renderFeature() {
+  // Newest regular video; only if there is none, the newest Short.
+  const v = state.lists.videos[0] || state.lists.shorts[0];
+  const url = watchUrl(v);
+  const meta = metaHTML(v);
+  // maxresdefault is sharper but missing on some uploads; the image handlers
+  // below fall back to the feed's own thumbnail (see data-min-width).
+  const src = v.isShort ? v.thumb : `https://i.ytimg.com/vi/${v.id}/maxresdefault.jpg`;
+  featureEl.innerHTML = `
+    <article class="paper paper-b yt-feature" data-video-id="${v.id}">
+      <div class="tape"></div>
+      <div class="tape left-auto right-8 rotate-[8deg]"></div>
+      <a class="video-thumb yt-feature-thumb" href="${url}" tabindex="-1" aria-hidden="true" data-track-click="youtube-hero-thumb:${v.id}">
+        <img src="${esc(src)}" data-fallback="${esc(v.thumb)}" data-min-width="121" alt="" width="1280" height="720" fetchpriority="high" decoding="async">
+        <span class="yt-play">${ICON.play}</span>
+      </a>
+      <div class="yt-feature-body">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-ink-muted">
+          <span class="badge bg-yt text-white">${v.isShort ? "Neuestes Short" : "Neuestes Video"}</span>
+          ${meta ? `<span class="yt-meta">${meta}</span>` : ""}
+        </div>
+        <h2 class="yt-feature-title mt-3"><a href="${url}" tabindex="-1" data-track-click="youtube-hero-title:${v.id}">${esc(v.title)}</a></h2>
+        <a class="btn btn-yt mt-6" href="${url}" data-track-click="youtube-hero-play:${v.id}">${ICON.play}Auf YouTube ansehen</a>
+      </div>
+    </article>`;
+  featureEl.removeAttribute("aria-busy");
+  observeImpressions("[data-video-id]", (el) => el.dataset.videoId, featureEl);
+}
 
-  const query = searchQuery.trim().toLowerCase();
-  const list = query ? byMode.filter((v) => v.title.toLowerCase().includes(query)) : byMode;
+function syncSort() {
+  sortEl.hidden = !state.hasViews;
+  if (!state.hasViews) state.sort = "new";
+  for (const btn of sortBtns) btn.setAttribute("aria-pressed", String(btn.dataset.sort === state.sort));
+}
 
-  renderSpotlight(mode, !!query);
-  renderSortBar(videos, list, mode);
+function showGridSkeleton() {
+  gridEl.className = GRID_CLASS[state.mode];
+  gridEl.setAttribute("aria-busy", "true");
+  gridEl.innerHTML = skeletonHTML(state.mode);
+  moreBtn.hidden = true;
+  progressEl.hidden = true;
+}
 
+function renderGrid() {
+  const list = sortedList();
+  gridEl.className = GRID_CLASS[state.mode];
+  gridEl.removeAttribute("aria-busy");
+  gridEl.innerHTML = "";
+  state.shown = 0;
   if (!list.length) {
-    const emptyHTML = query
-      ? `<div class="empty-state">${emptyIcon()}<h2>Keine Treffer</h2><p>Keine ${mode === "shorts" ? "Shorts" : "Videos"} gefunden für „${escapeHTML(searchQuery.trim())}".</p></div>`
-      : `<div class="empty-state">${emptyIcon()}<h2>${mode === "shorts" ? "Noch keine Shorts" : "Noch keine Videos"}</h2><p>Schau bald wieder vorbei.</p><a class="yt-empty-cta" href="https://www.youtube.com/@ZevKev" target="_blank" rel="noopener">Zum YouTube-Kanal</a></div>`;
-    gridEl.innerHTML = emptyHTML;
-    renderLoadMore(videos, mode, 0, 0);
+    const noun = NOUN[state.mode][1];
+    gridEl.innerHTML = `<li class="col-span-full">${noticeHTML({
+      icon: ICON.screen,
+      title: `Noch keine ${noun}`,
+      text: `Hier sind noch keine ${noun} gelandet. Schau bald wieder vorbei oder direkt auf dem Kanal.`,
+      actions: channelButton(),
+    })}</li>`;
+    updateMore(list);
     return;
   }
-  const ordered = orderList(list, sortMode);
-  const shown = ordered.slice(0, visibleCount);
-  const watchlist = getWatchlist();
-  gridEl.innerHTML = shown.map((v) => cardHTML(v, watchlist, mode === "shorts")).join("");
-  attachCardHandlers(gridEl);
-  observeImpressions(".vod-card[data-video-id]", (el) => el.dataset.videoId, gridEl);
-  // Real bug this fixed: these cards carried the .reveal class already, but
-  // nothing on this page ever wired up the IntersectionObserver that
-  // actually reveals them on scroll -- see js/reveal.js's own comment. They
-  // only ever looked fine because css/vods.css's .vod-card ALSO carried its
-  // own immediate (non-scroll-triggered) fade-in animation, independent of
-  // this class entirely, which faded every card in right after render
-  // regardless of scroll position -- the actual cause of "scrolling doesn't
-  // do anything" on this page. That redundant animation is gone now; this
-  // is the one real mechanism.
+  appendPage(list);
+}
+
+// Appends the next page of cards and returns the first new card link.
+function appendPage(list) {
+  const start = state.shown;
+  const slice = list.slice(start, start + PAGE_SIZE[state.mode]);
+  gridEl.insertAdjacentHTML("beforeend", slice.map((v, i) => cardHTML(v, start + i)).join(""));
+  state.shown = start + slice.length;
+  // Only the cards added just now, so earlier ones never report twice.
+  observeImpressions("[data-yt-new]", (el) => el.dataset.videoId, gridEl);
+  for (const el of gridEl.querySelectorAll("[data-yt-new]")) el.removeAttribute("data-yt-new");
   initReveal(gridEl);
-
-  renderLoadMore(videos, mode, shown.length, ordered.length);
+  updateMore(list);
+  return gridEl.children[start]?.querySelector("a") || null;
 }
 
-// Reveals the next PAGE_SIZE cards on click instead of rendering the whole
-// (potentially hundreds-long) list at once. Re-renders via renderGrid rather
-// than only appending new cards, so this stays in sync with the exact same
-// slicing/empty-state logic above instead of duplicating it.
-function renderLoadMore(videos, mode, shownCount, totalCount) {
-  if (!loadMoreEl) return;
-  if (shownCount >= totalCount) {
-    loadMoreEl.innerHTML = "";
+function updateMore(list) {
+  const left = list.length - state.shown;
+  moreBtn.hidden = left <= 0;
+  progressEl.hidden = left <= 0;
+  progressEl.textContent = `${numberDE.format(state.shown)} von ${numberDE.format(list.length)} ${NOUN[state.mode][1]}`;
+}
+
+function showError() {
+  featureEl.removeAttribute("aria-busy");
+  featureEl.innerHTML = noticeHTML({
+    icon: ICON.alert,
+    heading: "h2",
+    title: "Gerade hakt es",
+    text: "Die Videoliste konnte nicht geladen werden. Versuch es gleich nochmal oder schau direkt auf YouTube vorbei.",
+    actions: `<button type="button" class="btn btn-accent" data-yt-retry>${ICON.refresh}Nochmal versuchen</button>${channelButton()}`,
+  });
+  statsEl.hidden = true;
+  libraryEl.hidden = true;
+}
+
+function showEmptyChannel() {
+  featureEl.removeAttribute("aria-busy");
+  featureEl.innerHTML = noticeHTML({
+    icon: ICON.screen,
+    heading: "h2",
+    title: "Noch keine Videos",
+    text: "Hier ist gerade noch nichts zu sehen. Auf dem Kanal findest du alles Neue zuerst.",
+    actions: channelButton(),
+  });
+  statsEl.hidden = true;
+  libraryEl.hidden = true;
+}
+
+/* ---------- Tabs, sort, hash ---------- */
+
+function modeFromHash() {
+  const hash = location.hash.toLowerCase();
+  return hash === "#shorts" ? "shorts" : hash === "#videos" ? "videos" : null;
+}
+
+// Shorts get #shorts, Videos the clean URL. Other hashes (like the skip
+// link's #main) are only replaced when the user actually switches tabs.
+function syncHash() {
+  const current = modeFromHash();
+  const base = `${location.pathname}${location.search}`;
+  if (state.mode === "shorts" && current !== "shorts") history.replaceState(history.state, "", `${base}#shorts`);
+  else if (state.mode === "videos" && current === "shorts") history.replaceState(history.state, "", base);
+}
+
+function setMode(mode, { syncUrl = true, focusTab = false } = {}) {
+  state.mode = mode;
+  for (const tab of tabs) {
+    const active = tab.dataset.mode === mode;
+    tab.setAttribute("aria-selected", String(active));
+    tab.tabIndex = active ? 0 : -1;
+    if (active && focusTab) tab.focus();
+  }
+  panelEl.setAttribute("aria-labelledby", `yt-tab-${mode}`);
+  if (syncUrl) syncHash();
+  if (state.loaded) renderGrid();
+  else if (!state.failed) showGridSkeleton();
+}
+
+function scrollToLibrary() {
+  libraryEl.scrollIntoView({ block: "start" });
+}
+
+tabsEl.addEventListener("click", (event) => {
+  const tab = event.target.closest('[role="tab"]');
+  if (tab && tab.dataset.mode !== state.mode) setMode(tab.dataset.mode);
+});
+
+// Arrow keys move between the two tabs (WAI-ARIA tabs pattern).
+tabsEl.addEventListener("keydown", (event) => {
+  const index = tabs.indexOf(document.activeElement);
+  if (index === -1) return;
+  let next = null;
+  if (event.key === "ArrowRight") next = tabs[(index + 1) % tabs.length];
+  else if (event.key === "ArrowLeft") next = tabs[(index - 1 + tabs.length) % tabs.length];
+  else if (event.key === "Home") next = tabs[0];
+  else if (event.key === "End") next = tabs[tabs.length - 1];
+  if (!next) return;
+  event.preventDefault();
+  if (next.dataset.mode !== state.mode) setMode(next.dataset.mode, { focusTab: true });
+  else next.focus();
+});
+
+sortEl.addEventListener("click", (event) => {
+  const btn = event.target.closest("[data-sort]");
+  if (!btn || btn.dataset.sort === state.sort) return;
+  state.sort = btn.dataset.sort;
+  syncSort();
+  if (state.loaded) renderGrid();
+});
+
+moreBtn.addEventListener("click", () => {
+  const list = sortedList();
+  const before = state.shown;
+  const firstNew = appendPage(list);
+  const added = state.shown - before;
+  statusEl.textContent = `${added} weitere ${NOUN[state.mode][added === 1 ? 0 : 1]} geladen, ${state.shown} von ${list.length}.`;
+  // Keyboard users continue at the first new card instead of losing focus
+  // when the button disappears after the last page.
+  firstNew?.focus({ preventScroll: true });
+});
+
+window.addEventListener("hashchange", () => {
+  const mode = modeFromHash();
+  if (!mode) return;
+  if (mode !== state.mode) setMode(mode, { syncUrl: false });
+  scrollToLibrary();
+});
+
+featureEl.addEventListener("click", (event) => {
+  if (!event.target.closest("[data-yt-retry]")) return;
+  featureEl.innerHTML = initialFeatureHTML;
+  featureEl.setAttribute("aria-busy", "true");
+  featureEl.focus({ preventScroll: true }); // the clicked button is gone now
+  statsEl.innerHTML = initialStatsHTML;
+  statsEl.hidden = false;
+  libraryEl.hidden = false;
+  state.failed = false;
+  showGridSkeleton();
+  load();
+});
+
+/* ---------- Thumbnails ---------- */
+
+// Missing thumbnails: YouTube answers either with an error or with a tiny
+// 120px grey placeholder. Swap to the fallback once, then show an empty frame.
+function useFallback(img) {
+  const fallback = img.dataset.fallback;
+  delete img.dataset.fallback;
+  if (fallback && img.getAttribute("src") !== fallback) {
+    img.src = fallback; // still size-checked on load, see onThumbLoad
+  } else {
+    delete img.dataset.minWidth;
+    img.closest(".video-thumb")?.classList.add("yt-thumb-broken");
+  }
+}
+function onThumbLoad(event) {
+  const img = event.target;
+  if (img instanceof HTMLImageElement && img.dataset.minWidth && img.naturalWidth < Number(img.dataset.minWidth)) useFallback(img);
+}
+function onThumbError(event) {
+  const img = event.target;
+  if (img instanceof HTMLImageElement) useFallback(img);
+}
+for (const root of [featureEl, gridEl]) {
+  root.addEventListener("load", onThumbLoad, true);
+  root.addEventListener("error", onThumbError, true);
+}
+
+/* ---------- Boot ---------- */
+
+let scrolledForHash = false;
+
+async function load() {
+  let all;
+  try {
+    const res = await fetch(DATA_URL, { cache: "no-cache" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const raw = Array.isArray(data?.videos) ? data.videos : Array.isArray(data) ? data : null;
+    if (!raw) throw new Error("unexpected data format");
+    const seen = new Set();
+    all = raw
+      .map(normalize)
+      .filter((v) => v && !seen.has(v.id) && seen.add(v.id))
+      .sort((a, b) => (b.published ?? 0) - (a.published ?? 0));
+  } catch (err) {
+    console.warn("[youtube] Could not load the video list:", err);
+    state.failed = true;
+    showError();
     return;
   }
-  const label = mode === "shorts" ? "Weitere Shorts laden" : "Weitere Videos laden";
-  loadMoreEl.innerHTML = `<button type="button" class="filter-pill rip yt-load-more-btn">${chevronDownIcon()}${label} &middot; noch ${totalCount - shownCount}</button>`;
-  loadMoreEl.querySelector(".yt-load-more-btn").addEventListener("click", () => {
-    visibleCount += PAGE_SIZE;
-    renderGrid(videos, mode);
-    loadMoreEl.querySelector(".yt-load-more-btn")?.focus();
-  });
-}
 
-function mountFilters(videos) {
-  if (!filterBarEl) return;
-  const videoCount = videos.filter((v) => !v.isShort).length;
-  const shortsCount = videos.filter((v) => v.isShort).length;
-  filterBarEl.innerHTML = `
-    <button class="filter-pill rip rip--accent is-active" data-mode="videos">${playIcon()}Videos${videoCount ? ` (${videoCount})` : ""}</button>
-    <button class="filter-pill rip" data-mode="shorts">${boltIcon()}Shorts${shortsCount ? ` (${shortsCount})` : ""}</button>`;
-  filterBarEl.querySelectorAll(".filter-pill").forEach((pill) => {
-    pill.addEventListener("click", () => {
-      filterBarEl.querySelectorAll(".filter-pill").forEach((p) => p.classList.remove("is-active"));
-      pill.classList.add("is-active");
-      activeMode = pill.dataset.mode;
-      visibleCount = PAGE_SIZE; // fresh first page for the newly selected tab
-      sortMode = "new"; // and its own natural chronological order
-      renderGrid(videos, activeMode);
-    });
-  });
-}
+  state.lists = { videos: all.filter((v) => !v.isShort), shorts: all.filter((v) => v.isShort) };
+  state.sorted.clear();
+  const views = all.map((v) => v.views).filter((n) => n != null);
+  state.hasViews = new Set(views).size > 1;
+  state.totalViews = views.reduce((sum, n) => sum + n, 0);
+  state.loaded = true;
 
-// Wired once against the always-present search box (own full-width row, not
-// re-rendered per tab like the filter pills) -- re-renders the currently
-// active tab on every keystroke. main-videos.json tops out in the low
-// hundreds of entries, so filtering + rebuilding the visible page's HTML on
-// every keystroke is cheap enough that a debounce would only add perceived
-// lag for no real benefit.
-function mountSearch(videos) {
-  if (!searchInputEl) return;
-  searchInputEl.addEventListener("input", () => {
-    searchQuery = searchInputEl.value;
-    searchClearEl.hidden = !searchQuery;
-    visibleCount = PAGE_SIZE; // fresh first page under the new filter
-    renderGrid(videos, activeMode);
-  });
-  searchClearEl?.addEventListener("click", () => {
-    searchInputEl.value = "";
-    searchQuery = "";
-    searchClearEl.hidden = true;
-    visibleCount = PAGE_SIZE;
-    renderGrid(videos, activeMode);
-    searchInputEl.focus();
-  });
-}
-
-async function init() {
-  // The hero's transparent-over-image nav treatment doesn't depend on the
-  // feed, so it's wired up immediately rather than waiting on the fetch
-  // below.
-  initHeroScrollObserver();
-
-  // main-videos.json now comes from scripts/fetch-main-feed.mjs's YouTube
-  // Data API v3 pass (paginated playlistItems.list against the uploads
-  // playlist), not the old public RSS feed — so it holds the channel's full
-  // upload history, not just the last ~15. Every entry is still rendered
-  // here; renderGrid just reveals it PAGE_SIZE cards at a time (see
-  // renderLoadMore above) instead of dumping the whole history into the DOM
-  // on first paint.
-  // Safety net: getWatchlistIds()/loadJSON() already never throw on their
-  // own, but if anything downstream unexpectedly does, this used to leave
-  // the skeleton loaders (renderSkeletons() equivalent above) stuck forever
-  // with no explanation -- reading as "the page shows no content" for
-  // whatever triggered it. A clear error state beats a silent dead end.
-  try {
-    const [feed] = await Promise.all([loadJSON("/assets/data/main-videos.json", { videos: [] }), getWatchlistIds().then((set) => (watchlistCache = set))]);
-    const videos = feed.videos || [];
-    renderFeatured(videos[0]);
-    computeSpotlight(videos);
-    mountFilters(videos);
-    mountSearch(videos);
-    renderGrid(videos, "videos");
-  } catch (err) {
-    console.error("YouTube page init failed:", err);
-    const grid = document.getElementById("yt-grid");
-    if (grid) grid.innerHTML = `<div class="empty-state"><h2>Etwas ist schiefgelaufen</h2><p>Bitte lade die Seite neu.</p></div>`;
+  if (!all.length) {
+    showEmptyChannel();
+    return;
   }
+
+  renderStats();
+  renderCounts();
+  renderFeature();
+  syncSort();
+  renderGrid();
+
+  // Arriving via /youtube/#shorts: jump to the library once it exists.
+  if (!scrolledForHash && modeFromHash() && window.scrollY < 40) scrollToLibrary();
+  scrolledForHash = true;
 }
 
-init();
+setMode(state.mode, { syncUrl: false });
+load();

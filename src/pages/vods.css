@@ -1,0 +1,252 @@
+/* Page styles: vods. Owned by the vods page; wrap rules in @layer components so utilities can override them.
+   Mehr / ZevKev+ (/vods/): heading, hero stage (live player or featured
+   video), then the Twitch and ZevKev+ grids built from the shared .video-card. */
+@layer components {
+  /* ---------- Heading ---------- */
+  .vods-head { max-width: 46rem; margin-bottom: 2rem; }
+  .vods-title { font-size: clamp(3rem, 9vw, 5.25rem); }
+  .vods-lead { margin-top: 0.85rem; font-size: 1.05rem; line-height: 1.6; text-wrap: pretty; }
+  @media (min-width: 640px) {
+    .vods-head { margin-bottom: 2.75rem; }
+    .vods-lead { font-size: 1.15rem; }
+  }
+
+  /* ---------- Hero stage: one big paper sheet ---------- */
+  .vods-stage { padding: 1.35rem 0.75rem 1rem; }
+  .vods-stage > .tape { left: 50%; translate: -50% 0; width: 132px; rotate: -3deg; }
+  .vods-stage-grid { display: grid; gap: 1.1rem; }
+  @media (min-width: 640px) {
+    .vods-stage { padding: 1.6rem 1.25rem 1.25rem; }
+  }
+  @media (min-width: 1024px) {
+    .vods-stage { padding: 1.75rem 1.5rem 1.5rem; }
+    .vods-stage-grid { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 2rem; align-items: center; }
+    .vods-stage--live .vods-stage-grid { grid-template-columns: minmax(0, 1fr) 20.5rem; }
+  }
+
+  /* A CSS filter on an ancestor would make the browser re-run the drop
+     shadow for every frame of the live video, so the live stage drops the
+     .paper filter and paints the same torn shadow on its own layer. */
+  .vods-stage--live { filter: none; }
+  .vods-stage-shadow {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    pointer-events: none;
+    filter: drop-shadow(var(--shadow-paper));
+  }
+  .vods-stage-shadow::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--paper-bg, var(--paper));
+    clip-path: var(--tear, var(--tear-a));
+  }
+
+  /* Media: live player or a big thumbnail link. */
+  .vods-media,
+  .vods-player {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    aspect-ratio: 16 / 9;
+    border-radius: 0.65rem;
+    background: #0d0f14;
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.08);
+  }
+  .vods-player { background: #0e0e10; }
+  .vods-player iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  .vods-media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: scale 0.6s var(--ease-soft); }
+  .vods-media::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(120% 90% at 50% 45%, transparent 55%, rgb(0 0 0 / 0.35));
+    pointer-events: none;
+  }
+  .vods-media:hover img { scale: 1.04; }
+  .vods-media .video-duration { z-index: 1; right: 0.6rem; bottom: 0.6rem; padding: 0.25rem 0.5rem; font-size: 0.8rem; }
+
+  .vods-play {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 4.25rem;
+    height: 4.25rem;
+    border-radius: 9999px;
+    background: rgb(0 0 0 / 0.55);
+    color: #fff;
+    translate: -50% -50%;
+    box-shadow: 0 10px 24px rgb(0 0 0 / 0.35);
+    backdrop-filter: blur(4px);
+    transition: scale 0.3s var(--ease-bounce), background-color 0.2s ease;
+  }
+  .vods-play svg { width: 1.8rem; height: 1.8rem; margin-left: 0.2rem; }
+  .vods-media:hover .vods-play { scale: 1.1; }
+  .vods-media--twitch:hover .vods-play { background: var(--color-twitch); }
+  .vods-media--yt:hover .vods-play { background: var(--color-yt); }
+  @media (min-width: 1024px) {
+    .vods-play { width: 5rem; height: 5rem; }
+    .vods-play svg { width: 2.1rem; height: 2.1rem; }
+  }
+
+  /* Info column. */
+  .vods-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.9rem;
+    min-width: 0;
+    padding: 0.1rem 0.3rem 0.3rem;
+  }
+  @media (min-width: 1024px) {
+    .vods-info { padding: 0.25rem 0.25rem 0.25rem 0; }
+  }
+  .vods-hero .badge svg { width: 0.85rem; height: 0.85rem; flex-shrink: 0; }
+  .vods-badge-twitch { background: var(--color-twitch); color: #fff; }
+  .vods-badge-yt { background: var(--color-yt); color: #fff; }
+
+  .vods-hero-title {
+    font-size: clamp(2rem, 3.4vw, 2.75rem);
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .vods-hero-title--long { font-size: clamp(1.7rem, 2.6vw, 2.15rem); }
+
+  .vods-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.1rem;
+    color: var(--ink-muted);
+    font-size: 0.92rem;
+    font-weight: 500;
+  }
+  .vods-meta li { display: inline-flex; align-items: center; gap: 0.4rem; }
+  .vods-meta svg { width: 1rem; height: 1rem; flex-shrink: 0; }
+
+  .vods-excerpt {
+    color: var(--ink-muted);
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .vods-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; width: 100%; margin-top: 0.15rem; }
+  @media (max-width: 639.98px) {
+    .vods-actions .btn { flex: 1 1 100%; }
+  }
+
+  /* "Gerade offline" note under the hero buttons. */
+  .vods-note {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    width: 100%;
+    margin-top: 0.35rem;
+    padding-top: 1rem;
+    border-top: 2px dashed var(--line);
+  }
+  .vods-note-text { flex: 1 1 13rem; font-size: 0.9rem; line-height: 1.45; color: var(--ink-muted); }
+  .vods-note-status {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 0.15rem;
+    color: var(--ink);
+    font-weight: 700;
+  }
+  .vods-note-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 9999px;
+    background: #8a8f98;
+    box-shadow: 0 0 0 3px rgb(138 143 152 / 0.25);
+  }
+  .vods-ico-twitch { color: var(--color-twitch); }
+  :where([data-theme="dark"]) .vods-ico-twitch { color: #b38bff; }
+
+  /* ---------- Sections ---------- */
+  .vods-section { margin-top: 4rem; }
+  @media (min-width: 640px) {
+    .vods-section { margin-top: 5rem; }
+  }
+  .vods-section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem 1.5rem;
+    margin-bottom: 1.75rem;
+  }
+  .vods-section-sub { margin-top: 0.4rem; }
+
+  .vods-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.75rem 1.5rem; }
+  @media (min-width: 640px) {
+    .vods-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (min-width: 1024px) {
+    .vods-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2rem 1.75rem; }
+  }
+  .vods-sep { margin-inline: 0.4rem; }
+
+  .vods-grid-foot { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; margin-top: 2.5rem; }
+
+  /* Card without a thumbnail (Twitch hands out none while a VOD processes). */
+  .vods-thumb-fallback {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: rgb(255 255 255 / 0.85);
+    background: linear-gradient(135deg, var(--color-twitch-deep), var(--color-twitch));
+  }
+  .vods-media--yt .vods-thumb-fallback { background: linear-gradient(135deg, #5c0013, var(--color-yt)); }
+  .vods-thumb-fallback svg { width: 2.75rem; height: 2.75rem; }
+
+  /* ---------- Empty and error notes ---------- */
+  .vods-empty {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    max-width: 34rem;
+    margin-inline: auto;
+    padding: 2.25rem 1.5rem 2rem;
+    text-align: center;
+  }
+  .vods-empty p { max-width: 27rem; color: var(--ink-muted); line-height: 1.55; text-wrap: pretty; }
+  .vods-empty-title { font-family: var(--font-display); font-size: 1.85rem; letter-spacing: 0.02em; line-height: 1.05; }
+  .vods-empty-icon {
+    display: grid;
+    place-items: center;
+    width: 3.25rem;
+    height: 3.25rem;
+    margin-bottom: 0.2rem;
+    border-radius: 9999px;
+    background: rgb(0 0 0 / 0.07);
+  }
+  .vods-empty-icon svg { width: 1.6rem; height: 1.6rem; }
+  :where([data-theme="dark"]) .vods-empty-icon { background: rgb(255 255 255 / 0.08); }
+  .vods-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.6rem; margin-top: 0.5rem; }
+
+  /* ---------- Skeletons on paper ---------- */
+  .vods-skel {
+    border-radius: 0.4rem;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--ink) 7%, transparent) 25%, color-mix(in srgb, var(--ink) 13%, transparent) 37%, color-mix(in srgb, var(--ink) 7%, transparent) 63%);
+    background-size: 400px 100%;
+    animation: var(--animate-shimmer);
+  }
+}
