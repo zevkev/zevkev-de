@@ -106,8 +106,11 @@ Kevin's request. The old work-in-progress for achievements/accounts is in
 - Header: logo left, all header buttons in one `.header-actions` capsule on
   the right (same 16px edge distance on phones). Kevin flagged loose,
   differently coloured buttons as "nicht symmetrisch".
-- Homepage hosts are a cork pinboard (`.hosts-board`) with pinned polaroid
-  profiles; in dark mode the board turns into slate felt (no brown).
+- Homepage hosts: tinted torn paper cards (like the step notes) with a
+  polaroid sticking out on top, held by washi tape in the host colour, role
+  as a `.label-chip`. A cork pinboard version was rejected by Kevin as "ganz
+  anderer Style": new sections must reuse the site's paper/tape/polaroid
+  language, not introduce new metaphors.
 - Dark mode (redesigned 2026-10-31): night-blue mat with blue/violet glow,
   blue-tinted paper with a light sheen, indigo surfaces. Call-to-action and
   price highlights use `--highlight` (sticky-note yellow in dark, same as

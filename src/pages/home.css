@@ -299,161 +299,50 @@
   }
   .dc-step p { margin-top: 0.45rem; line-height: 1.55; }
 
-  /* ---------- Hosts pinboard ---------- */
-  /* Wooden frame around a cork board. In dark mode the board becomes dark
-     slate felt (same grain, no brown) and the frame a dark blue. */
-  .hosts-board {
-    padding: 0.7rem;
-    border-radius: 1.25rem;
-    background:
-      repeating-linear-gradient(100deg, rgb(255 255 255 / 0.05) 0 2px, transparent 2px 9px),
-      linear-gradient(135deg, #a8763f, #7b4e24);
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.3),
-      inset 0 -2px 0 rgb(0 0 0 / 0.25),
-      0 22px 44px -14px rgb(0 0 0 / 0.6);
-  }
-  .hosts-board-inner {
-    padding: 2.5rem 1.1rem 2.75rem;
-    border-radius: 0.7rem;
-    box-shadow: inset 0 3px 12px rgb(0 0 0 / 0.35), inset 0 0 0 1px rgb(0 0 0 / 0.2);
-  }
-  :where([data-theme="dark"]) .hosts-board {
-    background:
-      repeating-linear-gradient(100deg, rgb(255 255 255 / 0.03) 0 2px, transparent 2px 9px),
-      linear-gradient(135deg, #2c3a5c, #18213a);
-    box-shadow: inset 0 1px 0 rgb(190 210 255 / 0.15), 0 22px 44px -14px rgb(0 0 0 / 0.75);
-  }
-  :where([data-theme="dark"]) .hosts-board-inner { background-color: #26314d; }
-  @media (min-width: 640px) {
-    .hosts-board { padding: 0.9rem; }
-    .hosts-board-inner { padding: 3rem 2rem 3.5rem; }
-  }
-
-  /* Pushpin: a glossy round head plus its shadow on the board. */
-  .pushpin {
-    position: absolute;
-    top: -0.55rem;
-    left: 50%;
-    z-index: 3;
-    width: 1.4rem;
-    height: 1.4rem;
-    translate: -50% 0;
-    border-radius: 9999px;
-    background: radial-gradient(circle at 35% 30%, rgb(255 255 255 / 0.75) 0 12%, transparent 30%), var(--pin, #e5484d);
-    box-shadow: inset 0 -3px 4px rgb(0 0 0 / 0.3), 3px 5px 5px rgb(0 0 0 / 0.35);
-  }
-
-  .hosts-label {
-    position: relative;
-    display: block;
-    width: fit-content;
-    max-width: 100%;
-    margin-inline: auto;
-    padding: 1.6rem 2rem 1.3rem;
-    text-align: center;
-  }
-  .hosts-title {
-    font-family: var(--font-display);
-    font-size: clamp(2.1rem, 6vw, 2.8rem);
-    letter-spacing: 0.03em;
-    line-height: 1;
-  }
-  .hosts-sub { margin-top: 0.35rem; color: var(--ink-muted); }
-
-  .hosts-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 3rem;
-    margin-top: 2.75rem;
-  }
-  @media (min-width: 640px) {
-    .hosts-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.5rem; }
-  }
-  @media (min-width: 1024px) {
-    .hosts-grid { gap: 2.5rem; }
-  }
-
-  /* Pinned polaroid profile. Always a white card (like every polaroid on
-     the site), so its text colours are fixed rather than theme tokens. */
-  .host-pin {
-    position: relative;
+  /* ---------- Host cards: tinted torn paper, polaroid taped on top ---------- */
+  /* Same language as the step notes: torn paper tinted in the host colour.
+     The polaroid sticks out above the paper and is held by washi tape in
+     the host colour. */
+  .host-card {
+    --paper-bg: color-mix(in srgb, var(--host) 11%, var(--paper));
     display: flex;
     flex-direction: column;
     align-items: center;
-    max-width: 17rem;
-    margin-inline: auto;
-    padding: 0.75rem 0.75rem 1.35rem;
-    border-radius: 3px;
-    background: #fff;
-    color: #1c1c1c;
+    height: 100%;
+    padding: 0 1.25rem 1.75rem;
     text-align: center;
-    box-shadow: 0 2px 0 rgb(0 0 0 / 0.08), 0 16px 26px -10px rgb(0 0 0 / 0.55);
-    transform-origin: 50% 0;
-    transition: rotate 0.4s var(--ease-bounce), translate 0.3s var(--ease-bounce), box-shadow 0.3s ease;
   }
-  .host-pin:hover {
-    rotate: 0deg;
-    translate: 0 -4px;
-    box-shadow: 0 2px 0 rgb(0 0 0 / 0.08), 0 24px 34px -12px rgb(0 0 0 / 0.6);
-  }
-  :where([data-theme="dark"]) .host-pin { background: #eef1f7; }
+  :where([data-theme="dark"]) .host-card { --paper-bg: color-mix(in srgb, var(--host) 17%, var(--paper)); }
+  .host-photo-wrap { position: relative; margin-top: -3.5rem; }
   .host-photo {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 1;
-    overflow: hidden;
-    background: #e8e4d8;
+    width: 9.5rem;
+    padding-bottom: 1.5rem;
+    transition: rotate 0.4s var(--ease-bounce);
   }
-  .host-photo img { width: 100%; height: 100%; object-fit: cover; }
-  /* Thin colour strip under the photo in the host colour. */
-  .host-photo::after {
-    content: "";
-    position: absolute;
-    inset: auto 0 0 0;
-    height: 5px;
-    background: var(--host);
+  .host-card:hover .host-photo { rotate: 0deg; }
+  .host-tape {
+    top: -0.8rem;
+    left: 50%;
+    width: 6rem;
+    translate: -50% 0;
+    background: color-mix(in srgb, var(--host) 55%, rgb(255 255 255 / 0.25));
+    opacity: 0.85;
+  }
+  .host-chip {
+    margin-top: 1.25rem;
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    letter-spacing: 0.06em;
+    line-height: 1.1;
+    rotate: -2.5deg;
   }
   .host-name {
-    margin-top: 0.85rem;
+    margin-top: 0.7rem;
     font-family: var(--font-display);
-    font-size: 2.2rem;
-    letter-spacing: 0.05em;
+    font-size: 2.5rem;
+    letter-spacing: 0.04em;
     line-height: 1;
   }
-  .host-role {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    margin-top: 0.55rem;
-    padding: 0.32rem 0.8rem;
-    border-radius: 9999px;
-    background: var(--host);
-    color: #fff;
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    box-shadow: 0 2px 0 rgb(0 0 0 / 0.18);
-  }
-  .host-role svg { width: 0.95rem; height: 0.95rem; }
-  .host-text { margin-top: 0.75rem; padding-inline: 0.4rem; line-height: 1.5; color: #57534a; font-size: 0.95rem; }
-  .host-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    height: 2.35rem;
-    margin-top: 1rem;
-    padding-inline: 1rem;
-    border: 2px solid color-mix(in srgb, var(--host) 40%, transparent);
-    border-radius: 9999px;
-    color: #1c1c1c;
-    font-size: 0.88rem;
-    font-weight: 600;
-    text-decoration: none;
-    transition: background-color 0.2s ease, translate 0.25s var(--ease-bounce);
-  }
-  .host-link:hover { background: color-mix(in srgb, var(--host) 12%, #fff); translate: 0 -2px; }
-  .host-link svg { width: 1.05rem; height: 1.05rem; flex-shrink: 0; }
-  .host-link .host-link-arrow { width: 0.9rem; height: 0.9rem; opacity: 0.55; }
+  .host-text { margin-top: 0.5rem; line-height: 1.55; color: var(--ink-muted); }
+  .host-card .btn .host-link-arrow { width: 0.85rem; height: 0.85rem; opacity: 0.55; }
 }
