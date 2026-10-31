@@ -1,2 +1,2 @@
 # Twitch auf der ganzen Website an oder aus: true = an, false = aus
-twitch = true
+twitch = false
