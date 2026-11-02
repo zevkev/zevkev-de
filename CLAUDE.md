@@ -65,7 +65,7 @@ Kevin's request. The old work-in-progress for achievements/accounts is in
 | `vods/` + `js/vods.js` | "Mehr" page: hero = live player (click-to-load "Player laden", nothing from Twitch before the click) > newest Twitch VOD > newest ZevKev+ video; Twitch archive grid; ZevKev+ YouTube grid. |
 | `youtube/` + `js/youtube.js` | Main channel: hero, Videos/Shorts tabs (`#shorts`), sort, load more. |
 | `impressum/ datenschutz/ agb/ widerruf/ kontakt/` | Legal + contact pages (`.legal` typography). |
-| `scripts/*.mjs` + `.github/workflows/data-refresh.yml` | Every 30 min: YouTube main feed (Data API, `YOUTUBE_API_KEY` secret), ZevKev+ RSS feed, Twitch status + VODs (secrets `TWITCH_CLIENT_ID/SECRET`) into `assets/data/*.json`, committed by the bot. |
+| `scripts/*.mjs` + `.github/workflows/data-refresh.yml` | Every 30 min: YouTube main feed (Data API, `YOUTUBE_API_KEY` secret), ZevKev+ RSS feed, Twitch status + VODs (secrets `TWITCH_CLIENT_ID/SECRET`) into `assets/data/*.json`, committed by the bot. GitHub often runs the cron only every few hours. On a change the job pushes and dispatches `deploy.yml` itself, because pushes made with the workflow token never start other workflows. |
 | `.github/workflows/deploy.yml` | On push to main: `npm ci`, `npm run build`, adds `?v=<commit>` to every `app.css` link (Pages caches 10 min; without it visitors got new HTML with old CSS right after a deploy), deploy to Pages. JS is not versioned on purpose (double module loads). |
 | `tools/cdp-shot.mjs` | Headless Chrome test tool (see Testing). |
 
